@@ -1,79 +1,97 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ChevronLeft,
-  ChevronRight,
+  Archive,
+  BriefcaseBusiness,
+  Eye,
+  EyeOff,
   FileText,
-  Filter,
-  LoaderCircle,
-  Plus,
-  RefreshCw,
-  Search,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  ShieldCheck,
+  UserRound,
+  WalletCards,
   X,
 } from 'lucide-react';
 
-import { apiRequest } from '../services/api.js';
+import { CasesPage } from './pages/CasesPage.jsx';
+import {
+  API_URL,
+  TOKEN_KEY,
+  USER_KEY,
+  apiRequest,
+} from './services/api.js';
 
-const SERVICE_OPTIONS = [
-  ['PRIMARY_MORTGAGE', 'Бирламчи ипотека'],
-  ['SECONDARY_MORTGAGE', 'Иккиламчи ипотека'],
-  ['MICROLOAN', 'Микроқарз'],
-  ['REALTOR_SERVICE', 'Риэлторлик хизмати'],
-  ['SALE_PURCHASE', 'Олди-сотди'],
-  ['CADASTRE_SERVICE', 'Кадастр хизмати'],
-  ['OTHER', 'Бошқа'],
+const menu = [
+  ['Бош панель', LayoutDashboard],
+  ['Мурожаатлар', FileText],
+  ['Ижродаги ишлар', BriefcaseBusiness],
+  ['Банклар', Landmark],
+  ['Шартномалар', FileText],
+  ['Молия', WalletCards],
+  ['Архив', Archive],
 ];
 
-const STATUS_OPTIONS = [
-  ['', 'Барча ҳолатлар'],
-  ['NEW', 'Янги'],
-  ['DATA_COLLECTION', 'Маълумот тўпланмоқда'],
-  ['BANK_REVIEW', 'Банк текширувида'],
-  ['CLIENT_PREAPPROVED', 'Дастлабки тасдиқ'],
-  ['OFFICE_VISIT', 'Офисга таклиф қилинган'],
-  ['CONTRACT_PENDING', 'Шартнома тайёрланмоқда'],
-  ['CONTRACT_SIGNED', 'Шартнома имзоланган'],
-  ['ASSIGNED_TO_EXECUTOR', 'Ижрочига бириктирилган'],
-  ['IN_EXECUTION', 'Ижрода'],
-  ['PROPERTY_MONITORING', 'Объект кузатувида'],
-  ['CREDIT_APPROVED', 'Кредит тасдиқланган'],
-  ['CREDIT_ISSUED', 'Кредит ажратилган'],
-  ['CLIENT_RECEIVED_FUNDS', 'Мижоз маблағни олган'],
-  ['SERVICE_FEE_PAID', 'Хизмат ҳақи тўланган'],
-  ['COMPLETED', 'Якунланган'],
-  ['REJECTED', 'Рад этилган'],
-  ['CANCELLED', 'Бекор қилинган'],
-  ['ARCHIVED', 'Архивланган'],
-];
-
-const INITIAL_FORM = {
-  fullName: '',
-  phone: '',
-  pinfl: '',
-  passportSeries: '',
-  passportNumber: '',
-  birthDate: '',
-  address: '',
-  serviceType: 'SECONDARY_MORTGAGE',
-  requestedAmount: '',
-  bankName: '',
-  nextAction: '',
+const roleNames = {
+  SUPER_ADMIN: 'Бош администратор',
+  DIRECTOR: 'Директор',
+  BRANCH_MANAGER: 'Филиал раҳбари',
+  RECEPTION_MANAGER: 'Қабул менежери',
+  EXECUTOR: 'Ижрочи',
+  BANK_EMPLOYEE: 'Банк ходими',
+  LAWYER: 'Ҳуқуқшунос',
+  ACCOUNTANT: 'Ҳисобчи',
+  CLIENT: 'Мижоз',
 };
 
-const serviceNames = Object.fromEntries(SERVICE_OPTIONS);
-const statusNames = Object.fromEntries(STATUS_OPTIONS);
+const serviceNames = {
+  PRIMARY_MORTGAGE: 'Бирламчи ипотека',
+  SECONDARY_MORTGAGE: 'Иккиламчи ипотека',
+  MICROLOAN: 'Микроқарз',
+  REALTOR_SERVICE: 'Риэлторлик хизмати',
+  SALE_PURCHASE: 'Олди-сотди',
+  CADASTRE_SERVICE: 'Кадастр хизмати',
+  OTHER: 'Бошқа',
+};
 
-function formatAmount(value) {
-  if (value === null || value === undefined || value === '') {
-    return '—';
+const statusNames = {
+  NEW: 'Янги',
+  DATA_COLLECTION: 'Маълумот тўпланмоқда',
+  BANK_REVIEW: 'Банк текширувида',
+  CLIENT_PREAPPROVED: 'Дастлабки тасдиқ',
+  OFFICE_VISIT: 'Офисга таклиф қилинган',
+  CONTRACT_PENDING: 'Шартнома тайёрланмоқда',
+  CONTRACT_SIGNED: 'Шартнома имзоланган',
+  ASSIGNED_TO_EXECUTOR: 'Ижрочига бириктирилган',
+  IN_EXECUTION: 'Ижрода',
+  PROPERTY_MONITORING: 'Объект кузатувида',
+  CREDIT_APPROVED: 'Кредит тасдиқланган',
+  CREDIT_ISSUED: 'Кредит ажратилган',
+  CLIENT_RECEIVED_FUNDS: 'Мижоз маблағни олган',
+  SERVICE_FEE_PAID: 'Хизмат ҳақи тўланган',
+  COMPLETED: 'Якунланган',
+  REJECTED: 'Рад этилган',
+  CANCELLED: 'Бекор қилинган',
+  ARCHIVED: 'Архивланган',
+};
+
+const INITIAL_STATS = {
+  total: 0,
+  new: 0,
+  bankReview: 0,
+  inExecution: 0,
+  completed: 0,
+  rejected: 0,
+};
+
+function readSavedUser() {
+  try {
+    const value = localStorage.getItem(USER_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
   }
-
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return value;
-  }
-
-  return `${new Intl.NumberFormat('uz-UZ').format(number)} сўм`;
 }
 
 function formatDate(value) {
@@ -91,676 +109,528 @@ function formatDate(value) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   }).format(date);
 }
 
-function getStatusClass(status) {
-  if (status === 'COMPLETED') return 'status-completed';
-  if (status === 'REJECTED' || status === 'CANCELLED') {
-    return 'status-rejected';
-  }
-
-  if (
-    status === 'IN_EXECUTION' ||
-    status === 'ASSIGNED_TO_EXECUTOR' ||
-    status === 'PROPERTY_MONITORING'
-  ) {
-    return 'status-progress';
-  }
-
-  if (
-    status === 'BANK_REVIEW' ||
-    status === 'CLIENT_PREAPPROVED' ||
-    status === 'CREDIT_APPROVED'
-  ) {
-    return 'status-review';
-  }
-
-  if (status === 'ARCHIVED') return 'status-archived';
-
-  return 'status-new';
-}
-
-function NewCaseModal({ open, onClose, onCreated }) {
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [saving, setSaving] = useState(false);
+function LoginPage({ onLogin }) {
+  const [login, setLogin] = useState('admin');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({});
-
-  useEffect(() => {
-    if (open) {
-      setForm(INITIAL_FORM);
-      setError('');
-      setFieldErrors({});
-    }
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
-
-  const updateField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-
-    setFieldErrors((current) => ({
-      ...current,
-      [field]: undefined,
-    }));
-  };
+  const [submitting, setSubmitting] = useState(false);
 
   const submit = async (event) => {
     event.preventDefault();
-
-    setSaving(true);
     setError('');
-    setFieldErrors({});
+
+    if (!login.trim() || !password) {
+      setError('Логин ва парольни киритинг.');
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
-      const payload = {
-        ...form,
-        requestedAmount: form.requestedAmount
-          ? form.requestedAmount.replace(/\s/g, '')
-          : null,
-      };
-
-      const data = await apiRequest('/cases', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          login: login.trim(),
+          password,
+        }),
       });
 
-      onCreated(data.item);
-      onClose();
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || data.message || 'Тизимга киришда хато юз берди.'
+        );
+      }
+
+      if (!data.token || !data.user) {
+        throw new Error('Сервер нотўғри жавоб қайтарди.');
+      }
+
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+
+      onLogin(data.user);
     } catch (requestError) {
-      setError(requestError.message);
-      setFieldErrors(requestError.details || {});
+      setError(
+        requestError.message ||
+          'Backend билан боғланиб бўлмади. Серверни текширинг.'
+      );
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="case-modal" role="dialog" aria-modal="true">
-        <div className="modal-header">
-          <div>
-            <span className="section-kicker">Янги маълумот</span>
-            <h2>Янги мурожаат қўшиш</h2>
-            <p>Мижоз ва хизмат маълумотларини киритинг.</p>
+    <div className="login-page">
+      <div className="login-decoration login-decoration-one" />
+      <div className="login-decoration login-decoration-two" />
+
+      <div className="login-card">
+        <section className="login-brand-panel">
+          <div className="login-logo-box">
+            <img src="/golden-key-logo.png" alt="Golden Key Info" />
           </div>
 
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="Ойнани ёпиш"
-          >
-            <X size={21} />
-          </button>
-        </div>
+          <div className="login-brand-copy">
+            <span className="login-system-name">GOLDEN KEY OS</span>
 
-        <form className="case-form" onSubmit={submit}>
-          <div className="form-section">
-            <div className="form-section-title">
-              <strong>Мижоз маълумотлари</strong>
-              <span>Асосий шахсий маълумотлар</span>
-            </div>
+            <h1>Ягона рақамли бошқарув тизими</h1>
 
-            <div className="form-grid">
-              <label className="field field-wide">
-                <span>Ф.И.Ш. *</span>
-                <input
-                  value={form.fullName}
-                  onChange={(event) =>
-                    updateField('fullName', event.target.value)
-                  }
-                  placeholder="Масалан: Каримов Муҳаммаджон"
-                  disabled={saving}
-                />
-                {fieldErrors.fullName ? (
-                  <small>{fieldErrors.fullName[0]}</small>
-                ) : null}
-              </label>
-
-              <label className="field">
-                <span>Телефон рақами *</span>
-                <input
-                  value={form.phone}
-                  onChange={(event) =>
-                    updateField('phone', event.target.value)
-                  }
-                  placeholder="+998 90 123 45 67"
-                  disabled={saving}
-                />
-                {fieldErrors.phone ? (
-                  <small>{fieldErrors.phone[0]}</small>
-                ) : null}
-              </label>
-
-              <label className="field">
-                <span>ЖШШИР</span>
-                <input
-                  value={form.pinfl}
-                  onChange={(event) =>
-                    updateField(
-                      'pinfl',
-                      event.target.value.replace(/\D/g, '').slice(0, 14)
-                    )
-                  }
-                  placeholder="14 та рақам"
-                  inputMode="numeric"
-                  disabled={saving}
-                />
-                {fieldErrors.pinfl ? (
-                  <small>{fieldErrors.pinfl[0]}</small>
-                ) : null}
-              </label>
-
-              <label className="field">
-                <span>Паспорт серияси</span>
-                <input
-                  value={form.passportSeries}
-                  onChange={(event) =>
-                    updateField(
-                      'passportSeries',
-                      event.target.value.toUpperCase()
-                    )
-                  }
-                  placeholder="AA"
-                  disabled={saving}
-                />
-              </label>
-
-              <label className="field">
-                <span>Паспорт рақами</span>
-                <input
-                  value={form.passportNumber}
-                  onChange={(event) =>
-                    updateField('passportNumber', event.target.value)
-                  }
-                  placeholder="1234567"
-                  disabled={saving}
-                />
-              </label>
-
-              <label className="field">
-                <span>Туғилган сана</span>
-                <input
-                  type="date"
-                  value={form.birthDate}
-                  onChange={(event) =>
-                    updateField('birthDate', event.target.value)
-                  }
-                  disabled={saving}
-                />
-              </label>
-
-              <label className="field field-wide">
-                <span>Яшаш манзили</span>
-                <input
-                  value={form.address}
-                  onChange={(event) =>
-                    updateField('address', event.target.value)
-                  }
-                  placeholder="Вилоят, шаҳар, кўча ва уй рақами"
-                  disabled={saving}
-                />
-              </label>
-            </div>
+            <p>
+              Мурожаатлар, банк текширувлари, шартномалар ва ижро
+              жараёнларини ягона тизимда бошқаринг.
+            </p>
           </div>
 
-          <div className="form-section">
-            <div className="form-section-title">
-              <strong>Хизмат маълумотлари</strong>
-              <span>Мурожаат мақсади ва сўралаётган маблағ</span>
-            </div>
+          <div className="security-note">
+            <ShieldCheck size={22} />
 
-            <div className="form-grid">
-              <label className="field">
-                <span>Хизмат тури *</span>
-                <select
-                  value={form.serviceType}
-                  onChange={(event) =>
-                    updateField('serviceType', event.target.value)
+            <div>
+              <strong>Ҳимояланган кириш</strong>
+              <span>JWT авторизация ва ролларга асосланган назорат</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="login-form-panel">
+          <div className="login-heading">
+            <span>Хуш келибсиз</span>
+            <h2>Тизимга кириш</h2>
+            <p>Сизга берилган логин ва парольни киритинг.</p>
+          </div>
+
+          <form onSubmit={submit} className="login-form">
+            <label>
+              <span>Логин ёки электрон почта</span>
+
+              <div className="input-wrap">
+                <UserRound size={19} />
+
+                <input
+                  type="text"
+                  value={login}
+                  onChange={(event) => setLogin(event.target.value)}
+                  placeholder="Логинни киритинг"
+                  autoComplete="username"
+                  disabled={submitting}
+                />
+              </div>
+            </label>
+
+            <label>
+              <span>Пароль</span>
+
+              <div className="input-wrap">
+                <ShieldCheck size={19} />
+
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Парольни киритинг"
+                  autoComplete="current-password"
+                  disabled={submitting}
+                />
+
+                <button
+                  className="password-toggle"
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={
+                    showPassword ? 'Парольни яшириш' : 'Парольни кўрсатиш'
                   }
-                  disabled={saving}
                 >
-                  {SERVICE_OPTIONS.map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </div>
+            </label>
 
-              <label className="field">
-                <span>Сўралаётган сумма</span>
-                <input
-                  value={form.requestedAmount}
-                  onChange={(event) =>
-                    updateField(
-                      'requestedAmount',
-                      event.target.value.replace(/[^\d]/g, '')
-                    )
-                  }
-                  placeholder="Масалан: 300000000"
-                  inputMode="numeric"
-                  disabled={saving}
-                />
-              </label>
-
-              <label className="field">
-                <span>Танланган банк</span>
-                <input
-                  value={form.bankName}
-                  onChange={(event) =>
-                    updateField('bankName', event.target.value)
-                  }
-                  placeholder="Ҳозирча танланмаган"
-                  disabled={saving}
-                />
-              </label>
-
-              <label className="field field-wide">
-                <span>Кейинги ҳаракат</span>
-                <textarea
-                  value={form.nextAction}
-                  onChange={(event) =>
-                    updateField('nextAction', event.target.value)
-                  }
-                  placeholder="Масалан: паспорт маълумотларини текшириш"
-                  rows={3}
-                  disabled={saving}
-                />
-              </label>
-            </div>
-          </div>
-
-          {error ? <div className="form-error">{error}</div> : null}
-
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Бекор қилиш
-            </button>
+            {error ? <div className="login-error">{error}</div> : null}
 
             <button
               type="submit"
-              className="primary modal-save"
-              disabled={saving}
+              className="login-submit"
+              disabled={submitting}
             >
-              {saving ? (
-                <>
-                  <LoaderCircle className="spin" size={17} />
-                  Сақланмоқда...
-                </>
-              ) : (
-                <>
-                  <Plus size={17} />
-                  Мурожаатни сақлаш
-                </>
-              )}
+              {submitting ? 'Текширилмоқда...' : 'Тизимга кириш'}
             </button>
+          </form>
+
+          <div className="login-footer">
+            <span>Golden Key Info</span>
+            <span>•</span>
+            <span>2026</span>
           </div>
-        </form>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }
 
-export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
-  const [items, setItems] = useState([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 1,
-  });
+function Dashboard({ user, onLogout }) {
+  const [activeMenu, setActiveMenu] = useState('Бош панель');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [createCaseSignal, setCreateCaseSignal] = useState(0);
 
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [serviceType, setServiceType] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
+  const [stats, setStats] = useState(INITIAL_STATS);
+  const [recentCases, setRecentCases] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
 
-  useEffect(() => {
-    if (openCreateSignal > 0) {
-      setModalOpen(true);
-    }
-  }, [openCreateSignal]);
+  const roleLabel = useMemo(
+    () => roleNames[user?.role] || user?.role || 'Фойдаланувчи',
+    [user]
+  );
 
-  const loadCases = useCallback(async () => {
-    setLoading(true);
-    setPageError('');
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    setDashboardError('');
 
     try {
-      const params = new URLSearchParams({
-        page: String(pagination.page),
-        limit: String(pagination.limit),
-      });
+      const [statsData, casesData] = await Promise.all([
+        apiRequest('/cases/stats'),
+        apiRequest('/cases?page=1&limit=5'),
+      ]);
 
-      if (search) params.set('search', search);
-      if (status) params.set('status', status);
-      if (serviceType) params.set('serviceType', serviceType);
+      setStats(statsData.stats || INITIAL_STATS);
+      setRecentCases(casesData.items || []);
+    } catch (error) {
+      setDashboardError(
+        error.message || 'Бош панель маълумотларини юклаб бўлмади.'
+      );
 
-      const data = await apiRequest(`/cases?${params.toString()}`);
-
-      setItems(data.items || []);
-      setPagination((current) => ({
-        ...current,
-        ...(data.pagination || {}),
-      }));
-    } catch (requestError) {
-      setPageError(requestError.message);
-
-      if (requestError.status === 401) {
+      if (error.status === 401) {
         window.location.reload();
       }
     } finally {
-      setLoading(false);
+      setDashboardLoading(false);
     }
-  }, [
-    pagination.page,
-    pagination.limit,
-    search,
-    status,
-    serviceType,
-  ]);
+  }, []);
 
-  const loadStats = useCallback(async () => {
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  const logout = async () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+
     try {
-      const data = await apiRequest('/cases/stats');
-      onStatsChange?.(data.stats);
+      if (token) {
+        await fetch(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
     } catch {
-      // Статистика ишламаса, рўйхатдан фойдаланиш давом этади.
+      // Сервер жавоб бермаса ҳам маҳаллий сеанс ёпилади.
+    } finally {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      onLogout();
     }
-  }, [onStatsChange]);
-
-  useEffect(() => {
-    loadCases();
-  }, [loadCases]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  const applySearch = (event) => {
-    event.preventDefault();
-    setPagination((current) => ({
-      ...current,
-      page: 1,
-    }));
-    setSearch(searchInput.trim());
   };
 
-  const clearFilters = () => {
-    setSearchInput('');
-    setSearch('');
-    setStatus('');
-    setServiceType('');
-    setPagination((current) => ({
-      ...current,
-      page: 1,
-    }));
+  const openCreateCase = () => {
+    setActiveMenu('Мурожаатлар');
+    setCreateCaseSignal((current) => current + 1);
   };
 
-  const handleCreated = async () => {
-    setPagination((current) => ({
+  const handleStatsChange = useCallback((nextStats) => {
+    setStats((current) => ({
       ...current,
-      page: 1,
+      ...(nextStats || {}),
     }));
+  }, []);
 
-    await Promise.all([loadCases(), loadStats()]);
-  };
-
-  return (
+  const renderDashboard = () => (
     <>
-      <section className="cases-toolbar">
-        <form className="cases-search" onSubmit={applySearch}>
-          <Search size={19} />
+      <section className="cards">
+        <article>
+          <span>Янги мурожаатлар</span>
+          <strong>{stats.new || 0}</strong>
+        </article>
 
-          <input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="ID, Ф.И.Ш., телефон, ЖШШИР ёки паспорт..."
-          />
+        <article>
+          <span>Банк текширувида</span>
+          <strong>{stats.bankReview || 0}</strong>
+        </article>
 
-          <button type="submit">Қидириш</button>
-        </form>
+        <article>
+          <span>Ижродаги ишлар</span>
+          <strong>{stats.inExecution || 0}</strong>
+        </article>
 
-        <div className="case-filter">
-          <Filter size={17} />
-
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPagination((current) => ({
-                ...current,
-                page: 1,
-              }));
-            }}
-          >
-            {STATUS_OPTIONS.map(([value, label]) => (
-              <option value={value} key={value || 'all'}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="case-filter">
-          <select
-            value={serviceType}
-            onChange={(event) => {
-              setServiceType(event.target.value);
-              setPagination((current) => ({
-                ...current,
-                page: 1,
-              }));
-            }}
-          >
-            <option value="">Барча хизматлар</option>
-
-            {SERVICE_OPTIONS.map(([value, label]) => (
-              <option value={value} key={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="button"
-          className="refresh-button"
-          onClick={() => {
-            loadCases();
-            loadStats();
-          }}
-          title="Янгилаш"
-        >
-          <RefreshCw size={18} />
-        </button>
-
-        {(search || status || serviceType) && (
-          <button
-            type="button"
-            className="clear-filter-button"
-            onClick={clearFilters}
-          >
-            Тозалаш
-          </button>
-        )}
+        <article>
+          <span>Якунланган</span>
+          <strong>{stats.completed || 0}</strong>
+        </article>
       </section>
 
-      <section className="panel cases-panel">
-        <div className="panel-head cases-panel-head">
+      <section className="panel">
+        <div className="panel-head dashboard-panel-head">
           <div>
-            <h2>Мурожаатлар рўйхати</h2>
-            <p>
-              Жами {pagination.total || 0} та мурожаат топилди.
-            </p>
+            <h2>Сўнгги ишлар</h2>
+            <p>Энг охирги 5 та мурожаат шу ерда кўринади.</p>
           </div>
 
           <button
             type="button"
-            className="primary inline-create-button"
-            onClick={() => setModalOpen(true)}
+            className="text-button"
+            onClick={() => setActiveMenu('Мурожаатлар')}
           >
-            <Plus size={17} />
-            Янги мурожаат
+            Барчасини кўриш
           </button>
         </div>
 
-        {pageError ? (
-          <div className="page-error">
-            <strong>Маълумотларни олиб бўлмади</strong>
-            <span>{pageError}</span>
-            <button type="button" onClick={loadCases}>
+        {dashboardLoading ? (
+          <div className="empty">
+            <strong>Маълумотлар юкланмоқда...</strong>
+          </div>
+        ) : dashboardError ? (
+          <div className="page-error dashboard-error">
+            <strong>Бош панель маълумотлари юкланмади</strong>
+            <span>{dashboardError}</span>
+
+            <button type="button" onClick={loadDashboard}>
               Қайта уриниш
             </button>
           </div>
-        ) : loading ? (
-          <div className="table-loader">
-            <LoaderCircle className="spin" size={34} />
-            <strong>Мурожаатлар юкланмоқда...</strong>
-          </div>
-        ) : items.length === 0 ? (
+        ) : recentCases.length === 0 ? (
           <div className="empty">
             <FileText size={40} />
-            <strong>Мурожаатлар топилмади</strong>
+            <strong>Ҳозирча мурожаатлар йўқ</strong>
+
             <span>
-              Янги мурожаат қўшинг ёки қидирув фильтрларини ўзгартиринг.
+              Биринчи мурожаатни қўшиш учун юқоридаги тугмани босинг.
             </span>
           </div>
         ) : (
-          <>
-            <div className="table-scroll">
-              <table className="cases-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Мижоз</th>
-                    <th>Хизмат тури</th>
-                    <th>Сумма</th>
-                    <th>Ҳолати</th>
-                    <th>Масъул ходим</th>
-                    <th>Сана</th>
-                  </tr>
-                </thead>
+          <div className="recent-list">
+            {recentCases.map((item) => (
+              <button
+                type="button"
+                className="recent-case"
+                key={item.id}
+                onClick={() => setActiveMenu('Мурожаатлар')}
+              >
+                <div>
+                  <strong>{item.displayId}</strong>
+                  <span>{item.applicant?.fullName || 'Мижоз номи йўқ'}</span>
+                </div>
 
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong className="case-display-id">
-                          {item.displayId}
-                        </strong>
-                      </td>
+                <div className="recent-case-meta">
+                  <strong>
+                    {statusNames[item.status] || item.status || '—'}
+                  </strong>
 
-                      <td>
-                        <div className="client-cell">
-                          <strong>{item.applicant?.fullName || '—'}</strong>
-                          <span>{item.applicant?.phone || 'Телефон йўқ'}</span>
-                        </div>
-                      </td>
-
-                      <td>
-                        {serviceNames[item.serviceType] || item.serviceType}
-                      </td>
-
-                      <td>{formatAmount(item.requestedAmount)}</td>
-
-                      <td>
-                        <span
-                          className={`status-badge ${getStatusClass(
-                            item.status
-                          )}`}
-                        >
-                          {statusNames[item.status] || item.status}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="manager-cell">
-                          <strong>
-                            {item.executor?.fullName ||
-                              item.receptionManager?.fullName ||
-                              'Бириктирилмаган'}
-                          </strong>
-
-                          <span>
-                            {item.executor
-                              ? 'Ижрочи'
-                              : item.receptionManager
-                                ? 'Қабул менежери'
-                                : '—'}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td>{formatDate(item.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="table-footer">
-              <span>
-                {pagination.page}-саҳифа, жами {pagination.totalPages} саҳифа
-              </span>
-
-              <div className="pagination-buttons">
-                <button
-                  type="button"
-                  disabled={pagination.page <= 1}
-                  onClick={() =>
-                    setPagination((current) => ({
-                      ...current,
-                      page: current.page - 1,
-                    }))
-                  }
-                >
-                  <ChevronLeft size={17} />
-                  Олдинги
-                </button>
-
-                <button
-                  type="button"
-                  disabled={pagination.page >= pagination.totalPages}
-                  onClick={() =>
-                    setPagination((current) => ({
-                      ...current,
-                      page: current.page + 1,
-                    }))
-                  }
-                >
-                  Кейинги
-                  <ChevronRight size={17} />
-                </button>
-              </div>
-            </div>
-          </>
+                  <span>
+                    {serviceNames[item.serviceType] ||
+                      item.serviceType ||
+                      formatDate(item.createdAt)}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </section>
-
-      <NewCaseModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreated={handleCreated}
-      />
     </>
   );
+
+  const renderPlaceholder = () => (
+    <section className="panel module-placeholder">
+      <div className="empty">
+        <strong>{activeMenu} модули</strong>
+        <span>Ушбу бўлим кейинги босқичда ишга туширилади.</span>
+      </div>
+    </section>
+  );
+
+  const renderContent = () => {
+    if (activeMenu === 'Бош панель') {
+      return renderDashboard();
+    }
+
+    if (activeMenu === 'Мурожаатлар') {
+      return (
+        <CasesPage
+          openCreateSignal={createCaseSignal}
+          onStatsChange={handleStatsChange}
+        />
+      );
+    }
+
+    return renderPlaceholder();
+  };
+
+  return (
+    <div className="app">
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        <div className="brand">
+          <img src="/golden-key-logo.png" alt="Golden Key Info" />
+
+          <div>
+            <strong>Golden Key OS</strong>
+            <span>v0.3</span>
+          </div>
+
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Менюни ёпиш"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav>
+          {menu.map(([label, Icon]) => (
+            <button
+              type="button"
+              className={activeMenu === label ? 'active' : ''}
+              key={label}
+              onClick={() => {
+                setActiveMenu(label);
+                setSidebarOpen(false);
+
+                if (label === 'Бош панель') {
+                  loadDashboard();
+                }
+              }}
+            >
+              <Icon size={19} />
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-user">
+          <div className="sidebar-avatar">
+            {user?.fullName?.charAt(0)?.toUpperCase() || 'A'}
+          </div>
+
+          <div className="sidebar-user-text">
+            <strong>{user?.fullName || 'Администратор'}</strong>
+            <span>{roleLabel}</span>
+          </div>
+
+          <button
+            type="button"
+            className="logout-icon"
+            title="Тизимдан чиқиш"
+            onClick={logout}
+          >
+            <LogOut size={19} />
+          </button>
+        </div>
+      </aside>
+
+      {sidebarOpen ? (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Менюни ёпиш"
+        />
+      ) : null}
+
+      <main>
+        <header>
+          <button
+            type="button"
+            className="mobile-menu"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Менюни очиш"
+          >
+            <Menu size={23} />
+          </button>
+
+          <div>
+            <h1>{activeMenu}</h1>
+            <p>Golden Key Info рақамли бошқарув тизими</p>
+          </div>
+
+          <div className="header-actions">
+            <div className="header-user">
+              <strong>{user?.fullName || 'Администратор'}</strong>
+              <span>{roleLabel}</span>
+            </div>
+
+            <button
+              type="button"
+              className="primary"
+              onClick={openCreateCase}
+            >
+              + Янги мурожаат
+            </button>
+          </div>
+        </header>
+
+        {renderContent()}
+      </main>
+    </div>
+  );
+}
+
+export function App() {
+  const [user, setUser] = useState(() => readSavedUser());
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+
+      if (!token) {
+        setUser(null);
+        setCheckingSession(false);
+        return;
+      }
+
+      try {
+        const data = await apiRequest('/auth/me');
+
+        if (!data.user) {
+          throw new Error('Сеанс яроқсиз');
+        }
+
+        setUser(data.user);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        setUser(null);
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  if (checkingSession) {
+    return (
+      <div className="session-loader">
+        <img src="/golden-key-logo.png" alt="Golden Key Info" />
+        <strong>Golden Key OS</strong>
+        <span>Сеанс текширилмоқда...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={setUser} />;
+  }
+
+  return <Dashboard user={user} onLogout={() => setUser(null)} />;
 }
