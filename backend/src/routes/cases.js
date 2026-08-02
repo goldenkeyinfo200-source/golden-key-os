@@ -298,6 +298,23 @@ const caseInclude = {
     },
   },
 
+
+  documents: {
+    select: {
+      id: true,
+      caseId: true,
+      clientId: true,
+      type: true,
+      fileUrl: true,
+      fileName: true,
+      mimeType: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  },
+
   history: {
     orderBy: {
       createdAt: 'desc',
