@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 
 import { apiRequest } from '../services/api.js';
+import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
+import '../styles/bank-offers.css';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -489,6 +491,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               </div>
             )}
           </section>
+
+          <BankOffersSection
+            caseId={item.id}
+            onCaseChanged={async () => {
+              await loadCase();
+              onChanged?.();
+            }}
+          />
 
           <section className="panel details-section">
             <div className="details-section-head">
