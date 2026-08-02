@@ -20,7 +20,9 @@ import {
 
 import { apiRequest } from '../services/api.js';
 import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
+import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
 import '../styles/bank-offers.css';
+import '../styles/documents.css';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -500,43 +502,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             }}
           />
 
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Ҳужжатлар</span>
-                <h3>Юкланган файллар</h3>
-              </div>
-
-              <FileText size={22} />
-            </div>
-
-            {item.documents?.length ? (
-              <div className="case-document-list">
-                {item.documents.map((document) => (
-                  <a
-                    href={document.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="case-document-item"
-                    key={document.id}
-                  >
-                    <FileText size={19} />
-
-                    <div>
-                      <strong>{document.fileName || document.type}</strong>
-                      <span>{document.mimeType || 'Файл'}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={FileText}
-                title="Ҳужжатлар юкланмаган"
-                text="Паспорт, кадастр ва бошқа файллар кейинги босқичда шу ерга юкланади."
-              />
-            )}
-          </section>
+          <DocumentsSection
+            caseId={item.id}
+            applicantClientId={item.applicantClientId || item.applicant?.id}
+            onChanged={async () => {
+              await loadCase();
+              onChanged?.();
+            }}
+          />
 
           <section className="panel details-section">
             <div className="details-section-head">

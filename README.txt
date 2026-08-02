@@ -1,43 +1,33 @@
-GOLDEN KEY OS — SUPABASE STORAGE ПАКЕТИ
+GOLDEN KEY OS — DOCUMENTS CRM MODULE
 
-АРХИВ ИЧИДАГИ ФАЙЛЛАР:
-backend/package.json
-backend/src/config/supabase.js
-backend/src/services/supabaseStorage.js
-backend/src/routes/documents.js
+ТАЙЁР ФАЙЛЛАР:
+crm/src/components/documents/DocumentsSection.jsx
+crm/src/styles/documents.css
+crm/src/pages/CaseDetails.jsx
 
 ЎРНАТИШ:
 1. Архивни очинг.
-2. Ичидаги backend папкасини лойиҳангиз устига ташланг.
+2. Ичидаги crm папкасини лойиҳангиз устига ташланг.
 3. Windows сўраса:
    Replace the files in the destination
 4. GitHub Desktop:
-   Summary: Replace Cloudinary with Supabase Storage
+   Summary: Add documents upload interface
    Commit to main
    Push origin
-5. Railway backend deployment тугашини кутинг.
+5. Railway CRM deployment тугашини кутинг.
+6. CRM'ни Ctrl + F5 билан янгиланг.
 
-RAILWAY VARIABLES:
-SUPABASE_URL=...
-SUPABASE_SERVICE_KEY=...
-SUPABASE_DOCUMENTS_BUCKET=documents
+НАТИЖА:
+- Ҳужжат юклаш тугмаси
+- Ҳужжат турини танлаш
+- JPG, PNG, WEBP, PDF
+- 15 MB гача
+- Supabase Storage'га POST
+- Ҳужжатларни кўриш
+- Ҳужжатларни ўчириш
+- Автоматик рўйхат янгиланиши
 
-SUPABASE_ANON_KEY бу backend upload учун шарт эмас,
-лекин қолдириш мумкин.
-
-SUPABASE BUCKET:
-documents
-Private ҳолатда қолсин.
-
-ҚАБУЛ ҚИЛИНАДИ:
-JPG
-PNG
-WEBP
-PDF
-
-МАКСИМАЛ ҲАЖМ:
-15 MB
-
-МУҲИМ:
-Cloudinary package.json дан олиб ташланди.
-Supabase secret key фақат Railway backend Variables ичида сақланади.
+API:
+GET    /api/documents/case/:caseId
+POST   /api/documents/case/:caseId
+DELETE /api/documents/:documentId
