@@ -6,14 +6,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import apiRouter from './routes/index.js';
-import bankOffersRouter from './routes/bank-offers.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-
-/* =========================================================
-   CORS
-========================================================= */
 
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN
@@ -24,19 +19,7 @@ const allowedOrigins = process.env.CORS_ORIGIN
 
 const corsOptions = {
   origin(origin, callback) {
-    /*
-      Postman, Railway ички сўровлари ёки сервердан серверга
-      сўровларда origin бўлмаслиги мумкин.
-    */
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    /*
-      CORS_ORIGIN киритилмаган бўлса, вақтинча барча origin'ларга
-      рухсат берилади.
-    */
-    if (allowedOrigins.length === 0) {
+    if (!origin || allowedOrigins.length === 0) {
       return callback(null, true);
     }
 
@@ -44,32 +27,12 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(
-      new Error(`CORS рухсат бермади: ${origin}`),
-      false
-    );
+    return callback(new Error(`CORS рухсат бермади: ${origin}`), false);
   },
-
   credentials: true,
-
-  methods: [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'OPTIONS',
-  ],
-
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
-
-/* =========================================================
-   MIDDLEWARE
-========================================================= */
 
 app.disable('x-powered-by');
 
@@ -82,28 +45,12 @@ app.use(
 );
 
 app.use(cors(corsOptions));
-
-app.use(
-  express.json({
-    limit: '15mb',
-  })
-);
-
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: '15mb',
-  })
-);
-
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(morgan('dev'));
 
-/* =========================================================
-   PUBLIC ROUTES
-========================================================= */
-
-app.get('/', (req, res) => {
-  res.status(200).json({
+app.get('/', (_req, res) => {
+  return res.status(200).json({
     ok: true,
     name: 'Golden Key OS API',
     version: '0.4.0',
@@ -116,42 +63,16 @@ app.get('/', (req, res) => {
   });
 });
 
-/* =========================================================
-   API ROUTES
-========================================================= */
-
-/*
-  Мавжуд маршрутлар:
-  /api/health
-  /api/auth/login
-  /api/auth/me
-  /api/cases
-  ва бошқалар
-*/
 app.use('/api', apiRouter);
 
-/*
-  Банк таклифлари маршрути:
-  /api/bank-offers
-*/
-app.use('/api/bank-offers', bankOffersRouter);
-
-/* =========================================================
-   404 HANDLER
-========================================================= */
-
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     ok: false,
     error: 'Маршрут топилмади',
     method: req.method,
     path: req.originalUrl,
   });
 });
-
-/* =========================================================
-   ERROR HANDLER
-========================================================= */
 
 app.use((error, req, res, next) => {
   console.error('Сервер хатоси:', error);
@@ -183,10 +104,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-/* =========================================================
-   SERVER START
-========================================================= */
-
 const server = app.listen(port, '0.0.0.0', () => {
   console.log('========================================');
   console.log('Golden Key OS API ишга тушди');
@@ -194,10 +111,6 @@ const server = app.listen(port, '0.0.0.0', () => {
   console.log(`ENV: ${process.env.NODE_ENV || 'development'}`);
   console.log('========================================');
 });
-
-/* =========================================================
-   GRACEFUL SHUTDOWN
-========================================================= */
 
 function shutdown(signal) {
   console.log(`${signal} қабул қилинди. Сервер тўхтатилмоқда...`);
