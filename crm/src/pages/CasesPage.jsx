@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { apiRequest } from '../services/api.js';
+import { CaseDetails } from './CaseDetails.jsx';
 
 const SERVICE_OPTIONS = [
   ['PRIMARY_MORTGAGE', 'Бирламчи ипотека'],
@@ -70,7 +71,7 @@ function formatAmount(value) {
   const number = Number(value);
 
   if (!Number.isFinite(number)) {
-    return value;
+    return String(value);
   }
 
   return `${new Intl.NumberFormat('uz-UZ').format(number)} сўм`;
@@ -97,7 +98,10 @@ function formatDate(value) {
 }
 
 function getStatusClass(status) {
-  if (status === 'COMPLETED') return 'status-completed';
+  if (status === 'COMPLETED') {
+    return 'status-completed';
+  }
+
   if (status === 'REJECTED' || status === 'CANCELLED') {
     return 'status-rejected';
   }
@@ -105,7 +109,10 @@ function getStatusClass(status) {
   if (
     status === 'IN_EXECUTION' ||
     status === 'ASSIGNED_TO_EXECUTOR' ||
-    status === 'PROPERTY_MONITORING'
+    status === 'PROPERTY_MONITORING' ||
+    status === 'CREDIT_ISSUED' ||
+    status === 'CLIENT_RECEIVED_FUNDS' ||
+    status === 'SERVICE_FEE_PAID'
   ) {
     return 'status-progress';
   }
@@ -118,7 +125,9 @@ function getStatusClass(status) {
     return 'status-review';
   }
 
-  if (status === 'ARCHIVED') return 'status-archived';
+  if (status === 'ARCHIVED') {
+    return 'status-archived';
+  }
 
   return 'status-new';
 }
@@ -137,6 +146,26 @@ function NewCaseModal({ open, onClose, onCreated }) {
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !saving) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [open, saving, onClose]);
+
   if (!open) {
     return null;
   }
@@ -151,6 +180,8 @@ function NewCaseModal({ open, onClose, onCreated }) {
       ...current,
       [field]: undefined,
     }));
+
+    setError('');
   };
 
   const submit = async (event) => {
@@ -163,6 +194,16 @@ function NewCaseModal({ open, onClose, onCreated }) {
     try {
       const payload = {
         ...form,
+
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        pinfl: form.pinfl.trim(),
+        passportSeries: form.passportSeries.trim(),
+        passportNumber: form.passportNumber.trim(),
+        address: form.address.trim(),
+        bankName: form.bankName.trim(),
+        nextAction: form.nextAction.trim(),
+
         requestedAmount: form.requestedAmount
           ? form.requestedAmount.replace(/\s/g, '')
           : null,
@@ -173,24 +214,46 @@ function NewCaseModal({ open, onClose, onCreated }) {
         body: JSON.stringify(payload),
       });
 
-      onCreated(data.item);
+      await onCreated?.(data.item);
       onClose();
     } catch (requestError) {
-      setError(requestError.message);
+      setError(
+        requestError.message || 'Мурожаатни сақлашда хато юз берди.'
+      );
+
       setFieldErrors(requestError.details || {});
     } finally {
       setSaving(false);
     }
   };
 
+  const closeFromBackdrop = (event) => {
+    if (event.target === event.currentTarget && !saving) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="case-modal" role="dialog" aria-modal="true">
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={closeFromBackdrop}
+    >
+      <section
+        className="case-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-case-title"
+      >
         <div className="modal-header">
           <div>
             <span className="section-kicker">Янги маълумот</span>
-            <h2>Янги мурожаат қўшиш</h2>
-            <p>Мижоз ва хизмат маълумотларини киритинг.</p>
+
+            <h2 id="new-case-title">Янги мурожаат қўшиш</h2>
+
+            <p>
+              Мижоз ва хизмат маълумотларини тўлиқ киритинг.
+            </p>
           </div>
 
           <button
@@ -214,36 +277,43 @@ function NewCaseModal({ open, onClose, onCreated }) {
             <div className="form-grid">
               <label className="field field-wide">
                 <span>Ф.И.Ш. *</span>
+
                 <input
                   value={form.fullName}
                   onChange={(event) =>
                     updateField('fullName', event.target.value)
                   }
                   placeholder="Масалан: Каримов Муҳаммаджон"
+                  autoFocus
                   disabled={saving}
                 />
-                {fieldErrors.fullName ? (
+
+                {fieldErrors.fullName?.[0] ? (
                   <small>{fieldErrors.fullName[0]}</small>
                 ) : null}
               </label>
 
               <label className="field">
                 <span>Телефон рақами *</span>
+
                 <input
                   value={form.phone}
                   onChange={(event) =>
                     updateField('phone', event.target.value)
                   }
                   placeholder="+998 90 123 45 67"
+                  inputMode="tel"
                   disabled={saving}
                 />
-                {fieldErrors.phone ? (
+
+                {fieldErrors.phone?.[0] ? (
                   <small>{fieldErrors.phone[0]}</small>
                 ) : null}
               </label>
 
               <label className="field">
                 <span>ЖШШИР</span>
+
                 <input
                   value={form.pinfl}
                   onChange={(event) =>
@@ -256,40 +326,61 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   inputMode="numeric"
                   disabled={saving}
                 />
-                {fieldErrors.pinfl ? (
+
+                {fieldErrors.pinfl?.[0] ? (
                   <small>{fieldErrors.pinfl[0]}</small>
                 ) : null}
               </label>
 
               <label className="field">
                 <span>Паспорт серияси</span>
+
                 <input
                   value={form.passportSeries}
                   onChange={(event) =>
                     updateField(
                       'passportSeries',
-                      event.target.value.toUpperCase()
+                      event.target.value
+                        .replace(/[^a-zA-Z]/g, '')
+                        .toUpperCase()
+                        .slice(0, 3)
                     )
                   }
                   placeholder="AA"
                   disabled={saving}
                 />
+
+                {fieldErrors.passportSeries?.[0] ? (
+                  <small>{fieldErrors.passportSeries[0]}</small>
+                ) : null}
               </label>
 
               <label className="field">
                 <span>Паспорт рақами</span>
+
                 <input
                   value={form.passportNumber}
                   onChange={(event) =>
-                    updateField('passportNumber', event.target.value)
+                    updateField(
+                      'passportNumber',
+                      event.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 12)
+                    )
                   }
                   placeholder="1234567"
+                  inputMode="numeric"
                   disabled={saving}
                 />
+
+                {fieldErrors.passportNumber?.[0] ? (
+                  <small>{fieldErrors.passportNumber[0]}</small>
+                ) : null}
               </label>
 
               <label className="field">
                 <span>Туғилган сана</span>
+
                 <input
                   type="date"
                   value={form.birthDate}
@@ -298,10 +389,15 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   }
                   disabled={saving}
                 />
+
+                {fieldErrors.birthDate?.[0] ? (
+                  <small>{fieldErrors.birthDate[0]}</small>
+                ) : null}
               </label>
 
               <label className="field field-wide">
                 <span>Яшаш манзили</span>
+
                 <input
                   value={form.address}
                   onChange={(event) =>
@@ -310,6 +406,10 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   placeholder="Вилоят, шаҳар, кўча ва уй рақами"
                   disabled={saving}
                 />
+
+                {fieldErrors.address?.[0] ? (
+                  <small>{fieldErrors.address[0]}</small>
+                ) : null}
               </label>
             </div>
           </div>
@@ -323,6 +423,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
             <div className="form-grid">
               <label className="field">
                 <span>Хизмат тури *</span>
+
                 <select
                   value={form.serviceType}
                   onChange={(event) =>
@@ -336,10 +437,15 @@ function NewCaseModal({ open, onClose, onCreated }) {
                     </option>
                   ))}
                 </select>
+
+                {fieldErrors.serviceType?.[0] ? (
+                  <small>{fieldErrors.serviceType[0]}</small>
+                ) : null}
               </label>
 
               <label className="field">
                 <span>Сўралаётган сумма</span>
+
                 <input
                   value={form.requestedAmount}
                   onChange={(event) =>
@@ -352,10 +458,15 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   inputMode="numeric"
                   disabled={saving}
                 />
+
+                {fieldErrors.requestedAmount?.[0] ? (
+                  <small>{fieldErrors.requestedAmount[0]}</small>
+                ) : null}
               </label>
 
               <label className="field">
                 <span>Танланган банк</span>
+
                 <input
                   value={form.bankName}
                   onChange={(event) =>
@@ -364,10 +475,15 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   placeholder="Ҳозирча танланмаган"
                   disabled={saving}
                 />
+
+                {fieldErrors.bankName?.[0] ? (
+                  <small>{fieldErrors.bankName[0]}</small>
+                ) : null}
               </label>
 
               <label className="field field-wide">
                 <span>Кейинги ҳаракат</span>
+
                 <textarea
                   value={form.nextAction}
                   onChange={(event) =>
@@ -377,6 +493,10 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   rows={3}
                   disabled={saving}
                 />
+
+                {fieldErrors.nextAction?.[0] ? (
+                  <small>{fieldErrors.nextAction[0]}</small>
+                ) : null}
               </label>
             </div>
           </div>
@@ -417,8 +537,12 @@ function NewCaseModal({ open, onClose, onCreated }) {
   );
 }
 
-export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
+export function CasesPage({
+  openCreateSignal = 0,
+  onStatsChange,
+}) {
   const [items, setItems] = useState([]);
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -430,12 +554,16 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [serviceType, setServiceType] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
 
   useEffect(() => {
     if (openCreateSignal > 0) {
+      setSelectedCaseId(null);
       setModalOpen(true);
     }
   }, [openCreateSignal]);
@@ -450,19 +578,30 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
         limit: String(pagination.limit),
       });
 
-      if (search) params.set('search', search);
-      if (status) params.set('status', status);
-      if (serviceType) params.set('serviceType', serviceType);
+      if (search) {
+        params.set('search', search);
+      }
+
+      if (status) {
+        params.set('status', status);
+      }
+
+      if (serviceType) {
+        params.set('serviceType', serviceType);
+      }
 
       const data = await apiRequest(`/cases?${params.toString()}`);
 
-      setItems(data.items || []);
+      setItems(Array.isArray(data.items) ? data.items : []);
+
       setPagination((current) => ({
         ...current,
         ...(data.pagination || {}),
       }));
     } catch (requestError) {
-      setPageError(requestError.message);
+      setPageError(
+        requestError.message || 'Мурожаатларни юклаб бўлмади.'
+      );
 
       if (requestError.status === 401) {
         window.location.reload();
@@ -481,9 +620,9 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
   const loadStats = useCallback(async () => {
     try {
       const data = await apiRequest('/cases/stats');
-      onStatsChange?.(data.stats);
+      onStatsChange?.(data.stats || {});
     } catch {
-      // Статистика ишламаса, рўйхатдан фойдаланиш давом этади.
+      // Статистикада хато бўлса ҳам мурожаатлар рўйхати ишлайверади.
     }
   }, [onStatsChange]);
 
@@ -497,10 +636,12 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
 
   const applySearch = (event) => {
     event.preventDefault();
+
     setPagination((current) => ({
       ...current,
       page: 1,
     }));
+
     setSearch(searchInput.trim());
   };
 
@@ -509,6 +650,7 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
     setSearch('');
     setStatus('');
     setServiceType('');
+
     setPagination((current) => ({
       ...current,
       page: 1,
@@ -524,6 +666,28 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
     await Promise.all([loadCases(), loadStats()]);
   };
 
+  const handleCaseChanged = async () => {
+    await Promise.all([loadCases(), loadStats()]);
+  };
+
+  const openCase = (caseId) => {
+    setSelectedCaseId(caseId);
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
+
+  if (selectedCaseId) {
+    return (
+      <CaseDetails
+        caseId={selectedCaseId}
+        onBack={() => setSelectedCaseId(null)}
+        onChanged={handleCaseChanged}
+      />
+    );
+  }
+
   return (
     <>
       <section className="cases-toolbar">
@@ -534,6 +698,7 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             placeholder="ID, Ф.И.Ш., телефон, ЖШШИР ёки паспорт..."
+            aria-label="Мурожаатларни қидириш"
           />
 
           <button type="submit">Қидириш</button>
@@ -546,14 +711,16 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
             value={status}
             onChange={(event) => {
               setStatus(event.target.value);
+
               setPagination((current) => ({
                 ...current,
                 page: 1,
               }));
             }}
+            aria-label="Ҳолат бўйича фильтр"
           >
             {STATUS_OPTIONS.map(([value, label]) => (
-              <option value={value} key={value || 'all'}>
+              <option value={value} key={value || 'all-statuses'}>
                 {label}
               </option>
             ))}
@@ -565,11 +732,13 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
             value={serviceType}
             onChange={(event) => {
               setServiceType(event.target.value);
+
               setPagination((current) => ({
                 ...current,
                 page: 1,
               }));
             }}
+            aria-label="Хизмат тури бўйича фильтр"
           >
             <option value="">Барча хизматлар</option>
 
@@ -588,7 +757,8 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
             loadCases();
             loadStats();
           }}
-          title="Янгилаш"
+          title="Маълумотларни янгилаш"
+          aria-label="Маълумотларни янгилаш"
         >
           <RefreshCw size={18} />
         </button>
@@ -608,6 +778,7 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
         <div className="panel-head cases-panel-head">
           <div>
             <h2>Мурожаатлар рўйхати</h2>
+
             <p>
               Жами {pagination.total || 0} та мурожаат топилди.
             </p>
@@ -626,7 +797,9 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
         {pageError ? (
           <div className="page-error">
             <strong>Маълумотларни олиб бўлмади</strong>
+
             <span>{pageError}</span>
+
             <button type="button" onClick={loadCases}>
               Қайта уриниш
             </button>
@@ -634,14 +807,18 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
         ) : loading ? (
           <div className="table-loader">
             <LoaderCircle className="spin" size={34} />
+
             <strong>Мурожаатлар юкланмоқда...</strong>
           </div>
         ) : items.length === 0 ? (
           <div className="empty">
             <FileText size={40} />
+
             <strong>Мурожаатлар топилмади</strong>
+
             <span>
-              Янги мурожаат қўшинг ёки қидирув фильтрларини ўзгартиринг.
+              Янги мурожаат қўшинг ёки қидирув фильтрларини
+              ўзгартиринг.
             </span>
           </div>
         ) : (
@@ -662,7 +839,23 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
 
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      className="clickable-case-row"
+                      onClick={() => openCase(item.id)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${item.displayId} мурожаатини очиш`}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === 'Enter' ||
+                          event.key === ' '
+                        ) {
+                          event.preventDefault();
+                          openCase(item.id);
+                        }
+                      }}
+                    >
                       <td>
                         <strong className="case-display-id">
                           {item.displayId}
@@ -671,16 +864,25 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
 
                       <td>
                         <div className="client-cell">
-                          <strong>{item.applicant?.fullName || '—'}</strong>
-                          <span>{item.applicant?.phone || 'Телефон йўқ'}</span>
+                          <strong>
+                            {item.applicant?.fullName || '—'}
+                          </strong>
+
+                          <span>
+                            {item.applicant?.phone || 'Телефон йўқ'}
+                          </span>
                         </div>
                       </td>
 
                       <td>
-                        {serviceNames[item.serviceType] || item.serviceType}
+                        {serviceNames[item.serviceType] ||
+                          item.serviceType ||
+                          '—'}
                       </td>
 
-                      <td>{formatAmount(item.requestedAmount)}</td>
+                      <td>
+                        {formatAmount(item.requestedAmount)}
+                      </td>
 
                       <td>
                         <span
@@ -688,7 +890,9 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
                             item.status
                           )}`}
                         >
-                          {statusNames[item.status] || item.status}
+                          {statusNames[item.status] ||
+                            item.status ||
+                            '—'}
                         </span>
                       </td>
 
@@ -719,7 +923,8 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
 
             <div className="table-footer">
               <span>
-                {pagination.page}-саҳифа, жами {pagination.totalPages} саҳифа
+                {pagination.page}-саҳифа, жами{' '}
+                {pagination.totalPages || 1} саҳифа
               </span>
 
               <div className="pagination-buttons">
@@ -729,7 +934,7 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
                   onClick={() =>
                     setPagination((current) => ({
                       ...current,
-                      page: current.page - 1,
+                      page: Math.max(current.page - 1, 1),
                     }))
                   }
                 >
@@ -739,11 +944,17 @@ export function CasesPage({ openCreateSignal = 0, onStatsChange }) {
 
                 <button
                   type="button"
-                  disabled={pagination.page >= pagination.totalPages}
+                  disabled={
+                    pagination.page >=
+                    (pagination.totalPages || 1)
+                  }
                   onClick={() =>
                     setPagination((current) => ({
                       ...current,
-                      page: current.page + 1,
+                      page: Math.min(
+                        current.page + 1,
+                        current.totalPages || 1
+                      ),
                     }))
                   }
                 >
