@@ -1,0 +1,1 @@
+export const SERVICE_TYPES={PRIMARY_MORTGAGE:'Бирламчи ипотека',SECONDARY_MORTGAGE:'Иккиламчи ипотека',MICROLOAN:'Микроқарз',REALTOR_SERVICE:'Риэлторлик хизмати',SALE_PURCHASE:'Олди-сотди',CADASTRE_SERVICE:'Кадастр хизмати',OTHER:'Бошқа хизмат'};

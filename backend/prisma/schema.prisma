@@ -1,0 +1,293 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  DIRECTOR
+  BRANCH_MANAGER
+  RECEPTION_MANAGER
+  EXECUTOR
+  BANK_EMPLOYEE
+  LAWYER
+  ACCOUNTANT
+  CLIENT
+}
+
+enum CaseStatus {
+  NEW
+  DATA_COLLECTION
+  BANK_REVIEW
+  CLIENT_PREAPPROVED
+  OFFICE_VISIT
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  ASSIGNED_TO_EXECUTOR
+  IN_EXECUTION
+  PROPERTY_MONITORING
+  CREDIT_APPROVED
+  CREDIT_ISSUED
+  CLIENT_RECEIVED_FUNDS
+  SERVICE_FEE_PAID
+  COMPLETED
+  REJECTED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ServiceType {
+  PRIMARY_MORTGAGE
+  SECONDARY_MORTGAGE
+  MICROLOAN
+  REALTOR_SERVICE
+  SALE_PURCHASE
+  CADASTRE_SERVICE
+  OTHER
+}
+
+enum BorrowerStatus {
+  CANDIDATE
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ACTIVE
+  REPLACED
+}
+
+enum ContractStatus {
+  DRAFT
+  MANAGER_REVIEW
+  READY_TO_SIGN
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branches  Branch[]
+  users     User[]
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  city      String?
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users   User[]
+  cases   Case[]
+  kiosks  KioskDevice[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  companyId    String?
+  branchId     String?
+  fullName     String
+  phone        String?
+  email        String?  @unique
+  login        String?  @unique
+  passwordHash String?
+  telegramId   String?  @unique
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company       Company? @relation(fields: [companyId], references: [id])
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+  managedCases  Case[]   @relation("ReceptionManagerCases")
+  executedCases Case[]   @relation("ExecutorCases")
+  auditLogs     AuditLog[]
+  kiosks        KioskDevice[]
+}
+
+model Client {
+  id             String   @id @default(cuid())
+  telegramId     String?
+  fullName       String
+  pinfl          String?
+  passportSeries String?
+  passportNumber String?
+  birthDate      DateTime?
+  address        String?
+  phone          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  applicantCases Case[]     @relation("ApplicantCases")
+  borrowers      Borrower[]
+  documents      Document[]
+}
+
+model Case {
+  id                 String      @id @default(cuid())
+  displayId          String      @unique
+  branchId           String?
+  applicantClientId  String
+  receptionManagerId String?
+  executorId         String?
+  serviceType        ServiceType
+  status             CaseStatus  @default(NEW)
+  requestedAmount    Decimal?    @db.Decimal(18, 2)
+  approvedAmount     Decimal?    @db.Decimal(18, 2)
+  serviceFee         Decimal?    @db.Decimal(18, 2)
+  bankName           String?
+  nextAction         String?
+  nextActionDueAt    DateTime?
+  creditIssuedAt     DateTime?
+  clientReceivedAt   DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  branch           Branch?   @relation(fields: [branchId], references: [id])
+  applicant        Client    @relation("ApplicantCases", fields: [applicantClientId], references: [id])
+  receptionManager User?     @relation("ReceptionManagerCases", fields: [receptionManagerId], references: [id])
+  executor         User?     @relation("ExecutorCases", fields: [executorId], references: [id])
+  borrowers   Borrower[]
+  contracts   Contract[]
+  documents   Document[]
+  payments    Payment[]
+  invitations Invitation[]
+  history     CaseHistory[]
+}
+
+model Borrower {
+  id         String         @id @default(cuid())
+  caseId     String
+  clientId   String
+  status     BorrowerStatus @default(CANDIDATE)
+  sequence   Int
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  case      Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client    Client     @relation(fields: [clientId], references: [id])
+  contracts Contract[]
+  @@unique([caseId, sequence])
+}
+
+model ContractTemplate {
+  id          String      @id @default(cuid())
+  name        String
+  serviceType ServiceType
+  version     Int
+  htmlBody    String
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  contracts Contract[]
+  @@unique([serviceType, version])
+}
+
+model Contract {
+  id          String         @id @default(cuid())
+  displayId   String         @unique
+  caseId      String
+  borrowerId  String?
+  templateId  String
+  status      ContractStatus @default(DRAFT)
+  pdfUrl      String?
+  signedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  case       Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  borrower   Borrower?        @relation(fields: [borrowerId], references: [id])
+  template   ContractTemplate @relation(fields: [templateId], references: [id])
+  invitations Invitation[]
+}
+
+model Invitation {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  caseId     String
+  contractId String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  case     Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  contract Contract? @relation(fields: [contractId], references: [id])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  caseId    String?
+  clientId  String?
+  type      String
+  fileUrl   String
+  fileName  String?
+  mimeType  String?
+  createdAt DateTime @default(now())
+  case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  caseId    String
+  amount    Decimal       @db.Decimal(18, 2)
+  status    PaymentStatus @default(PENDING)
+  method    String?
+  paidAt    DateTime?
+  reference String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model CaseHistory {
+  id         String      @id @default(cuid())
+  caseId     String
+  fromStatus CaseStatus?
+  toStatus   CaseStatus
+  note       String?
+  createdAt  DateTime    @default(now())
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model KioskDevice {
+  id            String   @id @default(cuid())
+  branchId      String
+  managerId     String?
+  deviceCode    String   @unique
+  name          String
+  authTokenHash String   @unique
+  isOnline      Boolean  @default(false)
+  lastSeenAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  branch  Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  manager User?  @relation(fields: [managerId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  entityType String
+  entityId   String
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user User? @relation(fields: [userId], references: [id])
+}
