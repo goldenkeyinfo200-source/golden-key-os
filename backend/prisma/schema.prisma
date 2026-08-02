@@ -104,11 +104,7 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company Company @relation(
-    fields: [companyId],
-    references: [id],
-    onDelete: Cascade
-  )
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   users   User[]
   cases   Case[]
@@ -132,15 +128,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  company Company? @relation(
-    fields: [companyId],
-    references: [id]
-  )
+  company Company? @relation(fields: [companyId], references: [id])
 
-  branch Branch? @relation(
-    fields: [branchId],
-    references: [id]
-  )
+  branch Branch? @relation(fields: [branchId], references: [id])
 
   managedCases  Case[]        @relation("ReceptionManagerCases")
   executedCases Case[]        @relation("ExecutorCases")
@@ -199,28 +189,13 @@ model Case {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  branch Branch? @relation(
-    fields: [branchId],
-    references: [id]
-  )
+  branch Branch? @relation(fields: [branchId], references: [id])
 
-  applicant Client @relation(
-    "ApplicantCases",
-    fields: [applicantClientId],
-    references: [id]
-  )
+  applicant Client @relation("ApplicantCases", fields: [applicantClientId], references: [id])
 
-  receptionManager User? @relation(
-    "ReceptionManagerCases",
-    fields: [receptionManagerId],
-    references: [id]
-  )
+  receptionManager User? @relation("ReceptionManagerCases", fields: [receptionManagerId], references: [id])
 
-  executor User? @relation(
-    "ExecutorCases",
-    fields: [executorId],
-    references: [id]
-  )
+  executor User? @relation("ExecutorCases", fields: [executorId], references: [id])
 
   borrowers   Borrower[]
   contracts   Contract[]
@@ -250,16 +225,9 @@ model Borrower {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  client Client @relation(
-    fields: [clientId],
-    references: [id]
-  )
+  client Client @relation(fields: [clientId], references: [id])
 
   contracts Contract[]
 
@@ -299,21 +267,11 @@ model Contract {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  borrower Borrower? @relation(
-    fields: [borrowerId],
-    references: [id]
-  )
+  borrower Borrower? @relation(fields: [borrowerId], references: [id])
 
-  template ContractTemplate @relation(
-    fields: [templateId],
-    references: [id]
-  )
+  template ContractTemplate @relation(fields: [templateId], references: [id])
 
   invitations Invitation[]
 
@@ -332,16 +290,9 @@ model Invitation {
   usedAt     DateTime?
   createdAt  DateTime @default(now())
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  contract Contract? @relation(
-    fields: [contractId],
-    references: [id]
-  )
+  contract Contract? @relation(fields: [contractId], references: [id])
 
   @@index([caseId])
   @@index([contractId])
@@ -358,17 +309,9 @@ model Document {
   mimeType  String?
   createdAt DateTime @default(now())
 
-  case Case? @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case? @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  client Client? @relation(
-    fields: [clientId],
-    references: [id],
-    onDelete: Cascade
-  )
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([clientId])
@@ -386,11 +329,7 @@ model Payment {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([status])
@@ -405,11 +344,7 @@ model CaseHistory {
   note       String?
   createdAt  DateTime    @default(now())
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([toStatus])
@@ -437,16 +372,9 @@ model BankOffer {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  case Case @relation(
-    fields: [caseId],
-    references: [id],
-    onDelete: Cascade
-  )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  bankEmployee User? @relation(
-    fields: [bankEmployeeId],
-    references: [id]
-  )
+  bankEmployee User? @relation(fields: [bankEmployeeId], references: [id])
 
   @@index([caseId])
   @@index([bankEmployeeId])
@@ -467,16 +395,9 @@ model KioskDevice {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  branch Branch @relation(
-    fields: [branchId],
-    references: [id],
-    onDelete: Cascade
-  )
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-  manager User? @relation(
-    fields: [managerId],
-    references: [id]
-  )
+  manager User? @relation(fields: [managerId], references: [id])
 
   @@index([branchId])
   @@index([managerId])
@@ -492,10 +413,7 @@ model AuditLog {
   metadata   Json?
   createdAt  DateTime @default(now())
 
-  user User? @relation(
-    fields: [userId],
-    references: [id]
-  )
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([entityType, entityId])
