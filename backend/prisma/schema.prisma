@@ -76,13 +76,22 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum BankOfferStatus {
+  DRAFT
+  SUBMITTED
+  SELECTED
+  REJECTED
+  CANCELLED
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  branches  Branch[]
-  users     User[]
+
+  branches Branch[]
+  users    User[]
 }
 
 model Branch {
@@ -94,10 +103,18 @@ model Branch {
   phone     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  company Company @relation(
+    fields: [companyId],
+    references: [id],
+    onDelete: Cascade
+  )
+
   users   User[]
   cases   Case[]
   kiosks  KioskDevice[]
+
+  @@index([companyId])
 }
 
 model User {
@@ -114,12 +131,27 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  company       Company? @relation(fields: [companyId], references: [id])
-  branch        Branch?  @relation(fields: [branchId], references: [id])
-  managedCases  Case[]   @relation("ReceptionManagerCases")
-  executedCases Case[]   @relation("ExecutorCases")
+
+  company Company? @relation(
+    fields: [companyId],
+    references: [id]
+  )
+
+  branch Branch? @relation(
+    fields: [branchId],
+    references: [id]
+  )
+
+  managedCases  Case[]        @relation("ReceptionManagerCases")
+  executedCases Case[]        @relation("ExecutorCases")
   auditLogs     AuditLog[]
   kiosks        KioskDevice[]
+  bankOffers    BankOffer[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([role])
+  @@index([isActive])
 }
 
 model Client {
@@ -134,9 +166,16 @@ model Client {
   phone          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
   applicantCases Case[]     @relation("ApplicantCases")
   borrowers      Borrower[]
   documents      Document[]
+
+  @@index([fullName])
+  @@index([phone])
+  @@index([pinfl])
+  @@index([passportNumber])
+  @@index([telegramId])
 }
 
 model Case {
@@ -159,16 +198,45 @@ model Case {
   completedAt        DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  branch           Branch?   @relation(fields: [branchId], references: [id])
-  applicant        Client    @relation("ApplicantCases", fields: [applicantClientId], references: [id])
-  receptionManager User?     @relation("ReceptionManagerCases", fields: [receptionManagerId], references: [id])
-  executor         User?     @relation("ExecutorCases", fields: [executorId], references: [id])
+
+  branch Branch? @relation(
+    fields: [branchId],
+    references: [id]
+  )
+
+  applicant Client @relation(
+    "ApplicantCases",
+    fields: [applicantClientId],
+    references: [id]
+  )
+
+  receptionManager User? @relation(
+    "ReceptionManagerCases",
+    fields: [receptionManagerId],
+    references: [id]
+  )
+
+  executor User? @relation(
+    "ExecutorCases",
+    fields: [executorId],
+    references: [id]
+  )
+
   borrowers   Borrower[]
   contracts   Contract[]
   documents   Document[]
   payments    Payment[]
   invitations Invitation[]
   history     CaseHistory[]
+  bankOffers  BankOffer[]
+
+  @@index([branchId])
+  @@index([applicantClientId])
+  @@index([receptionManagerId])
+  @@index([executorId])
+  @@index([serviceType])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Borrower {
@@ -181,10 +249,24 @@ model Borrower {
   rejectedAt DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
-  case      Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  client    Client     @relation(fields: [clientId], references: [id])
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  client Client @relation(
+    fields: [clientId],
+    references: [id]
+  )
+
   contracts Contract[]
+
   @@unique([caseId, sequence])
+  @@index([caseId])
+  @@index([clientId])
+  @@index([status])
 }
 
 model ContractTemplate {
@@ -196,8 +278,12 @@ model ContractTemplate {
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
   contracts Contract[]
+
   @@unique([serviceType, version])
+  @@index([serviceType])
+  @@index([isActive])
 }
 
 model Contract {
@@ -212,10 +298,29 @@ model Contract {
   cancelledAt DateTime?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
-  case       Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  borrower   Borrower?        @relation(fields: [borrowerId], references: [id])
-  template   ContractTemplate @relation(fields: [templateId], references: [id])
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  borrower Borrower? @relation(
+    fields: [borrowerId],
+    references: [id]
+  )
+
+  template ContractTemplate @relation(
+    fields: [templateId],
+    references: [id]
+  )
+
   invitations Invitation[]
+
+  @@index([caseId])
+  @@index([borrowerId])
+  @@index([templateId])
+  @@index([status])
 }
 
 model Invitation {
@@ -226,8 +331,21 @@ model Invitation {
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime @default(now())
-  case     Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  contract Contract? @relation(fields: [contractId], references: [id])
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  contract Contract? @relation(
+    fields: [contractId],
+    references: [id]
+  )
+
+  @@index([caseId])
+  @@index([contractId])
+  @@index([expiresAt])
 }
 
 model Document {
@@ -239,8 +357,22 @@ model Document {
   fileName  String?
   mimeType  String?
   createdAt DateTime @default(now())
-  case   Case?   @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  case Case? @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  client Client? @relation(
+    fields: [clientId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([caseId])
+  @@index([clientId])
+  @@index([type])
 }
 
 model Payment {
@@ -253,7 +385,16 @@ model Payment {
   reference String?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([caseId])
+  @@index([status])
+  @@index([paidAt])
 }
 
 model CaseHistory {
@@ -263,7 +404,55 @@ model CaseHistory {
   toStatus   CaseStatus
   note       String?
   createdAt  DateTime    @default(now())
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([caseId])
+  @@index([toStatus])
+  @@index([createdAt])
+}
+
+model BankOffer {
+  id               String          @id @default(cuid())
+  caseId           String
+  bankEmployeeId   String?
+  bankName         String
+  status           BankOfferStatus @default(DRAFT)
+  interestRate     Decimal?        @db.Decimal(8, 3)
+  termMonths       Int?
+  approvedAmount   Decimal?        @db.Decimal(18, 2)
+  initialPayment   Decimal?        @db.Decimal(18, 2)
+  monthlyPayment   Decimal?        @db.Decimal(18, 2)
+  insuranceAmount  Decimal?        @db.Decimal(18, 2)
+  commissionAmount Decimal?        @db.Decimal(18, 2)
+  validUntil       DateTime?
+  conditions       String?
+  rejectionReason  String?
+  submittedAt      DateTime?
+  selectedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  bankEmployee User? @relation(
+    fields: [bankEmployeeId],
+    references: [id]
+  )
+
+  @@index([caseId])
+  @@index([bankEmployeeId])
+  @@index([status])
+  @@index([bankName])
+  @@index([createdAt])
 }
 
 model KioskDevice {
@@ -277,8 +466,21 @@ model KioskDevice {
   lastSeenAt    DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  branch  Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  manager User?  @relation(fields: [managerId], references: [id])
+
+  branch Branch @relation(
+    fields: [branchId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  manager User? @relation(
+    fields: [managerId],
+    references: [id]
+  )
+
+  @@index([branchId])
+  @@index([managerId])
+  @@index([isOnline])
 }
 
 model AuditLog {
@@ -289,5 +491,14 @@ model AuditLog {
   action     String
   metadata   Json?
   createdAt  DateTime @default(now())
-  user User? @relation(fields: [userId], references: [id])
+
+  user User? @relation(
+    fields: [userId],
+    references: [id]
+  )
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
 }
