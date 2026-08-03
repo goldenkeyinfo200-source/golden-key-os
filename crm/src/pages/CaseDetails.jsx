@@ -19,12 +19,6 @@ import {
 } from 'lucide-react';
 
 import { apiRequest } from '../services/api.js';
-import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
-import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
-import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
-import '../styles/bank-offers.css';
-import '../styles/documents.css';
-import '../styles/contracts.css';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -204,6 +198,23 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   const [statusError, setStatusError] = useState('');
   const [statusSuccess, setStatusSuccess] = useState('');
 
+  const [financeForm, setFinanceForm] = useState({
+    approvedAmount: '',
+    serviceFeePercent: '4.5',
+    serviceFeeOverride: '',
+    collateralType: '',
+    collateralAddress: '',
+    collateralCadastreNumber: '',
+    collateralOwnerFullName: '',
+    collateralOwnerPinfl: '',
+    collateralArea: '',
+    collateralEstimatedValue: '',
+    collateralNotes: '',
+  });
+  const [savingFinance, setSavingFinance] = useState(false);
+  const [financeError, setFinanceError] = useState('');
+  const [financeSuccess, setFinanceSuccess] = useState('');
+
   const loadCase = useCallback(async () => {
     if (!caseId) {
       return;
@@ -214,8 +225,38 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
     try {
       const data = await apiRequest(`/cases/${caseId}`);
-      setItem(data.item || null);
-      setStatusValue(data.item?.status || '');
+      const loadedItem = data.item || null;
+
+      setItem(loadedItem);
+      setStatusValue(loadedItem?.status || '');
+
+      if (loadedItem) {
+        setFinanceForm({
+          approvedAmount: loadedItem.approvedAmount ?? '',
+          serviceFeePercent:
+            loadedItem.serviceFeePercent ?? '4.5',
+          serviceFeeOverride:
+            loadedItem.serviceFee !== null &&
+            loadedItem.serviceFee !== undefined &&
+            Number(loadedItem.serviceFee) !==
+              Number(loadedItem.serviceFeeAutoAmount)
+              ? loadedItem.serviceFee
+              : '',
+          collateralType: loadedItem.collateralType || '',
+          collateralAddress:
+            loadedItem.collateralAddress || '',
+          collateralCadastreNumber:
+            loadedItem.collateralCadastreNumber || '',
+          collateralOwnerFullName:
+            loadedItem.collateralOwnerFullName || '',
+          collateralOwnerPinfl:
+            loadedItem.collateralOwnerPinfl || '',
+          collateralArea: loadedItem.collateralArea ?? '',
+          collateralEstimatedValue:
+            loadedItem.collateralEstimatedValue ?? '',
+          collateralNotes: loadedItem.collateralNotes || '',
+        });
+      }
     } catch (error) {
       setPageError(error.message || 'Мурожаат маълумотларини олиб бўлмади.');
 
@@ -269,6 +310,84 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
       setStatusError(error.message || 'Статусни ўзгартириб бўлмади.');
     } finally {
       setSavingStatus(false);
+    }
+  };
+
+  const updateFinanceField = (field, value) => {
+    setFinanceForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const calculatedFee = useMemo(() => {
+    const amount = Number(
+      String(financeForm.approvedAmount)
+        .replace(/\s/g, '')
+        .replace(',', '.')
+    );
+    const percent = Number(
+      String(financeForm.serviceFeePercent)
+        .replace(/\s/g, '')
+        .replace(',', '.')
+    );
+
+    if (!Number.isFinite(amount) || !Number.isFinite(percent)) {
+      return null;
+    }
+
+    return Math.round((amount * percent) / 100);
+  }, [
+    financeForm.approvedAmount,
+    financeForm.serviceFeePercent,
+  ]);
+
+  const saveFinanceCollateral = async (event) => {
+    event.preventDefault();
+
+    if (!item) {
+      return;
+    }
+
+    setSavingFinance(true);
+    setFinanceError('');
+    setFinanceSuccess('');
+
+    try {
+      const data = await apiRequest(
+        `/cases/${item.id}/finance-collateral`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(financeForm),
+        }
+      );
+
+      setItem(data.item);
+
+      setFinanceForm((current) => ({
+        ...current,
+        approvedAmount: data.item.approvedAmount ?? '',
+        serviceFeePercent:
+          data.item.serviceFeePercent ?? '4.5',
+        serviceFeeOverride:
+          Number(data.item.serviceFee) !==
+          Number(data.item.serviceFeeAutoAmount)
+            ? data.item.serviceFee ?? ''
+            : '',
+      }));
+
+      setFinanceSuccess(
+        'Хизмат ҳақи ва гаров мулки маълумотлари сақланди.'
+      );
+
+      onChanged?.(data.item);
+    } catch (error) {
+      setFinanceError(
+        error.message ||
+          'Молиявий ва гаров маълумотларини сақлаб бўлмади.'
+      );
+    } finally {
+      setSavingFinance(false);
     }
   };
 
@@ -496,31 +615,87 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             )}
           </section>
 
-          <BankOffersSection
-            caseId={item.id}
-            onCaseChanged={async () => {
-              await loadCase();
-              onChanged?.();
-            }}
-          />
+          <section className="panel details-section">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Ҳужжатлар</span>
+                <h3>Юкланган файллар</h3>
+              </div>
 
-          <DocumentsSection
-            caseId={item.id}
-            applicantClientId={item.applicantClientId || item.applicant?.id}
-            onChanged={async () => {
-              await loadCase();
-              onChanged?.();
-            }}
-          />
+              <FileText size={22} />
+            </div>
 
-          <ContractsSection
-            caseId={item.id}
-            onChanged={async () => {
-              await loadCase();
-              onChanged?.();
-            }}
-          />
+            {item.documents?.length ? (
+              <div className="case-document-list">
+                {item.documents.map((document) => (
+                  <a
+                    href={document.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="case-document-item"
+                    key={document.id}
+                  >
+                    <FileText size={19} />
 
+                    <div>
+                      <strong>{document.fileName || document.type}</strong>
+                      <span>{document.mimeType || 'Файл'}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock
+                icon={FileText}
+                title="Ҳужжатлар юкланмаган"
+                text="Паспорт, кадастр ва бошқа файллар кейинги босқичда шу ерга юкланади."
+              />
+            )}
+          </section>
+
+          <section className="panel details-section">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Шартномалар</span>
+                <h3>Мижоз билан тузилган шартномалар</h3>
+              </div>
+
+              <BriefcaseBusiness size={22} />
+            </div>
+
+            {item.contracts?.length ? (
+              <div className="details-card-list">
+                {item.contracts.map((contract) => (
+                  <div className="details-list-card" key={contract.id}>
+                    <div>
+                      <strong>{contract.displayId}</strong>
+                      <span>
+                        {contract.status} · {formatDate(contract.createdAt)}
+                      </span>
+                    </div>
+
+                    {contract.pdfUrl ? (
+                      <a
+                        href={contract.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        PDF очиш
+                      </a>
+                    ) : (
+                      <span className="details-muted">PDF тайёр эмас</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock
+                icon={BriefcaseBusiness}
+                title="Шартнома ҳали яратилмаган"
+                text="Мижоз қарор қабул қилгандан кейин шартнома шу ерда пайдо бўлади."
+              />
+            )}
+          </section>
         </div>
 
         <aside className="case-details-side-column">
@@ -599,8 +774,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <section className="panel details-section">
             <div className="details-section-head">
               <div>
-                <span className="section-kicker">Хизмат</span>
-                <h3>Молиявий маълумот</h3>
+                <span className="section-kicker">Хизмат ва гаров</span>
+                <h3>Молиявий ҳамда мулк маълумотлари</h3>
               </div>
 
               <WalletCards size={21} />
@@ -622,6 +797,264 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                 <strong>{formatAmount(item.serviceFee)}</strong>
               </div>
             </div>
+
+            <form
+              onSubmit={saveFinanceCollateral}
+              style={{
+                display: 'grid',
+                gap: 14,
+                marginTop: 18,
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                <label>
+                  <span>Тасдиқланган кредит суммаси</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={financeForm.approvedAmount}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'approvedAmount',
+                        event.target.value
+                      )
+                    }
+                    placeholder="300000000"
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Хизмат ҳақи фоизи</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={financeForm.serviceFeePercent}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'serviceFeePercent',
+                        event.target.value
+                      )
+                    }
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Автоматик ҳисоб</span>
+                  <input
+                    type="text"
+                    value={formatAmount(calculatedFee)}
+                    readOnly
+                  />
+                </label>
+
+                <label>
+                  <span>Якуний хизмат ҳақи — қўлда ўзгартириш</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={financeForm.serviceFeeOverride}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'serviceFeeOverride',
+                        event.target.value
+                      )
+                    }
+                    placeholder="Бўш қолса 4,5% автоматик"
+                    disabled={savingFinance}
+                  />
+                </label>
+              </div>
+
+              <div
+                style={{
+                  paddingTop: 6,
+                  borderTop: '1px solid #ececec',
+                }}
+              >
+                <strong>Гаровга олинаётган мулк</strong>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                <label>
+                  <span>Мулк тури</span>
+                  <select
+                    value={financeForm.collateralType}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralType',
+                        event.target.value
+                      )
+                    }
+                    disabled={savingFinance}
+                  >
+                    <option value="">Танланг</option>
+                    <option value="Квартира">Квартира</option>
+                    <option value="Ҳовли уй">Ҳовли уй</option>
+                    <option value="Нотурар жой">Нотурар жой</option>
+                    <option value="Ер участкаси">Ер участкаси</option>
+                    <option value="Бошқа">Бошқа</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Кадастр рақами</span>
+                  <input
+                    value={financeForm.collateralCadastreNumber}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralCadastreNumber',
+                        event.target.value
+                      )
+                    }
+                    placeholder="Кадастр рақами"
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Мулкдор Ф.И.Ш.</span>
+                  <input
+                    value={financeForm.collateralOwnerFullName}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralOwnerFullName',
+                        event.target.value
+                      )
+                    }
+                    placeholder="Мулкдорнинг тўлиқ Ф.И.Ш."
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Мулкдор ЖШШИРи</span>
+                  <input
+                    value={financeForm.collateralOwnerPinfl}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralOwnerPinfl',
+                        event.target.value
+                      )
+                    }
+                    placeholder="14 хонали ЖШШИР"
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Умумий майдони, м²</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={financeForm.collateralArea}
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralArea',
+                        event.target.value
+                      )
+                    }
+                    placeholder="71.17"
+                    disabled={savingFinance}
+                  />
+                </label>
+
+                <label>
+                  <span>Баҳоланган қиймати</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={
+                      financeForm.collateralEstimatedValue
+                    }
+                    onChange={(event) =>
+                      updateFinanceField(
+                        'collateralEstimatedValue',
+                        event.target.value
+                      )
+                    }
+                    placeholder="500000000"
+                    disabled={savingFinance}
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>Мулк манзили</span>
+                <textarea
+                  rows={2}
+                  value={financeForm.collateralAddress}
+                  onChange={(event) =>
+                    updateFinanceField(
+                      'collateralAddress',
+                      event.target.value
+                    )
+                  }
+                  placeholder="Вилоят, шаҳар/туман, маҳалла, кўча ва уй"
+                  disabled={savingFinance}
+                />
+              </label>
+
+              <label>
+                <span>Гаров мулки ҳақида қўшимча маълумот</span>
+                <textarea
+                  rows={3}
+                  value={financeForm.collateralNotes}
+                  onChange={(event) =>
+                    updateFinanceField(
+                      'collateralNotes',
+                      event.target.value
+                    )
+                  }
+                  placeholder="Мулк ҳолати, таъқиқ, улушдорлар ва бошқа изоҳлар"
+                  disabled={savingFinance}
+                />
+              </label>
+
+              {financeError ? (
+                <div className="form-error">{financeError}</div>
+              ) : null}
+
+              {financeSuccess ? (
+                <div className="form-success">{financeSuccess}</div>
+              ) : null}
+
+              <button
+                type="submit"
+                className="primary"
+                disabled={savingFinance}
+              >
+                {savingFinance ? (
+                  <>
+                    <LoaderCircle className="spin" size={17} />
+                    Сақланмоқда...
+                  </>
+                ) : (
+                  'Молиявий ва гаров маълумотларини сақлаш'
+                )}
+              </button>
+            </form>
           </section>
 
           <section className="panel details-section">

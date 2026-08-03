@@ -137,17 +137,47 @@ export function defaultContractHtml() {
       <section>
         <h2>5. ХИЗМАТ ҲАҚИ ВА ҲИСОБ-КИТОБ</h2>
         <p>
-          5.1. Хизмат ҳақи: <strong>{{serviceFee}}</strong>.
+          5.1. Ижрочининг хизмат ҳақи тасдиқланган кредит суммасининг
+          <strong>{{serviceFeePercent}} фоизини</strong> ташкил этади.
         </p>
         <p>
-          5.2. Хизмат ҳақи Мижозга олдиндан маълум қилинади ва CRM тизимида
+          5.2. Тасдиқланган кредит суммаси:
+          <strong>{{approvedAmount}}</strong>.
+          Автоматик ҳисобланган хизмат ҳақи:
+          <strong>{{serviceFeeAutoAmount}}</strong>.
+          Мазкур шартнома бўйича якуний хизмат ҳақи:
+          <strong>{{serviceFee}}</strong>.
+        </p>
+        <p>
+          5.3. Хизмат ҳақи Мижозга олдиндан маълум қилинади ва CRM тизимида
           қайд этилади. Тўлов нақд, банк ўтказмаси ёки қонунчиликда рухсат
           этилган бошқа усулда амалга оширилиши мумкин.
         </p>
         <p>
-          5.3. Банк, нотариус, баҳоловчи, суғурта ташкилоти ва бошқа учинчи
+          5.4. Банк, нотариус, баҳоловчи, суғурта ташкилоти ва бошқа учинчи
           шахсларнинг алоҳида харажатлари, агар бошқача келишилмаган бўлса,
           хизмат ҳақига кирмайди.
+        </p>
+      </section>
+
+
+      <section>
+        <h2>6. ГАРОВГА ОЛИНАЁТГАН МУЛК МАЪЛУМОТЛАРИ</h2>
+        <p><strong>Мулк тури:</strong> {{collateralType}}</p>
+        <p><strong>Манзили:</strong> {{collateralAddress}}</p>
+        <p><strong>Кадастр рақами:</strong> {{collateralCadastreNumber}}</p>
+        <p><strong>Мулкдор Ф.И.Ш.:</strong> {{collateralOwnerFullName}}</p>
+        <p><strong>Мулкдор ЖШШИРи:</strong> {{collateralOwnerPinfl}}</p>
+        <p><strong>Умумий майдони:</strong> {{collateralArea}}</p>
+        <p><strong>Баҳоланган қиймати:</strong> {{collateralEstimatedValue}}</p>
+        <p><strong>Қўшимча маълумот:</strong> {{collateralNotes}}</p>
+        <p>
+          6.1. Мижоз гаров мулкига оид тақдим этилган маълумот ва
+          ҳужжатларнинг ҳаққонийлиги учун жавоб беради.
+        </p>
+        <p>
+          6.2. Мулкнинг якуний гаров қиймати банк, лицензияга эга баҳоловчи
+          ташкилот ва тегишли ваколатли органлар хулосаси асосида белгиланади.
         </p>
       </section>
 
@@ -307,6 +337,34 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
       selectedOffer?.approvedAmount ?? caseItem.approvedAmount
     ),
     bankName: selectedOffer?.bankName || caseItem.bankName || '—',
+    serviceFeePercent:
+      caseItem.serviceFeePercent !== null &&
+      caseItem.serviceFeePercent !== undefined
+        ? new Intl.NumberFormat('uz-UZ', {
+            maximumFractionDigits: 3,
+          }).format(Number(caseItem.serviceFeePercent))
+        : '4,5',
+    serviceFeeAutoAmount: formatMoney(caseItem.serviceFeeAutoAmount),
     serviceFee: formatMoney(caseItem.serviceFee),
+
+    collateralType: caseItem.collateralType || '—',
+    collateralAddress: caseItem.collateralAddress || '—',
+    collateralCadastreNumber:
+      caseItem.collateralCadastreNumber || '—',
+    collateralOwnerFullName:
+      caseItem.collateralOwnerFullName || '—',
+    collateralOwnerPinfl:
+      caseItem.collateralOwnerPinfl || '—',
+    collateralArea:
+      caseItem.collateralArea !== null &&
+      caseItem.collateralArea !== undefined
+        ? `${new Intl.NumberFormat('uz-UZ', {
+            maximumFractionDigits: 2,
+          }).format(Number(caseItem.collateralArea))} м²`
+        : '—',
+    collateralEstimatedValue: formatMoney(
+      caseItem.collateralEstimatedValue
+    ),
+    collateralNotes: caseItem.collateralNotes || '—',
   };
 }

@@ -138,6 +138,76 @@ const updateStatusSchema = z.object({
     .or(z.literal('')),
 });
 
+
+const updateFinanceCollateralSchema = z.object({
+  approvedAmount: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  serviceFeePercent: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  serviceFeeOverride: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  collateralType: z
+    .string()
+    .trim()
+    .max(100, 'Гаров тури жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  collateralAddress: z
+    .string()
+    .trim()
+    .max(500, 'Гаров манзили жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  collateralCadastreNumber: z
+    .string()
+    .trim()
+    .max(100, 'Кадастр рақами жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  collateralOwnerFullName: z
+    .string()
+    .trim()
+    .max(200, 'Мулкдор Ф.И.Ш. жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  collateralOwnerPinfl: z
+    .string()
+    .trim()
+    .max(20, 'Мулкдор ЖШШИРи жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  collateralArea: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  collateralEstimatedValue: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  collateralNotes: z
+    .string()
+    .trim()
+    .max(1500, 'Гаров изоҳи жуда узун')
+    .optional()
+    .or(z.literal('')),
+});
+
 const assignExecutorSchema = z.object({
   executorId: z.string().trim().min(1, 'Ижрочи танланмаган'),
 });
@@ -168,6 +238,34 @@ const parseAmount = (value) => {
   }
 
   return amount;
+};
+
+
+const calculateServiceFee = ({
+  approvedAmount,
+  percent,
+  overrideAmount,
+}) => {
+  const safePercent =
+    Number.isFinite(percent) && percent >= 0
+      ? percent
+      : 4.5;
+
+  const autoAmount =
+    Number.isFinite(approvedAmount) && approvedAmount >= 0
+      ? Math.round((approvedAmount * safePercent) / 100)
+      : null;
+
+  const finalAmount =
+    Number.isFinite(overrideAmount) && overrideAmount >= 0
+      ? overrideAmount
+      : autoAmount;
+
+  return {
+    percent: safePercent,
+    autoAmount,
+    finalAmount,
+  };
 };
 
 const parseDate = (value) => {
@@ -291,23 +389,6 @@ const caseInclude = {
       method: true,
       paidAt: true,
       reference: true,
-      createdAt: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  },
-
-
-  documents: {
-    select: {
-      id: true,
-      caseId: true,
-      clientId: true,
-      type: true,
-      fileUrl: true,
-      fileName: true,
-      mimeType: true,
       createdAt: true,
     },
     orderBy: {
@@ -765,6 +846,174 @@ router.post(
 
       return res.status(201).json({
         message: 'Мурожаат муваффақиятли яратилди',
+        item: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/**
+ * PATCH /api/cases/:id/finance-collateral
+ *
+ * Тасдиқланган кредит суммаси, 4.5% хизмат ҳақи
+ * ва гаровга олинаётган мулк маълумотларини сақлайди.
+ */
+router.patch(
+  '/:id/finance-collateral',
+  allowRoles(
+    'SUPER_ADMIN',
+    'DIRECTOR',
+    'BRANCH_MANAGER',
+    'RECEPTION_MANAGER',
+    'EXECUTOR',
+    'ACCOUNTANT'
+  ),
+  async (req, res, next) => {
+    try {
+      const parsed = updateFinanceCollateralSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Молиявий ёки гаров маълумотлари нотўғри',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const existingCase = await prisma.case.findUnique({
+        where: {
+          id: req.params.id,
+        },
+        include: {
+          bankOffers: {
+            where: {
+              status: 'SELECTED',
+            },
+            orderBy: {
+              selectedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      });
+
+      if (!existingCase) {
+        return res.status(404).json({
+          error: 'Мурожаат топилмади',
+        });
+      }
+
+      const selectedOffer = existingCase.bankOffers[0] || null;
+
+      const bodyApprovedAmount = parseAmount(parsed.data.approvedAmount);
+      const selectedApprovedAmount = parseAmount(
+        selectedOffer?.approvedAmount?.toString()
+      );
+      const existingApprovedAmount = parseAmount(
+        existingCase.approvedAmount?.toString()
+      );
+
+      const approvedAmount =
+        bodyApprovedAmount ??
+        selectedApprovedAmount ??
+        existingApprovedAmount;
+
+      const percentInput = parseAmount(parsed.data.serviceFeePercent);
+      const currentPercent = parseAmount(
+        existingCase.serviceFeePercent?.toString()
+      );
+
+      const serviceFeePercent =
+        percentInput ?? currentPercent ?? 4.5;
+
+      if (serviceFeePercent > 100) {
+        return res.status(400).json({
+          error: 'Хизмат ҳақи фоизи 100% дан ошмаслиги керак',
+        });
+      }
+
+      const overrideAmount = parseAmount(
+        parsed.data.serviceFeeOverride
+      );
+
+      const fee = calculateServiceFee({
+        approvedAmount,
+        percent: serviceFeePercent,
+        overrideAmount,
+      });
+
+      const collateralArea = parseAmount(parsed.data.collateralArea);
+      const collateralEstimatedValue = parseAmount(
+        parsed.data.collateralEstimatedValue
+      );
+
+      const result = await prisma.$transaction(async (tx) => {
+        const item = await tx.case.update({
+          where: {
+            id: existingCase.id,
+          },
+          data: {
+            approvedAmount,
+            serviceFeePercent: fee.percent,
+            serviceFeeAutoAmount: fee.autoAmount,
+            serviceFee: fee.finalAmount,
+
+            collateralType: normalizeOptional(
+              parsed.data.collateralType
+            ),
+            collateralAddress: normalizeOptional(
+              parsed.data.collateralAddress
+            ),
+            collateralCadastreNumber: normalizeOptional(
+              parsed.data.collateralCadastreNumber
+            ),
+            collateralOwnerFullName: normalizeOptional(
+              parsed.data.collateralOwnerFullName
+            ),
+            collateralOwnerPinfl: normalizeOptional(
+              parsed.data.collateralOwnerPinfl
+            ),
+            collateralArea,
+            collateralEstimatedValue,
+            collateralNotes: normalizeOptional(
+              parsed.data.collateralNotes
+            ),
+          },
+          include: caseInclude,
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Case',
+            entityId: existingCase.id,
+            action: 'CASE_FINANCE_COLLATERAL_UPDATED',
+            metadata: {
+              approvedAmount,
+              serviceFeePercent: fee.percent,
+              serviceFeeAutoAmount: fee.autoAmount,
+              serviceFeeFinalAmount: fee.finalAmount,
+              serviceFeeOverridden:
+                overrideAmount !== null &&
+                overrideAmount !== fee.autoAmount,
+              collateralType: normalizeOptional(
+                parsed.data.collateralType
+              ),
+              collateralCadastreNumber: normalizeOptional(
+                parsed.data.collateralCadastreNumber
+              ),
+            },
+          },
+        });
+
+        return item;
+      });
+
+      return res.json({
+        message:
+          'Молиявий маълумотлар ва гаров мулки сақланди',
         item: result,
       });
     } catch (error) {
