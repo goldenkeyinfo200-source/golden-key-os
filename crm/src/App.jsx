@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { CasesPage } from './pages/CasesPage.jsx';
+import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import {
   API_URL,
@@ -639,6 +640,15 @@ export function App() {
 
   if (!user) {
     return <LoginPage onLogin={setUser} />;
+  }
+
+  if (user.role === 'BANK_EMPLOYEE') {
+    return (
+      <BankPortalPage
+        user={user}
+        onLogout={() => setUser(null)}
+      />
+    );
   }
 
   return <Dashboard user={user} onLogout={() => setUser(null)} />;

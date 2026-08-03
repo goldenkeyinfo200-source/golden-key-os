@@ -433,6 +433,12 @@ router.get('/stats', async (req, res, next) => {
       where.branchId = req.user.branchId;
     }
 
+    if (req.user.role === 'BANK_EMPLOYEE') {
+      where.status = {
+        in: ['BANK_REVIEW', 'CLIENT_PREAPPROVED'],
+      };
+    }
+
     const [
       total,
       newCases,
@@ -610,6 +616,17 @@ router.get('/', async (req, res, next) => {
       where.branchId = req.user.branchId;
     }
 
+    if (req.user.role === 'BANK_EMPLOYEE') {
+      where.status = status && [
+        'BANK_REVIEW',
+        'CLIENT_PREAPPROVED',
+      ].includes(status)
+        ? status
+        : {
+            in: ['BANK_REVIEW', 'CLIENT_PREAPPROVED'],
+          };
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.case.findMany({
         where,
@@ -711,6 +728,10 @@ router.get('/:id', async (req, res, next) => {
         req.user.role === 'BRANCH_MANAGER' &&
         req.user.branchId &&
         item.branchId === req.user.branchId
+      ) ||
+      (
+        req.user.role === 'BANK_EMPLOYEE' &&
+        ['BANK_REVIEW', 'CLIENT_PREAPPROVED'].includes(item.status)
       );
 
     if (!canView) {
