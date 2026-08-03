@@ -617,14 +617,18 @@ router.get('/', async (req, res, next) => {
     }
 
     if (req.user.role === 'BANK_EMPLOYEE') {
-      where.status = status && [
-        'BANK_REVIEW',
-        'CLIENT_PREAPPROVED',
-      ].includes(status)
-        ? status
-        : {
-            in: ['BANK_REVIEW', 'CLIENT_PREAPPROVED'],
-          };
+      if (!req.user.bankId) {
+        where.id = '__NO_BANK_ASSIGNED__';
+      } else {
+        where.bankAssignments = {
+          some: {
+            bankId: req.user.bankId,
+            status: {
+              notIn: ['CLOSED'],
+            },
+          },
+        };
+      }
     }
 
     const [items, total] = await prisma.$transaction([
@@ -731,7 +735,16 @@ router.get('/:id', async (req, res, next) => {
       ) ||
       (
         req.user.role === 'BANK_EMPLOYEE' &&
-        ['BANK_REVIEW', 'CLIENT_PREAPPROVED'].includes(item.status)
+        req.user.bankId &&
+        await prisma.caseBankAssignment.count({
+          where: {
+            caseId: item.id,
+            bankId: req.user.bankId,
+            status: {
+              notIn: ['CLOSED'],
+            },
+          },
+        }) > 0
       );
 
     if (!canView) {

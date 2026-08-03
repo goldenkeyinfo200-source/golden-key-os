@@ -32,6 +32,15 @@ const publicUserSelect = {
   isActive: true,
   companyId: true,
   branchId: true,
+  bankId: true,
+  bankPosition: true,
+  bank: {
+    select: {
+      id: true,
+      name: true,
+      shortName: true,
+    },
+  },
   company: {
     select: {
       id: true,
@@ -93,6 +102,13 @@ router.post('/login', async (req, res, next) => {
             id: true,
             name: true,
             city: true,
+          },
+        },
+        bank: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
           },
         },
       },

@@ -336,7 +336,7 @@ export function BankPortalPage({ user, onLogout }) {
           <div className="bank-portal-user">
             <div>
               <strong>{user?.fullName || 'Банк ходими'}</strong>
-              <span>Банк ходими</span>
+              <span>{user?.bank?.shortName || user?.bank?.name || 'Банк ходими'}</span>
             </div>
             <button type="button" onClick={logout}>
               <LogOut size={18} />
@@ -398,7 +398,7 @@ export function BankPortalPage({ user, onLogout }) {
         <div className="bank-portal-user">
           <div>
             <strong>{user?.fullName || 'Банк ходими'}</strong>
-            <span>Банк ходими</span>
+            <span>{user?.bank?.shortName || user?.bank?.name || 'Банк ходими'}</span>
           </div>
           <button type="button" onClick={logout} title="Тизимдан чиқиш">
             <LogOut size={18} />

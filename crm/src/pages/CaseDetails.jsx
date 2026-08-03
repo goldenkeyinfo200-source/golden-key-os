@@ -22,6 +22,7 @@ import { apiRequest } from '../services/api.js';
 import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
 import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
 import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
+import { MultiBankAssignmentsSection } from '../components/banks/MultiBankAssignmentsSection.jsx';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -878,6 +879,11 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               </button>
             </form>
           </section>
+
+          <MultiBankAssignmentsSection
+            caseId={item.id}
+            onChanged={loadCase}
+          />
 
           <BankOffersSection
             caseId={item.id}

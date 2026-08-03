@@ -342,6 +342,13 @@ async function getCaseOrFail(caseId) {
       status: true,
       bankName: true,
       approvedAmount: true,
+      bankAssignments: {
+        select: {
+          id: true,
+          bankId: true,
+          status: true,
+        },
+      },
     },
   });
 }
@@ -388,7 +395,14 @@ function canViewCase(user, caseItem) {
     фақат ўзига юборилган мурожаатларни кўрадиган қиламиз.
   */
   if (user.role === 'BANK_EMPLOYEE') {
-    return true;
+    return Boolean(
+      user.bankId &&
+      caseItem.bankAssignments?.some(
+        (assignment) =>
+          assignment.bankId === user.bankId &&
+          assignment.status !== 'CLOSED'
+      )
+    );
   }
 
   return false;
@@ -510,7 +524,11 @@ router.get(
       }
 
       if (req.user.role === 'BANK_EMPLOYEE') {
-        where.bankEmployeeId = req.user.id;
+        if (!req.user.bankId) {
+          where.id = '__NO_BANK_ASSIGNED__';
+        } else {
+          where.bankId = req.user.bankId;
+        }
       }
 
       const [items, total] =
@@ -592,7 +610,7 @@ router.get(
       };
 
       if (req.user.role === 'BANK_EMPLOYEE') {
-        where.bankEmployeeId = req.user.id;
+        where.bankId = req.user.bankId;
       }
 
       const items = await prisma.bankOffer.findMany({
@@ -776,12 +794,30 @@ router.post(
             data: {
               caseId: caseItem.id,
 
+              bankId:
+                req.user.role === 'BANK_EMPLOYEE'
+                  ? req.user.bankId
+                  : null,
+
+              assignmentId:
+                req.user.role === 'BANK_EMPLOYEE'
+                  ? caseItem.bankAssignments?.find(
+                      (assignment) =>
+                        assignment.bankId === req.user.bankId
+                    )?.id || null
+                  : null,
+
               bankEmployeeId:
                 req.user.role === 'BANK_EMPLOYEE'
                   ? req.user.id
                   : null,
 
               ...offerData,
+
+              bankName:
+                req.user.role === 'BANK_EMPLOYEE'
+                  ? req.user.bank?.name || offerData.bankName
+                  : offerData.bankName,
 
               status: requestedStatus,
 
@@ -793,6 +829,23 @@ router.post(
 
             include: offerInclude,
           });
+
+          if (item.assignmentId) {
+            await tx.caseBankAssignment.update({
+              where: {
+                id: item.assignmentId,
+              },
+              data: {
+                status:
+                  item.status === 'REJECTED'
+                    ? 'REJECTED'
+                    : 'OFFER_SUBMITTED',
+                assignedBankEmployeeId:
+                  item.bankEmployeeId,
+                respondedAt: new Date(),
+              },
+            });
+          }
 
           /*
             Биринчи банк таклифи келганда кейсни
@@ -1138,6 +1191,28 @@ router.post(
           const serviceFeeAmount = Math.round(
             (approvedAmount * serviceFeePercent) / 100
           );
+
+          if (existingOffer.bankId) {
+            await tx.caseBankAssignment.updateMany({
+              where: {
+                caseId: existingOffer.caseId,
+              },
+              data: {
+                status: 'CLOSED',
+              },
+            });
+
+            await tx.caseBankAssignment.updateMany({
+              where: {
+                caseId: existingOffer.caseId,
+                bankId: existingOffer.bankId,
+              },
+              data: {
+                status: 'SELECTED',
+                respondedAt: new Date(),
+              },
+            });
+          }
 
           await tx.case.update({
             where: {

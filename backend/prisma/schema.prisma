@@ -84,6 +84,17 @@ enum BankOfferStatus {
   CANCELLED
 }
 
+enum CaseBankStatus {
+  SENT
+  VIEWED
+  UNDER_REVIEW
+  NEEDS_DOCUMENTS
+  OFFER_SUBMITTED
+  REJECTED
+  SELECTED
+  CLOSED
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -113,10 +124,34 @@ model Branch {
   @@index([companyId])
 }
 
+model Bank {
+  id            String   @id @default(cuid())
+  name          String
+  shortName     String?
+  inn           String?
+  mfo           String?
+  licenseNumber String?
+  address       String?
+  phone         String?
+  email         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employees   User[]
+  assignments CaseBankAssignment[]
+  offers      BankOffer[]
+
+  @@unique([name])
+  @@index([isActive])
+}
+
 model User {
   id           String   @id @default(cuid())
   companyId    String?
   branchId     String?
+  bankId       String?
+  bankPosition String?
   fullName     String
   phone        String?
   email        String?  @unique
@@ -132,14 +167,18 @@ model User {
 
   branch Branch? @relation(fields: [branchId], references: [id])
 
+  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+
   managedCases  Case[]        @relation("ReceptionManagerCases")
   executedCases Case[]        @relation("ExecutorCases")
   auditLogs     AuditLog[]
   kiosks        KioskDevice[]
   bankOffers    BankOffer[]
+  bankAssignments CaseBankAssignment[] @relation("AssignedBankEmployee")
 
   @@index([companyId])
   @@index([branchId])
+  @@index([bankId])
   @@index([role])
   @@index([isActive])
 }
@@ -216,6 +255,7 @@ model Case {
   invitations Invitation[]
   history     CaseHistory[]
   bankOffers  BankOffer[]
+  bankAssignments CaseBankAssignment[]
 
   @@index([branchId])
   @@index([applicantClientId])
@@ -363,9 +403,39 @@ model CaseHistory {
   @@index([createdAt])
 }
 
+model CaseBankAssignment {
+  id                     String         @id @default(cuid())
+  caseId                 String
+  bankId                 String
+  assignedBankEmployeeId String?
+  status                 CaseBankStatus @default(SENT)
+  katmStatus             String?
+  katmNote               String?
+  collateralStatus       String?
+  collateralNote         String?
+  sentAt                 DateTime       @default(now())
+  viewedAt               DateTime?
+  respondedAt            DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bank Bank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  assignedBankEmployee User? @relation("AssignedBankEmployee", fields: [assignedBankEmployeeId], references: [id], onDelete: SetNull)
+  offers BankOffer[]
+
+  @@unique([caseId, bankId])
+  @@index([caseId])
+  @@index([bankId])
+  @@index([assignedBankEmployeeId])
+  @@index([status])
+}
+
 model BankOffer {
   id               String          @id @default(cuid())
   caseId           String
+  bankId           String?
+  assignmentId     String?
   bankEmployeeId   String?
   bankName         String
   status           BankOfferStatus @default(DRAFT)
@@ -386,9 +456,15 @@ model BankOffer {
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
+  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+
+  assignment CaseBankAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
   bankEmployee User? @relation(fields: [bankEmployeeId], references: [id])
 
   @@index([caseId])
+  @@index([bankId])
+  @@index([assignmentId])
   @@index([bankEmployeeId])
   @@index([status])
   @@index([bankName])

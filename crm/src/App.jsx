@@ -17,6 +17,7 @@ import {
 
 import { CasesPage } from './pages/CasesPage.jsx';
 import { BankPortalPage } from './pages/BankPortalPage.jsx';
+import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import {
   API_URL,
@@ -461,6 +462,10 @@ function Dashboard({ user, onLogout }) {
   const renderContent = () => {
     if (activeMenu === 'Бош панель') {
       return renderDashboard();
+    }
+
+    if (activeMenu === 'Банклар') {
+      return <BanksPage />;
     }
 
     if (activeMenu === 'Мурожаатлар') {
