@@ -21,8 +21,10 @@ import {
 import { apiRequest } from '../services/api.js';
 import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
 import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
+import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
 import '../styles/bank-offers.css';
 import '../styles/documents.css';
+import '../styles/contracts.css';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -511,49 +513,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             }}
           />
 
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Шартномалар</span>
-                <h3>Мижоз билан тузилган шартномалар</h3>
-              </div>
+          <ContractsSection
+            caseId={item.id}
+            onChanged={async () => {
+              await loadCase();
+              onChanged?.();
+            }}
+          />
 
-              <BriefcaseBusiness size={22} />
-            </div>
-
-            {item.contracts?.length ? (
-              <div className="details-card-list">
-                {item.contracts.map((contract) => (
-                  <div className="details-list-card" key={contract.id}>
-                    <div>
-                      <strong>{contract.displayId}</strong>
-                      <span>
-                        {contract.status} · {formatDate(contract.createdAt)}
-                      </span>
-                    </div>
-
-                    {contract.pdfUrl ? (
-                      <a
-                        href={contract.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        PDF очиш
-                      </a>
-                    ) : (
-                      <span className="details-muted">PDF тайёр эмас</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={BriefcaseBusiness}
-                title="Шартнома ҳали яратилмаган"
-                text="Мижоз қарор қабул қилгандан кейин шартнома шу ерда пайдо бўлади."
-              />
-            )}
-          </section>
         </div>
 
         <aside className="case-details-side-column">

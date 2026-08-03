@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { CasesPage } from './pages/CasesPage.jsx';
+import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -584,6 +585,14 @@ function Dashboard({ user, onLogout }) {
 }
 
 export function App() {
+  const isPublicContractSignPage = /^\/sign\/[^/]+\/?$/.test(
+    window.location.pathname
+  );
+
+  if (isPublicContractSignPage) {
+    return <ContractSignPage />;
+  }
+
   const [user, setUser] = useState(() => readSavedUser());
   const [checkingSession, setCheckingSession] = useState(true);
 
