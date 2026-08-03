@@ -1,3 +1,4 @@
+import path from 'node:path';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 
@@ -11,19 +12,17 @@ import {
 
 const FONT_CANDIDATES = [
   process.env.PDF_FONT_PATH,
+  path.join(process.cwd(), 'fonts', 'DejaVuSans.ttf'),
+  path.join(process.cwd(), 'backend', 'fonts', 'DejaVuSans.ttf'),
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf',
-  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
-  '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
-  '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
 ].filter(Boolean);
 
 const BOLD_FONT_CANDIDATES = [
   process.env.PDF_BOLD_FONT_PATH,
+  path.join(process.cwd(), 'fonts', 'DejaVuSans-Bold.ttf'),
+  path.join(process.cwd(), 'backend', 'fonts', 'DejaVuSans-Bold.ttf'),
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
-  '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
 ].filter(Boolean);
 
 function findExistingFont(candidates) {

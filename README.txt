@@ -1,31 +1,27 @@
-GOLDEN KEY OS — SIGNED CONTRACT PDF CRM PATCH
+GOLDEN KEY OS — PDF FONT FIX
 
-БУ ПАКЕТ НИМА ҚИЛАДИ:
-- Олдин тасдиқланган, лекин PDF ҳали яратилмаган шартномада
-  «PDF тайёрлаш» тугмасини чиқаради.
-- POST /api/contracts/:contractId/pdf API'сини чақиради.
-- PDF тайёр бўлгач рўйхатни автоматик янгилайди.
-- «PDF кўриш» ва юклаб олиш тугмаларини чиқаради.
-- Telegram орқали юборилган/юборилмаган ҳолатни хабар қилади.
+МУАММО:
+Railway контейнерда систем DejaVu Sans шрифти мавжуд эмас эди.
+
+ЕЧИМ:
+Шрифт файллари алоҳида тарқатилмайди.
+dejavu-fonts-ttf npm пакети dependency сифатида ўрнатилади.
+contract-pdf.js шрифт йўлини require.resolve() орқали автоматик топади.
 
 ФАЙЛЛАР:
-crm/src/components/contracts/ContractsSection.jsx
-crm/src/styles/contracts.css
+backend/package.json
+backend/src/services/contract-pdf.js
 
 ЎРНАТИШ:
 1. Архивни очинг.
-2. Ичидаги crm папкасини лойиҳангиз устига ташланг.
-3. Windows сўраса:
-   Replace the files in the destination
+2. Ичидаги backend папкасини лойиҳа устига ташланг.
+3. Replace the files in the destination.
 4. GitHub Desktop:
-   Summary: Add contract PDF generation button
+   Summary: Fix PDF Cyrillic font on Railway
    Commit to main
    Push origin
-5. Railway CRM deploy тугашини кутинг.
-6. CRM'ни Ctrl + F5 билан янгиланг.
+5. Railway backend deploy тугашини кутинг.
+6. CRM → PDF тайёрлаш тугмасини яна босинг.
 
-ТЕКШИРИШ:
-1. Тасдиқланган шартнома карточкасида «PDF тайёрлаш» чиқади.
-2. Тугмани босинг.
-3. PDF тайёр бўлса «PDF кўриш» тугмаси пайдо бўлади.
-4. Мижозда telegramId бўлса PDF бот орқали ҳам юборилади.
+RAILWAY VARIABLE КЕРАК ЭМАС:
+PDF_FONT_PATH қўшиш шарт эмас.
