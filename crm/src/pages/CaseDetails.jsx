@@ -103,6 +103,21 @@ function formatAmount(value) {
   return `${new Intl.NumberFormat('uz-UZ').format(number)} сўм`;
 }
 
+function parseNumericInput(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const normalized = String(value)
+    .trim()
+    .replace(/\s/g, '')
+    .replace(',', '.');
+
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : null;
+}
+
 function formatDate(value, withTime = false) {
   if (!value) {
     return '—';
@@ -231,8 +246,18 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
       setStatusValue(loadedItem?.status || '');
 
       if (loadedItem) {
+        const selectedOffer =
+          loadedItem.bankOffers?.find(
+            (offer) => offer.status === 'SELECTED'
+          ) ||
+          loadedItem.bankOffers?.[0] ||
+          null;
+
         setFinanceForm({
-          approvedAmount: loadedItem.approvedAmount ?? '',
+          approvedAmount:
+            loadedItem.approvedAmount ??
+            selectedOffer?.approvedAmount ??
+            '',
           serviceFeePercent:
             loadedItem.serviceFeePercent ?? '4.5',
           serviceFeeOverride:
@@ -321,18 +346,12 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   };
 
   const calculatedFee = useMemo(() => {
-    const amount = Number(
-      String(financeForm.approvedAmount)
-        .replace(/\s/g, '')
-        .replace(',', '.')
-    );
-    const percent = Number(
-      String(financeForm.serviceFeePercent)
-        .replace(/\s/g, '')
-        .replace(',', '.')
+    const amount = parseNumericInput(financeForm.approvedAmount);
+    const percent = parseNumericInput(
+      financeForm.serviceFeePercent
     );
 
-    if (!Number.isFinite(amount) || !Number.isFinite(percent)) {
+    if (amount === null || percent === null) {
       return null;
     }
 
@@ -420,9 +439,92 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   }
 
   const applicant = item.applicant || {};
+  const selectedBankOffer =
+    item.bankOffers?.find((offer) => offer.status === 'SELECTED') ||
+    item.bankOffers?.[0] ||
+    null;
+
+  const displayedBankName =
+    item.bankName ||
+    selectedBankOffer?.bankName ||
+    selectedBankOffer?.bank?.name ||
+    'Танланмаган';
+
+  const displayedApprovedAmount =
+    item.approvedAmount ??
+    selectedBankOffer?.approvedAmount ??
+    null;
 
   return (
     <div className="case-details-page">
+
+      <style>{`
+        .finance-collateral-form label {
+          display: grid;
+          gap: 7px;
+          min-width: 0;
+        }
+
+        .finance-collateral-form label > span {
+          color: #5f6670;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .finance-collateral-form input,
+        .finance-collateral-form select,
+        .finance-collateral-form textarea {
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+          border: 1px solid #dfe3e8;
+          border-radius: 10px;
+          background: #fff;
+          color: #15171a;
+          font: inherit;
+          font-size: 14px;
+          padding: 11px 12px;
+          outline: none;
+          transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .finance-collateral-form input:focus,
+        .finance-collateral-form select:focus,
+        .finance-collateral-form textarea:focus {
+          border-color: #e5232f;
+          box-shadow: 0 0 0 3px rgba(229, 35, 47, 0.1);
+        }
+
+        .finance-collateral-form textarea {
+          resize: vertical;
+        }
+
+        .finance-collateral-form button.primary {
+          justify-self: start;
+          min-height: 42px;
+          border: 0;
+          border-radius: 10px;
+          padding: 0 18px;
+          background: #e5232f;
+          color: #fff;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .finance-collateral-form button.primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 900px) {
+          .finance-collateral-form button.primary {
+            width: 100%;
+          }
+        }
+      `}</style>
+
       <section className="case-details-top">
         <button type="button" className="details-back-button" onClick={onBack}>
           <ArrowLeft size={18} />
@@ -490,7 +592,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <div>
             <Landmark size={16} />
             <span>Банк</span>
-            <strong>{item.bankName || 'Танланмаган'}</strong>
+            <strong>{displayedBankName}</strong>
           </div>
         </div>
       </section>
@@ -618,162 +720,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <section className="panel details-section">
             <div className="details-section-head">
               <div>
-                <span className="section-kicker">Ҳужжатлар</span>
-                <h3>Юкланган файллар</h3>
-              </div>
-
-              <FileText size={22} />
-            </div>
-
-            {item.documents?.length ? (
-              <div className="case-document-list">
-                {item.documents.map((document) => (
-                  <a
-                    href={document.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="case-document-item"
-                    key={document.id}
-                  >
-                    <FileText size={19} />
-
-                    <div>
-                      <strong>{document.fileName || document.type}</strong>
-                      <span>{document.mimeType || 'Файл'}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={FileText}
-                title="Ҳужжатлар юкланмаган"
-                text="Паспорт, кадастр ва бошқа файллар кейинги босқичда шу ерга юкланади."
-              />
-            )}
-          </section>
-
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Шартномалар</span>
-                <h3>Мижоз билан тузилган шартномалар</h3>
-              </div>
-
-              <BriefcaseBusiness size={22} />
-            </div>
-
-            {item.contracts?.length ? (
-              <div className="details-card-list">
-                {item.contracts.map((contract) => (
-                  <div className="details-list-card" key={contract.id}>
-                    <div>
-                      <strong>{contract.displayId}</strong>
-                      <span>
-                        {contract.status} · {formatDate(contract.createdAt)}
-                      </span>
-                    </div>
-
-                    {contract.pdfUrl ? (
-                      <a
-                        href={contract.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        PDF очиш
-                      </a>
-                    ) : (
-                      <span className="details-muted">PDF тайёр эмас</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={BriefcaseBusiness}
-                title="Шартнома ҳали яратилмаган"
-                text="Мижоз қарор қабул қилгандан кейин шартнома шу ерда пайдо бўлади."
-              />
-            )}
-          </section>
-        </div>
-
-        <aside className="case-details-side-column">
-          <section className="panel details-section status-control-panel">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Бошқарув</span>
-                <h3>Ҳолатни ўзгартириш</h3>
-              </div>
-
-              <RefreshCw size={21} />
-            </div>
-
-            <form className="status-change-form" onSubmit={changeStatus}>
-              <label>
-                <span>Янги ҳолат</span>
-
-                <select
-                  value={statusValue}
-                  onChange={(event) => {
-                    setStatusValue(event.target.value);
-                    setStatusError('');
-                    setStatusSuccess('');
-                  }}
-                  disabled={savingStatus}
-                >
-                  {ALL_STATUS_OPTIONS.map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Изоҳ</span>
-
-                <textarea
-                  rows={4}
-                  value={statusNote}
-                  onChange={(event) => setStatusNote(event.target.value)}
-                  placeholder="Статус ўзгариши сабабини ёзинг..."
-                  disabled={savingStatus}
-                />
-              </label>
-
-              {statusError ? (
-                <div className="form-error">{statusError}</div>
-              ) : null}
-
-              {statusSuccess ? (
-                <div className="form-success">{statusSuccess}</div>
-              ) : null}
-
-              <button
-                type="submit"
-                className="primary status-save-button"
-                disabled={
-                  savingStatus ||
-                  !statusValue ||
-                  statusValue === item.status
-                }
-              >
-                {savingStatus ? (
-                  <>
-                    <LoaderCircle className="spin" size={17} />
-                    Сақланмоқда...
-                  </>
-                ) : (
-                  'Ҳолатни сақлаш'
-                )}
-              </button>
-            </form>
-          </section>
-
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
                 <span className="section-kicker">Хизмат ва гаров</span>
                 <h3>Молиявий ҳамда мулк маълумотлари</h3>
               </div>
@@ -789,7 +735,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
               <div>
                 <span>Тасдиқланган сумма</span>
-                <strong>{formatAmount(item.approvedAmount)}</strong>
+                <strong>{formatAmount(displayedApprovedAmount)}</strong>
               </div>
 
               <div>
@@ -800,18 +746,19 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
             <form
               onSubmit={saveFinanceCollateral}
+              className="finance-collateral-form"
               style={{
                 display: 'grid',
-                gap: 14,
-                marginTop: 18,
+                gap: 18,
+                marginTop: 20,
               }}
             >
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns:
-                    'repeat(auto-fit, minmax(210px, 1fr))',
-                  gap: 12,
+                    'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: 14,
                 }}
               >
                 <label>
@@ -835,10 +782,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                 <label>
                   <span>Хизмат ҳақи фоизи</span>
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
                     value={financeForm.serviceFeePercent}
                     onChange={(event) =>
                       updateFinanceField(
@@ -854,8 +799,17 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                   <span>Автоматик ҳисоб</span>
                   <input
                     type="text"
-                    value={formatAmount(calculatedFee)}
+                    value={
+                      calculatedFee === null
+                        ? 'Сумма ва фоизни киритинг'
+                        : formatAmount(calculatedFee)
+                    }
                     readOnly
+                    style={{
+                      fontWeight: 700,
+                      color: '#087742',
+                      background: '#f1fcf6',
+                    }}
                   />
                 </label>
 
@@ -891,8 +845,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                 style={{
                   display: 'grid',
                   gridTemplateColumns:
-                    'repeat(auto-fit, minmax(210px, 1fr))',
-                  gap: 12,
+                    'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: 14,
                 }}
               >
                 <label>
@@ -1052,6 +1006,163 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                   </>
                 ) : (
                   'Молиявий ва гаров маълумотларини сақлаш'
+                )}
+              </button>
+            </form>
+          </section>
+
+
+          <section className="panel details-section">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Ҳужжатлар</span>
+                <h3>Юкланган файллар</h3>
+              </div>
+
+              <FileText size={22} />
+            </div>
+
+            {item.documents?.length ? (
+              <div className="case-document-list">
+                {item.documents.map((document) => (
+                  <a
+                    href={document.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="case-document-item"
+                    key={document.id}
+                  >
+                    <FileText size={19} />
+
+                    <div>
+                      <strong>{document.fileName || document.type}</strong>
+                      <span>{document.mimeType || 'Файл'}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock
+                icon={FileText}
+                title="Ҳужжатлар юкланмаган"
+                text="Паспорт, кадастр ва бошқа файллар кейинги босқичда шу ерга юкланади."
+              />
+            )}
+          </section>
+
+          <section className="panel details-section">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Шартномалар</span>
+                <h3>Мижоз билан тузилган шартномалар</h3>
+              </div>
+
+              <BriefcaseBusiness size={22} />
+            </div>
+
+            {item.contracts?.length ? (
+              <div className="details-card-list">
+                {item.contracts.map((contract) => (
+                  <div className="details-list-card" key={contract.id}>
+                    <div>
+                      <strong>{contract.displayId}</strong>
+                      <span>
+                        {contract.status} · {formatDate(contract.createdAt)}
+                      </span>
+                    </div>
+
+                    {contract.pdfUrl ? (
+                      <a
+                        href={contract.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        PDF очиш
+                      </a>
+                    ) : (
+                      <span className="details-muted">PDF тайёр эмас</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock
+                icon={BriefcaseBusiness}
+                title="Шартнома ҳали яратилмаган"
+                text="Мижоз қарор қабул қилгандан кейин шартнома шу ерда пайдо бўлади."
+              />
+            )}
+          </section>
+        </div>
+
+        <aside className="case-details-side-column">
+          <section className="panel details-section status-control-panel">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Бошқарув</span>
+                <h3>Ҳолатни ўзгартириш</h3>
+              </div>
+
+              <RefreshCw size={21} />
+            </div>
+
+            <form className="status-change-form" onSubmit={changeStatus}>
+              <label>
+                <span>Янги ҳолат</span>
+
+                <select
+                  value={statusValue}
+                  onChange={(event) => {
+                    setStatusValue(event.target.value);
+                    setStatusError('');
+                    setStatusSuccess('');
+                  }}
+                  disabled={savingStatus}
+                >
+                  {ALL_STATUS_OPTIONS.map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Изоҳ</span>
+
+                <textarea
+                  rows={4}
+                  value={statusNote}
+                  onChange={(event) => setStatusNote(event.target.value)}
+                  placeholder="Статус ўзгариши сабабини ёзинг..."
+                  disabled={savingStatus}
+                />
+              </label>
+
+              {statusError ? (
+                <div className="form-error">{statusError}</div>
+              ) : null}
+
+              {statusSuccess ? (
+                <div className="form-success">{statusSuccess}</div>
+              ) : null}
+
+              <button
+                type="submit"
+                className="primary status-save-button"
+                disabled={
+                  savingStatus ||
+                  !statusValue ||
+                  statusValue === item.status
+                }
+              >
+                {savingStatus ? (
+                  <>
+                    <LoaderCircle className="spin" size={17} />
+                    Сақланмоқда...
+                  </>
+                ) : (
+                  'Ҳолатни сақлаш'
                 )}
               </button>
             </form>
