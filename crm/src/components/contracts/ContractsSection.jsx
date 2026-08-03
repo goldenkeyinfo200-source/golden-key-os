@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Clock3,
+  Download,
   FilePlus2,
   FileText,
   LoaderCircle,
@@ -53,6 +54,10 @@ export function ContractsSection({ caseId, onChanged }) {
   const [qrModal, setQrModal] = useState(null);
   const [qrLoadingId, setQrLoadingId] = useState('');
   const [qrError, setQrError] = useState('');
+
+  const [pdfLoadingId, setPdfLoadingId] = useState('');
+  const [pdfMessage, setPdfMessage] = useState('');
+  const [pdfError, setPdfError] = useState('');
 
   const loadContracts = useCallback(async () => {
     if (!caseId) return;
@@ -133,6 +138,40 @@ export function ContractsSection({ caseId, onChanged }) {
       setQrError(error.message || 'QR-кодни яратиб бўлмади.');
     } finally {
       setQrLoadingId('');
+    }
+  };
+
+  const createPdf = async (contractId) => {
+    setPdfLoadingId(contractId);
+    setPdfMessage('');
+    setPdfError('');
+
+    try {
+      const data = await apiRequest(`/contracts/${contractId}/pdf`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      await loadContracts();
+      await onChanged?.();
+
+      const telegram = data.item?.telegram;
+
+      if (telegram?.sent) {
+        setPdfMessage('PDF тайёрланди ва мижозга Telegram орқали юборилди.');
+      } else if (telegram?.skipped) {
+        setPdfMessage(
+          `PDF тайёрланди. Telegram юборилмади: ${
+            telegram.reason || 'Telegram ID ёки бот токени йўқ'
+          }.`
+        );
+      } else {
+        setPdfMessage('PDF муваффақиятли тайёрланди.');
+      }
+    } catch (error) {
+      setPdfError(error.message || 'PDF шартномани тайёрлаб бўлмади.');
+    } finally {
+      setPdfLoadingId('');
     }
   };
 
@@ -259,15 +298,44 @@ export function ContractsSection({ caseId, onChanged }) {
 
                   <div className="contract-card-actions">
                     {contract.pdfUrl ? (
-                      <a
-                        className="contract-action"
-                        href={contract.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <>
+                        <a
+                          className="contract-action contract-pdf-view"
+                          href={contract.pdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <FileText size={16} />
+                          PDF кўриш
+                        </a>
+
+                        <a
+                          className="contract-action"
+                          href={contract.pdfUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={`${contract.displayId}.pdf`}
+                          title="PDF ни юклаб олиш"
+                        >
+                          <Download size={16} />
+                        </a>
+                      </>
+                    ) : signed ? (
+                      <button
+                        type="button"
+                        className="contract-action contract-pdf-button"
+                        onClick={() => createPdf(contract.id)}
+                        disabled={pdfLoadingId === contract.id}
                       >
-                        <FileText size={16} />
-                        PDF
-                      </a>
+                        {pdfLoadingId === contract.id ? (
+                          <LoaderCircle size={16} className="spin" />
+                        ) : (
+                          <FileText size={16} />
+                        )}
+                        {pdfLoadingId === contract.id
+                          ? 'PDF тайёрланмоқда...'
+                          : 'PDF тайёрлаш'}
+                      </button>
                     ) : null}
 
                     {!signed && contract.status !== 'CANCELLED' ? (
@@ -293,6 +361,12 @@ export function ContractsSection({ caseId, onChanged }) {
         )}
 
         {qrError ? <div className="contract-inline-error">{qrError}</div> : null}
+        {pdfError ? (
+          <div className="contract-inline-error">{pdfError}</div>
+        ) : null}
+        {pdfMessage ? (
+          <div className="contract-inline-success">{pdfMessage}</div>
+        ) : null}
       </section>
 
       {qrModal ? (
