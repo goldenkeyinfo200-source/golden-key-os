@@ -8,6 +8,7 @@ import {
   buildContractContext,
   renderContractHtml,
 } from '../services/contract-template.js';
+import { finalizeSignedContract } from '../services/contract-finalize.js';
 
 const router = Router();
 
@@ -237,6 +238,42 @@ router.post('/contracts/:token/confirm', async (req, res, next) => {
       return signedContract;
     });
 
+    let finalization = null;
+    let pdfError = null;
+
+    try {
+      finalization = await finalizeSignedContract({
+        contractId: result.id,
+        confirmation: {
+          invitationId: invitation.id,
+          signedAt: result.signedAt,
+          ip: getClientIp(req),
+          userAgent: req.headers['user-agent'] || null,
+        },
+      });
+    } catch (error) {
+      pdfError = error.message;
+
+      console.error(
+        'Шартнома тасдиқланди, лекин PDF тайёрлашда хато:',
+        error
+      );
+
+      await prisma.auditLog.create({
+        data: {
+          userId: null,
+          entityType: 'Contract',
+          entityId: result.id,
+          action: 'CONTRACT_PDF_GENERATION_FAILED',
+          metadata: {
+            caseId: caseItem.id,
+            invitationId: invitation.id,
+            error: error.message,
+          },
+        },
+      });
+    }
+
     return res.json({
       message: 'Шартнома муваффақиятли тасдиқланди',
       item: {
@@ -244,7 +281,10 @@ router.post('/contracts/:token/confirm', async (req, res, next) => {
         displayId: result.displayId,
         status: result.status,
         signedAt: result.signedAt,
-        pdfPending: !result.pdfUrl,
+        pdfUrl: finalization?.pdfUrl || null,
+        pdfPending: !finalization?.pdfUrl,
+        pdfError,
+        telegram: finalization?.telegram || null,
       },
     });
   } catch (error) {

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
 import { defaultContractHtml } from '../services/contract-template.js';
+import { createSignedFileUrl } from '../services/supabaseStorage.js';
 
 const router = Router();
 
@@ -169,7 +170,18 @@ router.get(
         },
       });
 
-      return res.json({ items });
+      const itemsWithPdf = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          pdfUrl: item.pdfUrl
+            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
+            : null,
+        }))
+      );
+
+      return res.json({
+        items: itemsWithPdf,
+      });
     } catch (error) {
       next(error);
     }
@@ -381,6 +393,74 @@ router.post(
         expiresAt,
         signUrl,
         qrDataUrl,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+router.post(
+  '/:contractId/pdf',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const { finalizeSignedContract } = await import(
+        '../services/contract-finalize.js'
+      );
+
+      const contract = await prisma.contract.findUnique({
+        where: {
+          id: req.params.contractId,
+        },
+        include: {
+          invitations: {
+            where: {
+              usedAt: {
+                not: null,
+              },
+            },
+            orderBy: {
+              usedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      });
+
+      if (!contract) {
+        return res.status(404).json({
+          error: 'Шартнома топилмади',
+        });
+      }
+
+      if (contract.status !== 'SIGNED' || !contract.signedAt) {
+        return res.status(409).json({
+          error: 'PDF фақат тасдиқланган шартнома учун яратилади',
+        });
+      }
+
+      const invitation = contract.invitations[0];
+
+      const result = await finalizeSignedContract({
+        contractId: contract.id,
+        confirmation: {
+          invitationId: invitation?.id || 'manual-regeneration',
+          signedAt: contract.signedAt,
+          ip: null,
+          userAgent: 'Golden Key OS manual PDF generation',
+        },
+      });
+
+      return res.json({
+        message: 'Шартнома PDF тайёр',
+        item: {
+          contractId: contract.id,
+          pdfUrl: result.pdfUrl,
+          telegram: result.telegram,
+          reused: result.reused,
+        },
       });
     } catch (error) {
       next(error);
