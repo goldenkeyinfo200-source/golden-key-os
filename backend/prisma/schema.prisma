@@ -227,6 +227,10 @@ model Case {
   collateralCadastreNumber    String?
   collateralOwnerFullName     String?
   collateralOwnerPinfl        String?
+  collateralOwnerPassportSeries String?
+  collateralOwnerPassportNumber String?
+  collateralOwnerPhone        String?
+  collateralOwnerAddress      String?
   collateralArea              Decimal?    @db.Decimal(12, 2)
   collateralEstimatedValue    Decimal?    @db.Decimal(18, 2)
   collateralNotes             String?

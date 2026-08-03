@@ -23,6 +23,7 @@ import { BankOffersSection } from '../components/bank-offers/BankOffersSection.j
 import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
 import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
 import { MultiBankAssignmentsSection } from '../components/banks/MultiBankAssignmentsSection.jsx';
+import { ParticipantsSection } from '../components/cases/ParticipantsSection.jsx';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -686,6 +687,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               </div>
             )}
           </section>
+
+          <ParticipantsSection
+            caseItem={item}
+            onChanged={async () => {
+              await loadCase();
+              await onChanged?.();
+            }}
+          />
 
           <section className="panel details-section">
             <div className="details-section-head">

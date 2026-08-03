@@ -1,44 +1,31 @@
-GOLDEN KEY OS — MULTI-BANK V1
+GOLDEN KEY OS — ИПОТЕКА ИШТИРОКЧИЛАРИ MVP
 
 ҚЎШИЛГАНЛАР:
-1. Bank модели.
-2. Банк ходими User'га bankId ва bankPosition.
-3. CaseBankAssignment — битта мурожаатни бир нечта банкка юбориш.
-4. Ҳар бир банк учун алоҳида ҳолат:
-   SENT, VIEWED, UNDER_REVIEW, NEEDS_DOCUMENTS,
-   OFFER_SUBMITTED, REJECTED, SELECTED, CLOSED.
-5. Банк таклифи Bank ва Assignment билан боғланади.
-6. Админда «Банклар» модули ишлайди:
-   - янги банк;
-   - реквизитлар;
-   - банк ходими аккаунти;
-   - логин ва пароль.
-7. Мурожаат карточкасида бир нечта банкни танлаб юбориш.
-8. Bank Portal фақат ўз банкига юборилган мурожаатларни кўради.
-9. Банк ходими бошқа банк таклифларини кўрмайди.
-10. Таклиф танланганда танланган банк Assignment=SELECTED,
-    қолган банклар CLOSED бўлади.
+1. Мурожаатчи — мавжуд Client маълумотларидан кўринади.
+2. Қарз олувчи:
+   - мурожаатчининг ўзи бўлиши мумкин;
+   - бошқа шахс бўлса алоҳида маълумот киритилади;
+   - Borrower жадвалида APPROVED сифатида сақланади.
+3. Гаров эгаси:
+   - қарз олувчининг ўзи бўлиши мумкин;
+   - бошқа шахс бўлса Ф.И.Ш., телефон, ЖШШИР, паспорт ва манзил сақланади.
+4. Мурожаат карточкасида янги «Иштирокчилар» бўлими.
+5. Шартнома PDF шаблонида учала шахс алоҳида кўрсатилади.
+6. AuditLog'да ўзгариш қайд қилинади.
 
 ПАКЕТ:
 backend/prisma/schema.prisma
-backend/src/server.js
-backend/src/routes/auth.js
 backend/src/routes/cases.js
-backend/src/routes/bank-offers.js
-backend/src/routes/banks.js
-backend/src/middleware/auth.js
-crm/src/App.jsx
-crm/src/pages/BanksPage.jsx
-crm/src/pages/BankPortalPage.jsx
+backend/src/services/contract-template.js
 crm/src/pages/CaseDetails.jsx
-crm/src/components/banks/MultiBankAssignmentsSection.jsx
+crm/src/components/cases/ParticipantsSection.jsx
 
 ЎРНАТИШ:
 1. Архивни очинг.
 2. backend ва crm папкаларини лойиҳа устига ташланг.
 3. Replace the files in the destination.
 4. GitHub Desktop:
-   Summary: Add multi bank assignment system v1
+   Summary: Add mortgage participants MVP
 5. Commit to main.
 6. Push origin.
 7. Backend deploy тугашини кутинг.
@@ -49,15 +36,15 @@ crm/src/components/banks/MultiBankAssignmentsSection.jsx
 10. CRM deploy тугашини кутинг.
 11. Ctrl + F5 қилинг.
 
-ИШЛАШ:
-- Админ → Банклар → Янги банк.
-- Банк карточкаси → Ходимлар → логин/пароль яратиш.
-- Мурожаат → Гаров маълумотлари → Кўп банкли юбориш.
-- Банкларни танлаш → Юбориш.
-- Банк ходими ўз логини билан киради.
-- Фақат ўз банкига юборилган ишлар кўринади.
-- Банк таклиф беради.
-- Менежер энг яхши таклифни танлайди.
+ТЕКШИРИШ:
+- Мурожаатни очинг.
+- «Иштирокчилар» бўлимида:
+  - мурожаатчининг ўзи қарз олувчи ёки бошқа шахсни танланг;
+  - қарз олувчининг ўзи гаров эгаси ёки бошқа шахсни танланг;
+  - сақланг.
+- Янги шартнома яратинг.
+- QR орқали тасдиқлаб, PDF тайёрланг.
+- PDF'да учала иштирокчи кўринади.
 
-ЭҲТИЁТ:
-Бу катта schema ўзгариши. Аввал GitHub ва PostgreSQL backup олиш тавсия қилинади.
+DATABASE:
+Янги Case майдонлари қўшилади, шунинг учун npx prisma db push шарт.

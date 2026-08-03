@@ -139,6 +139,48 @@ const updateStatusSchema = z.object({
 });
 
 
+
+const updateParticipantsSchema = z.object({
+  borrowerSameAsApplicant: z.boolean().optional().default(true),
+
+  borrower: z
+    .object({
+      fullName: z.string().trim().min(3).max(200),
+      phone: z.string().trim().max(30).optional().or(z.literal('')),
+      pinfl: z
+        .string()
+        .trim()
+        .regex(/^\d{14}$/, 'Қарз олувчи ЖШШИРи 14 та рақам бўлиши керак')
+        .optional()
+        .or(z.literal('')),
+      passportSeries: z.string().trim().max(10).optional().or(z.literal('')),
+      passportNumber: z.string().trim().max(20).optional().or(z.literal('')),
+      birthDate: z.string().trim().optional().or(z.literal('')),
+      address: z.string().trim().max(500).optional().or(z.literal('')),
+    })
+    .optional()
+    .nullable(),
+
+  collateralOwnerSameAsBorrower: z.boolean().optional().default(true),
+
+  collateralOwner: z
+    .object({
+      fullName: z.string().trim().min(3).max(200),
+      phone: z.string().trim().max(30).optional().or(z.literal('')),
+      pinfl: z
+        .string()
+        .trim()
+        .regex(/^\d{14}$/, 'Гаров эгаси ЖШШИРи 14 та рақам бўлиши керак')
+        .optional()
+        .or(z.literal('')),
+      passportSeries: z.string().trim().max(10).optional().or(z.literal('')),
+      passportNumber: z.string().trim().max(20).optional().or(z.literal('')),
+      address: z.string().trim().max(500).optional().or(z.literal('')),
+    })
+    .optional()
+    .nullable(),
+});
+
 const updateFinanceCollateralSchema = z.object({
   approvedAmount: z
     .union([z.number(), z.string()])
@@ -992,6 +1034,196 @@ router.patch(
 
       return res.json({
         message: 'Гаров мулки маълумотлари сақланди',
+        item: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/**
+ * PATCH /api/cases/:id/participants
+ *
+ * Мурожаатчи, асосий қарз олувчи ва гаров эгаси маълумотларини сақлайди.
+ */
+router.patch(
+  '/:id/participants',
+  allowRoles(
+    'SUPER_ADMIN',
+    'DIRECTOR',
+    'BRANCH_MANAGER',
+    'RECEPTION_MANAGER',
+    'EXECUTOR'
+  ),
+  async (req, res, next) => {
+    try {
+      const parsed = updateParticipantsSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Иштирокчилар маълумотларида хато бор',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const existingCase = await prisma.case.findUnique({
+        where: { id: req.params.id },
+        include: {
+          applicant: true,
+          borrowers: {
+            include: { client: true },
+            orderBy: { sequence: 'asc' },
+          },
+        },
+      });
+
+      if (!existingCase) {
+        return res.status(404).json({
+          error: 'Мурожаат топилмади',
+        });
+      }
+
+      const data = parsed.data;
+
+      const result = await prisma.$transaction(async (tx) => {
+        let borrowerClient;
+
+        if (data.borrowerSameAsApplicant) {
+          borrowerClient = existingCase.applicant;
+        } else {
+          if (!data.borrower) {
+            const error = new Error('Қарз олувчи маълумотларини киритинг');
+            error.status = 400;
+            throw error;
+          }
+
+          const currentBorrower = existingCase.borrowers[0];
+
+          if (currentBorrower) {
+            borrowerClient = await tx.client.update({
+              where: { id: currentBorrower.clientId },
+              data: {
+                fullName: data.borrower.fullName,
+                phone: normalizeOptional(data.borrower.phone),
+                pinfl: normalizeOptional(data.borrower.pinfl),
+                passportSeries: normalizeOptional(
+                  data.borrower.passportSeries
+                ),
+                passportNumber: normalizeOptional(
+                  data.borrower.passportNumber
+                ),
+                birthDate: parseDate(data.borrower.birthDate),
+                address: normalizeOptional(data.borrower.address),
+              },
+            });
+          } else {
+            borrowerClient = await tx.client.create({
+              data: {
+                fullName: data.borrower.fullName,
+                phone: normalizeOptional(data.borrower.phone),
+                pinfl: normalizeOptional(data.borrower.pinfl),
+                passportSeries: normalizeOptional(
+                  data.borrower.passportSeries
+                ),
+                passportNumber: normalizeOptional(
+                  data.borrower.passportNumber
+                ),
+                birthDate: parseDate(data.borrower.birthDate),
+                address: normalizeOptional(data.borrower.address),
+              },
+            });
+          }
+        }
+
+        const currentBorrower = existingCase.borrowers[0];
+
+        if (currentBorrower) {
+          await tx.borrower.update({
+            where: { id: currentBorrower.id },
+            data: {
+              clientId: borrowerClient.id,
+              status: 'APPROVED',
+              approvedAt: currentBorrower.approvedAt || new Date(),
+              rejectedAt: null,
+            },
+          });
+        } else {
+          await tx.borrower.create({
+            data: {
+              caseId: existingCase.id,
+              clientId: borrowerClient.id,
+              sequence: 1,
+              status: 'APPROVED',
+              approvedAt: new Date(),
+            },
+          });
+        }
+
+        let collateralOwner;
+
+        if (data.collateralOwnerSameAsBorrower) {
+          collateralOwner = {
+            fullName: borrowerClient.fullName,
+            phone: borrowerClient.phone,
+            pinfl: borrowerClient.pinfl,
+            passportSeries: borrowerClient.passportSeries,
+            passportNumber: borrowerClient.passportNumber,
+            address: borrowerClient.address,
+          };
+        } else {
+          if (!data.collateralOwner) {
+            const error = new Error('Гаров эгаси маълумотларини киритинг');
+            error.status = 400;
+            throw error;
+          }
+
+          collateralOwner = data.collateralOwner;
+        }
+
+        const item = await tx.case.update({
+          where: { id: existingCase.id },
+          data: {
+            collateralOwnerFullName: collateralOwner.fullName,
+            collateralOwnerPinfl: normalizeOptional(collateralOwner.pinfl),
+            collateralOwnerPassportSeries: normalizeOptional(
+              collateralOwner.passportSeries
+            ),
+            collateralOwnerPassportNumber: normalizeOptional(
+              collateralOwner.passportNumber
+            ),
+            collateralOwnerPhone: normalizeOptional(collateralOwner.phone),
+            collateralOwnerAddress: normalizeOptional(collateralOwner.address),
+            nextAction:
+              existingCase.nextAction ||
+              'Иштирокчилар ва гаров ҳужжатларини текшириш',
+          },
+          include: caseInclude,
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Case',
+            entityId: existingCase.id,
+            action: 'CASE_PARTICIPANTS_UPDATED',
+            metadata: {
+              applicantClientId: existingCase.applicantClientId,
+              borrowerClientId: borrowerClient.id,
+              borrowerSameAsApplicant: data.borrowerSameAsApplicant,
+              collateralOwnerSameAsBorrower:
+                data.collateralOwnerSameAsBorrower,
+              collateralOwnerFullName: collateralOwner.fullName,
+            },
+          },
+        });
+
+        return item;
+      });
+
+      return res.json({
+        message: 'Мурожаатчи, қарз олувчи ва гаров эгаси сақланди',
         item: result,
       });
     } catch (error) {

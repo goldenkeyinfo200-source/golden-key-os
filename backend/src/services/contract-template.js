@@ -62,8 +62,10 @@ export function defaultContractHtml() {
           Бир томондан «GOLDEN KEY INFO» масъулияти чекланган жамияти,
           кейинги ўринларда «Ижрочи» деб аталувчи, жамият раҳбари
           Таджибаев Азим Иркинджанович номидан, иккинчи томондан
-          {{clientFullName}}, кейинги ўринларда «Мижоз» деб аталувчи шахс,
-          биргаликда «Тарафлар» деб аталиб, ушбу шартномани туздилар.
+          {{clientFullName}}, кейинги ўринларда «Мурожаатчи» деб аталувчи шахс,
+          {{borrowerFullName}}, кейинги ўринларда «Қарз олувчи» деб аталувчи шахс,
+          ҳамда {{collateralOwnerFullName}}, кейинги ўринларда «Гаров эгаси»
+          деб аталувчи шахс иштирокида ушбу шартномани туздилар.
         </p>
         <p>
           Ижрочи «KAFOLAT» Суғурта компанияси АЖ томонидан 29.08.2025 куни
@@ -137,47 +139,17 @@ export function defaultContractHtml() {
       <section>
         <h2>5. ХИЗМАТ ҲАҚИ ВА ҲИСОБ-КИТОБ</h2>
         <p>
-          5.1. Ижрочининг хизмат ҳақи тасдиқланган кредит суммасининг
-          <strong>{{serviceFeePercent}} фоизини</strong> ташкил этади.
+          5.1. Хизмат ҳақи: <strong>{{serviceFee}}</strong>.
         </p>
         <p>
-          5.2. Тасдиқланган кредит суммаси:
-          <strong>{{approvedAmount}}</strong>.
-          Автоматик ҳисобланган хизмат ҳақи:
-          <strong>{{serviceFeeAutoAmount}}</strong>.
-          Мазкур шартнома бўйича якуний хизмат ҳақи:
-          <strong>{{serviceFee}}</strong>.
-        </p>
-        <p>
-          5.3. Хизмат ҳақи Мижозга олдиндан маълум қилинади ва CRM тизимида
+          5.2. Хизмат ҳақи Мижозга олдиндан маълум қилинади ва CRM тизимида
           қайд этилади. Тўлов нақд, банк ўтказмаси ёки қонунчиликда рухсат
           этилган бошқа усулда амалга оширилиши мумкин.
         </p>
         <p>
-          5.4. Банк, нотариус, баҳоловчи, суғурта ташкилоти ва бошқа учинчи
+          5.3. Банк, нотариус, баҳоловчи, суғурта ташкилоти ва бошқа учинчи
           шахсларнинг алоҳида харажатлари, агар бошқача келишилмаган бўлса,
           хизмат ҳақига кирмайди.
-        </p>
-      </section>
-
-
-      <section>
-        <h2>6. ГАРОВГА ОЛИНАЁТГАН МУЛК МАЪЛУМОТЛАРИ</h2>
-        <p><strong>Мулк тури:</strong> {{collateralType}}</p>
-        <p><strong>Манзили:</strong> {{collateralAddress}}</p>
-        <p><strong>Кадастр рақами:</strong> {{collateralCadastreNumber}}</p>
-        <p><strong>Мулкдор Ф.И.Ш.:</strong> {{collateralOwnerFullName}}</p>
-        <p><strong>Мулкдор ЖШШИРи:</strong> {{collateralOwnerPinfl}}</p>
-        <p><strong>Умумий майдони:</strong> {{collateralArea}}</p>
-        <p><strong>Баҳоланган қиймати:</strong> {{collateralEstimatedValue}}</p>
-        <p><strong>Қўшимча маълумот:</strong> {{collateralNotes}}</p>
-        <p>
-          6.1. Мижоз гаров мулкига оид тақдим этилган маълумот ва
-          ҳужжатларнинг ҳаққонийлиги учун жавоб беради.
-        </p>
-        <p>
-          6.2. Мулкнинг якуний гаров қиймати банк, лицензияга эга баҳоловчи
-          ташкилот ва тегишли ваколатли органлар хулосаси асосида белгиланади.
         </p>
       </section>
 
@@ -281,13 +253,27 @@ export function defaultContractHtml() {
         </p>
       </section>
 
+
       <section>
-        <h2>12. МИЖОЗ МАЪЛУМОТЛАРИ</h2>
-        <p><strong>Ф.И.Ш.:</strong> {{clientFullName}}</p>
+        <h2>12. ИПОТЕКА ЖАРАЁНИ ИШТИРОКЧИЛАРИ</h2>
+
+        <p><strong>Мурожаатчи:</strong> {{clientFullName}}</p>
         <p><strong>Телефон:</strong> {{clientPhone}}</p>
         <p><strong>ЖШШИР:</strong> {{clientPinfl}}</p>
         <p><strong>Паспорт:</strong> {{clientPassport}}</p>
         <p><strong>Манзил:</strong> {{clientAddress}}</p>
+
+        <p><strong>Қарз олувчи:</strong> {{borrowerFullName}}</p>
+        <p><strong>Телефон:</strong> {{borrowerPhone}}</p>
+        <p><strong>ЖШШИР:</strong> {{borrowerPinfl}}</p>
+        <p><strong>Паспорт:</strong> {{borrowerPassport}}</p>
+        <p><strong>Манзил:</strong> {{borrowerAddress}}</p>
+
+        <p><strong>Гаров эгаси:</strong> {{collateralOwnerFullName}}</p>
+        <p><strong>Телефон:</strong> {{collateralOwnerPhone}}</p>
+        <p><strong>ЖШШИР:</strong> {{collateralOwnerPinfl}}</p>
+        <p><strong>Паспорт:</strong> {{collateralOwnerPassport}}</p>
+        <p><strong>Манзил:</strong> {{collateralOwnerAddress}}</p>
       </section>
 
       <section>
@@ -318,6 +304,12 @@ export function renderContractHtml(templateHtml, context) {
 
 export function buildContractContext({ contract, caseItem, selectedOffer }) {
   const applicant = caseItem.applicant || {};
+  const borrower =
+    caseItem.borrowers?.find(
+      (item) => item.status === 'APPROVED'
+    )?.client ||
+    caseItem.borrowers?.[0]?.client ||
+    applicant;
 
   return {
     contractDisplayId: contract.displayId,
@@ -331,40 +323,40 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
         .filter(Boolean)
         .join(' ') || '—',
     clientAddress: applicant.address || '—',
+
+    borrowerFullName: borrower.fullName || '—',
+    borrowerPhone: borrower.phone || '—',
+    borrowerPinfl: borrower.pinfl || '—',
+    borrowerPassport:
+      [borrower.passportSeries, borrower.passportNumber]
+        .filter(Boolean)
+        .join(' ') || '—',
+    borrowerAddress: borrower.address || '—',
+
+    collateralOwnerFullName:
+      caseItem.collateralOwnerFullName || borrower.fullName || '—',
+    collateralOwnerPhone:
+      caseItem.collateralOwnerPhone || borrower.phone || '—',
+    collateralOwnerPinfl:
+      caseItem.collateralOwnerPinfl || borrower.pinfl || '—',
+    collateralOwnerPassport:
+      [
+        caseItem.collateralOwnerPassportSeries ||
+          borrower.passportSeries,
+        caseItem.collateralOwnerPassportNumber ||
+          borrower.passportNumber,
+      ]
+        .filter(Boolean)
+        .join(' ') || '—',
+    collateralOwnerAddress:
+      caseItem.collateralOwnerAddress || borrower.address || '—',
+
     serviceType: caseItem.serviceType || '—',
     requestedAmount: formatMoney(caseItem.requestedAmount),
     approvedAmount: formatMoney(
       selectedOffer?.approvedAmount ?? caseItem.approvedAmount
     ),
     bankName: selectedOffer?.bankName || caseItem.bankName || '—',
-    serviceFeePercent:
-      caseItem.serviceFeePercent !== null &&
-      caseItem.serviceFeePercent !== undefined
-        ? new Intl.NumberFormat('uz-UZ', {
-            maximumFractionDigits: 3,
-          }).format(Number(caseItem.serviceFeePercent))
-        : '4,5',
-    serviceFeeAutoAmount: formatMoney(caseItem.serviceFeeAutoAmount),
     serviceFee: formatMoney(caseItem.serviceFee),
-
-    collateralType: caseItem.collateralType || '—',
-    collateralAddress: caseItem.collateralAddress || '—',
-    collateralCadastreNumber:
-      caseItem.collateralCadastreNumber || '—',
-    collateralOwnerFullName:
-      caseItem.collateralOwnerFullName || '—',
-    collateralOwnerPinfl:
-      caseItem.collateralOwnerPinfl || '—',
-    collateralArea:
-      caseItem.collateralArea !== null &&
-      caseItem.collateralArea !== undefined
-        ? `${new Intl.NumberFormat('uz-UZ', {
-            maximumFractionDigits: 2,
-          }).format(Number(caseItem.collateralArea))} м²`
-        : '—',
-    collateralEstimatedValue: formatMoney(
-      caseItem.collateralEstimatedValue
-    ),
-    collateralNotes: caseItem.collateralNotes || '—',
   };
 }
