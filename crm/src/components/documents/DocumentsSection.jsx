@@ -241,6 +241,306 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
 
   return (
     <>
+
+      <style>{`
+        .documents-section {
+          overflow: visible;
+        }
+
+        .documents-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+
+        .documents-head h3 {
+          margin: 3px 0 4px;
+        }
+
+        .documents-head p {
+          margin: 0;
+          color: #7d838b;
+          font-size: 12px;
+        }
+
+        .documents-head-actions,
+        .document-card-actions,
+        .document-modal-actions {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          flex-wrap: wrap;
+        }
+
+        .documents-refresh,
+        .documents-upload-button,
+        .document-action,
+        .documents-empty button,
+        .documents-error button,
+        .document-cancel,
+        .document-save {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          min-height: 38px;
+          border-radius: 9px;
+          padding: 0 13px;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 800;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .documents-refresh {
+          width: 38px;
+          padding: 0;
+          border: 1px solid #dfe3e8;
+          background: #fff;
+          color: #25282c;
+        }
+
+        .documents-upload-button,
+        .documents-empty button,
+        .document-save {
+          border: 1px solid #e5232f;
+          background: #e5232f;
+          color: #fff;
+        }
+
+        .document-cancel,
+        .documents-error button {
+          border: 1px solid #dfe3e8;
+          background: #fff;
+          color: #25282c;
+        }
+
+        .documents-list {
+          display: grid;
+          gap: 11px;
+        }
+
+        .document-card {
+          display: grid;
+          grid-template-columns: 46px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 12px;
+          border: 1px solid #e4e7eb;
+          border-radius: 12px;
+          background: #fff;
+          padding: 12px;
+        }
+
+        .document-card-icon {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          background: #fff1f2;
+          color: #e5232f;
+        }
+
+        .document-card-content {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .document-card-content strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 14px;
+        }
+
+        .document-card-content span {
+          color: #858b93;
+          font-size: 11px;
+        }
+
+        .document-action {
+          min-height: 34px;
+          padding: 0 10px;
+          border: 1px solid #dfe3e8;
+          background: #fff;
+          color: #25282c;
+        }
+
+        .document-delete {
+          color: #d31d28;
+          border-color: #ffd2d5;
+          background: #fff7f7;
+        }
+
+        .documents-loading,
+        .documents-empty,
+        .documents-error {
+          min-height: 180px;
+          display: grid;
+          place-items: center;
+          align-content: center;
+          gap: 9px;
+          text-align: center;
+          color: #8c939c;
+        }
+
+        .documents-error {
+          color: #c9212c;
+        }
+
+        .documents-empty span,
+        .documents-error span {
+          max-width: 520px;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .document-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          background: rgba(10, 13, 17, 0.58);
+          backdrop-filter: blur(3px);
+        }
+
+        .document-modal {
+          width: min(680px, 100%);
+          max-height: calc(100vh - 48px);
+          overflow: auto;
+          border-radius: 16px;
+          background: #fff;
+          box-shadow: 0 25px 70px rgba(0, 0, 0, 0.24);
+        }
+
+        .document-modal-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 15px;
+          padding: 18px 20px;
+          border-bottom: 1px solid #eceef1;
+        }
+
+        .document-modal-head span {
+          color: #e5232f;
+          font-size: 11px;
+          font-weight: 800;
+        }
+
+        .document-modal-head h3 {
+          margin: 4px 0 0;
+          font-size: 19px;
+        }
+
+        .document-modal-head button {
+          width: 36px;
+          height: 36px;
+          display: grid;
+          place-items: center;
+          border: 1px solid #dfe3e8;
+          border-radius: 9px;
+          background: #fff;
+          cursor: pointer;
+        }
+
+        .document-upload-form {
+          display: grid;
+          gap: 16px;
+          padding: 20px;
+        }
+
+        .document-field {
+          display: grid;
+          gap: 7px;
+        }
+
+        .document-field span {
+          color: #555c65;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .document-field select {
+          width: 100%;
+          border: 1px solid #dfe3e8;
+          border-radius: 10px;
+          background: #fff;
+          font: inherit;
+          padding: 11px 12px;
+        }
+
+        .document-file-picker {
+          min-height: 180px;
+          display: grid;
+          place-items: center;
+          align-content: center;
+          gap: 8px;
+          padding: 20px;
+          border: 1.5px dashed #d4d9df;
+          border-radius: 13px;
+          background: #fafbfc;
+          text-align: center;
+          cursor: pointer;
+        }
+
+        .document-file-picker input {
+          display: none;
+        }
+
+        .document-file-picker svg {
+          color: #e5232f;
+        }
+
+        .document-file-picker span {
+          color: #8a9098;
+          font-size: 12px;
+        }
+
+        .document-upload-error {
+          border-radius: 10px;
+          padding: 11px 12px;
+          background: #fff0f1;
+          color: #c9212c;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .document-modal-actions {
+          justify-content: flex-end;
+        }
+
+        @media (max-width: 700px) {
+          .documents-head {
+            flex-direction: column;
+          }
+
+          .documents-head-actions {
+            width: 100%;
+            justify-content: flex-end;
+          }
+
+          .document-card {
+            grid-template-columns: 42px minmax(0, 1fr);
+          }
+
+          .document-card-actions {
+            grid-column: 1 / -1;
+            justify-content: flex-end;
+          }
+
+          .document-modal-backdrop {
+            padding: 10px;
+          }
+        }
+      `}</style>
+
       <section className="panel details-section documents-section">
         <div className="details-section-head documents-head">
           <div>
