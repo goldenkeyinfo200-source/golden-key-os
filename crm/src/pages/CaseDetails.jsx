@@ -20,6 +20,8 @@ import {
 
 import { apiRequest } from '../services/api.js';
 import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
+import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
+import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -935,87 +937,16 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             )}
           </section>
 
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Ҳужжатлар</span>
-                <h3>Юкланган файллар</h3>
-              </div>
+          <DocumentsSection
+            caseId={item.id}
+            applicantClientId={item.applicantClientId}
+            onChanged={loadCase}
+          />
 
-              <FileText size={22} />
-            </div>
-
-            {item.documents?.length ? (
-              <div className="case-document-list">
-                {item.documents.map((document) => (
-                  <a
-                    href={document.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="case-document-item"
-                    key={document.id}
-                  >
-                    <FileText size={19} />
-
-                    <div>
-                      <strong>{document.fileName || document.type}</strong>
-                      <span>{document.mimeType || 'Файл'}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={FileText}
-                title="Ҳужжатлар юкланмаган"
-                text="Паспорт, кадастр ва бошқа файллар кейинги босқичда шу ерга юкланади."
-              />
-            )}
-          </section>
-
-          <section className="panel details-section">
-            <div className="details-section-head">
-              <div>
-                <span className="section-kicker">Шартномалар</span>
-                <h3>Мижоз билан тузилган шартномалар</h3>
-              </div>
-
-              <BriefcaseBusiness size={22} />
-            </div>
-
-            {item.contracts?.length ? (
-              <div className="details-card-list">
-                {item.contracts.map((contract) => (
-                  <div className="details-list-card" key={contract.id}>
-                    <div>
-                      <strong>{contract.displayId}</strong>
-                      <span>
-                        {contract.status} · {formatDate(contract.createdAt)}
-                      </span>
-                    </div>
-
-                    {contract.pdfUrl ? (
-                      <a
-                        href={contract.pdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        PDF очиш
-                      </a>
-                    ) : (
-                      <span className="details-muted">PDF тайёр эмас</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyBlock
-                icon={BriefcaseBusiness}
-                title="Шартнома ҳали яратилмаган"
-                text="Мижоз қарор қабул қилгандан кейин шартнома шу ерда пайдо бўлади."
-              />
-            )}
-          </section>
+          <ContractsSection
+            caseId={item.id}
+            onChanged={loadCase}
+          />
         </div>
 
         <aside className="case-details-side-column">
