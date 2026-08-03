@@ -1131,6 +1131,14 @@ router.post(
           const oldCaseStatus =
             existingOffer.case.status;
 
+          const serviceFeePercent = 4.5;
+          const approvedAmount = Number(
+            existingOffer.approvedAmount
+          );
+          const serviceFeeAmount = Math.round(
+            (approvedAmount * serviceFeePercent) / 100
+          );
+
           await tx.case.update({
             where: {
               id: existingOffer.caseId,
@@ -1138,9 +1146,14 @@ router.post(
 
             data: {
               bankName: existingOffer.bankName,
-
               approvedAmount:
                 existingOffer.approvedAmount,
+
+              serviceFeePercent,
+              serviceFeeAutoAmount:
+                serviceFeeAmount,
+              serviceFee:
+                serviceFeeAmount,
 
               status: 'CLIENT_PREAPPROVED',
 
@@ -1183,6 +1196,8 @@ router.post(
                   null,
                 termMonths:
                   existingOffer.termMonths,
+                serviceFeePercent: 4.5,
+                serviceFeeAmount,
               },
             },
           });

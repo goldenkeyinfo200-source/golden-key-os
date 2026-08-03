@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { apiRequest } from '../services/api.js';
+import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -214,9 +215,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   const [statusSuccess, setStatusSuccess] = useState('');
 
   const [financeForm, setFinanceForm] = useState({
-    approvedAmount: '',
-    serviceFeePercent: '4.5',
-    serviceFeeOverride: '',
     collateralType: '',
     collateralAddress: '',
     collateralCadastreNumber: '',
@@ -254,19 +252,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           null;
 
         setFinanceForm({
-          approvedAmount:
-            loadedItem.approvedAmount ??
-            selectedOffer?.approvedAmount ??
-            '',
-          serviceFeePercent:
-            loadedItem.serviceFeePercent ?? '4.5',
-          serviceFeeOverride:
-            loadedItem.serviceFee !== null &&
-            loadedItem.serviceFee !== undefined &&
-            Number(loadedItem.serviceFee) !==
-              Number(loadedItem.serviceFeeAutoAmount)
-              ? loadedItem.serviceFee
-              : '',
           collateralType: loadedItem.collateralType || '',
           collateralAddress:
             loadedItem.collateralAddress || '',
@@ -345,21 +330,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     }));
   };
 
-  const calculatedFee = useMemo(() => {
-    const amount = parseNumericInput(financeForm.approvedAmount);
-    const percent = parseNumericInput(
-      financeForm.serviceFeePercent
-    );
-
-    if (amount === null || percent === null) {
-      return null;
-    }
-
-    return Math.round((amount * percent) / 100);
-  }, [
-    financeForm.approvedAmount,
-    financeForm.serviceFeePercent,
-  ]);
 
   const saveFinanceCollateral = async (event) => {
     event.preventDefault();
@@ -385,25 +355,17 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
       setFinanceForm((current) => ({
         ...current,
-        approvedAmount: data.item.approvedAmount ?? '',
-        serviceFeePercent:
-          data.item.serviceFeePercent ?? '4.5',
-        serviceFeeOverride:
-          Number(data.item.serviceFee) !==
-          Number(data.item.serviceFeeAutoAmount)
-            ? data.item.serviceFee ?? ''
-            : '',
       }));
 
       setFinanceSuccess(
-        'Хизмат ҳақи ва гаров мулки маълумотлари сақланди.'
+        'Гаров мулки маълумотлари сақланди. Энди мурожаатни банкка юбориш мумкин.'
       );
 
       onChanged?.(data.item);
     } catch (error) {
       setFinanceError(
         error.message ||
-          'Молиявий ва гаров маълумотларини сақлаб бўлмади.'
+          'Гаров мулки маълумотларини сақлаб бўлмади.'
       );
     } finally {
       setSavingFinance(false);
@@ -720,28 +682,15 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <section className="panel details-section">
             <div className="details-section-head">
               <div>
-                <span className="section-kicker">Хизмат ва гаров</span>
-                <h3>Молиявий ҳамда мулк маълумотлари</h3>
+                <span className="section-kicker">Гаров</span>
+                <h3>Гаровга олинаётган мулк маълумотлари</h3>
+                <p>
+                  Аввал гаров маълумотларини сақланг. Банк КАТМ ва мулк
+                  ҳужжатларини текширгандан кейин кредит таклифини киритади.
+                </p>
               </div>
 
               <WalletCards size={21} />
-            </div>
-
-            <div className="financial-summary">
-              <div>
-                <span>Сўралган сумма</span>
-                <strong>{formatAmount(item.requestedAmount)}</strong>
-              </div>
-
-              <div>
-                <span>Тасдиқланган сумма</span>
-                <strong>{formatAmount(displayedApprovedAmount)}</strong>
-              </div>
-
-              <div>
-                <span>Хизмат ҳақи</span>
-                <strong>{formatAmount(item.serviceFee)}</strong>
-              </div>
             </div>
 
             <form
@@ -753,94 +702,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                 marginTop: 20,
               }}
             >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: 14,
-                }}
-              >
-                <label>
-                  <span>Тасдиқланган кредит суммаси</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={financeForm.approvedAmount}
-                    onChange={(event) =>
-                      updateFinanceField(
-                        'approvedAmount',
-                        event.target.value
-                      )
-                    }
-                    placeholder="300000000"
-                    disabled={savingFinance}
-                  />
-                </label>
-
-                <label>
-                  <span>Хизмат ҳақи фоизи</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={financeForm.serviceFeePercent}
-                    onChange={(event) =>
-                      updateFinanceField(
-                        'serviceFeePercent',
-                        event.target.value
-                      )
-                    }
-                    disabled={savingFinance}
-                  />
-                </label>
-
-                <label>
-                  <span>Автоматик ҳисоб</span>
-                  <input
-                    type="text"
-                    value={
-                      calculatedFee === null
-                        ? 'Сумма ва фоизни киритинг'
-                        : formatAmount(calculatedFee)
-                    }
-                    readOnly
-                    style={{
-                      fontWeight: 700,
-                      color: '#087742',
-                      background: '#f1fcf6',
-                    }}
-                  />
-                </label>
-
-                <label>
-                  <span>Якуний хизмат ҳақи — қўлда ўзгартириш</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={financeForm.serviceFeeOverride}
-                    onChange={(event) =>
-                      updateFinanceField(
-                        'serviceFeeOverride',
-                        event.target.value
-                      )
-                    }
-                    placeholder="Бўш қолса 4,5% автоматик"
-                    disabled={savingFinance}
-                  />
-                </label>
-              </div>
-
-              <div
-                style={{
-                  paddingTop: 6,
-                  borderTop: '1px solid #ececec',
-                }}
-              >
-                <strong>Гаровга олинаётган мулк</strong>
-              </div>
-
               <div
                 style={{
                   display: 'grid',
@@ -934,7 +795,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                 </label>
 
                 <label>
-                  <span>Баҳоланган қиймати</span>
+                  <span>Тахминий баҳоланган қиймати</span>
                   <input
                     type="number"
                     min="0"
@@ -1005,12 +866,68 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
                     Сақланмоқда...
                   </>
                 ) : (
-                  'Молиявий ва гаров маълумотларини сақлаш'
+                  'Гаров маълумотларини сақлаш'
                 )}
               </button>
             </form>
           </section>
 
+          <BankOffersSection
+            caseId={item.id}
+            onCaseChanged={loadCase}
+          />
+
+          <section className="panel details-section">
+            <div className="details-section-head">
+              <div>
+                <span className="section-kicker">Хизмат ҳақи</span>
+                <h3>Танланган банк таклифи бўйича ҳисоб</h3>
+              </div>
+
+              <Banknote size={21} />
+            </div>
+
+            {selectedBankOffer ? (
+              <div className="financial-summary">
+                <div>
+                  <span>Танланган банк</span>
+                  <strong>{displayedBankName}</strong>
+                </div>
+
+                <div>
+                  <span>Тасдиқланган кредит</span>
+                  <strong>
+                    {formatAmount(displayedApprovedAmount)}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Хизмат ҳақи ставкаси</span>
+                  <strong>
+                    {item.serviceFeePercent ?? 4.5}%
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Автоматик хизмат ҳақи</span>
+                  <strong>
+                    {formatAmount(item.serviceFeeAutoAmount)}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Якуний хизмат ҳақи</span>
+                  <strong>{formatAmount(item.serviceFee)}</strong>
+                </div>
+              </div>
+            ) : (
+              <EmptyBlock
+                icon={Landmark}
+                title="Банк жавоби кутилмоқда"
+                text="КАТМ ва гаров мулки текширилиб, банк таклифи танлангандан кейин тасдиқланган сумма ва 4,5% хизмат ҳақи автоматик чиқади."
+              />
+            )}
+          </section>
 
           <section className="panel details-section">
             <div className="details-section-head">

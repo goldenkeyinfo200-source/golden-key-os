@@ -877,7 +877,7 @@ router.patch(
 
       if (!parsed.success) {
         return res.status(400).json({
-          error: 'Молиявий ёки гаров маълумотлари нотўғри',
+          error: 'Гаров мулки маълумотлари нотўғри',
           details: parsed.error.flatten().fieldErrors,
         });
       }
@@ -886,17 +886,6 @@ router.patch(
         where: {
           id: req.params.id,
         },
-        include: {
-          bankOffers: {
-            where: {
-              status: 'SELECTED',
-            },
-            orderBy: {
-              selectedAt: 'desc',
-            },
-            take: 1,
-          },
-        },
       });
 
       if (!existingCase) {
@@ -904,45 +893,6 @@ router.patch(
           error: 'Мурожаат топилмади',
         });
       }
-
-      const selectedOffer = existingCase.bankOffers[0] || null;
-
-      const bodyApprovedAmount = parseAmount(parsed.data.approvedAmount);
-      const selectedApprovedAmount = parseAmount(
-        selectedOffer?.approvedAmount?.toString()
-      );
-      const existingApprovedAmount = parseAmount(
-        existingCase.approvedAmount?.toString()
-      );
-
-      const approvedAmount =
-        bodyApprovedAmount ??
-        selectedApprovedAmount ??
-        existingApprovedAmount;
-
-      const percentInput = parseAmount(parsed.data.serviceFeePercent);
-      const currentPercent = parseAmount(
-        existingCase.serviceFeePercent?.toString()
-      );
-
-      const serviceFeePercent =
-        percentInput ?? currentPercent ?? 4.5;
-
-      if (serviceFeePercent > 100) {
-        return res.status(400).json({
-          error: 'Хизмат ҳақи фоизи 100% дан ошмаслиги керак',
-        });
-      }
-
-      const overrideAmount = parseAmount(
-        parsed.data.serviceFeeOverride
-      );
-
-      const fee = calculateServiceFee({
-        approvedAmount,
-        percent: serviceFeePercent,
-        overrideAmount,
-      });
 
       const collateralArea = parseAmount(parsed.data.collateralArea);
       const collateralEstimatedValue = parseAmount(
@@ -955,11 +905,6 @@ router.patch(
             id: existingCase.id,
           },
           data: {
-            approvedAmount,
-            serviceFeePercent: fee.percent,
-            serviceFeeAutoAmount: fee.autoAmount,
-            serviceFee: fee.finalAmount,
-
             collateralType: normalizeOptional(
               parsed.data.collateralType
             ),
@@ -980,6 +925,9 @@ router.patch(
             collateralNotes: normalizeOptional(
               parsed.data.collateralNotes
             ),
+
+            nextAction:
+              'Гаров ҳужжатлари ва КАТМни банкка текширувга юбориш',
           },
           include: caseInclude,
         });
@@ -989,21 +937,18 @@ router.patch(
             userId: req.user.id,
             entityType: 'Case',
             entityId: existingCase.id,
-            action: 'CASE_FINANCE_COLLATERAL_UPDATED',
+            action: 'CASE_COLLATERAL_UPDATED',
             metadata: {
-              approvedAmount,
-              serviceFeePercent: fee.percent,
-              serviceFeeAutoAmount: fee.autoAmount,
-              serviceFeeFinalAmount: fee.finalAmount,
-              serviceFeeOverridden:
-                overrideAmount !== null &&
-                overrideAmount !== fee.autoAmount,
               collateralType: normalizeOptional(
                 parsed.data.collateralType
               ),
               collateralCadastreNumber: normalizeOptional(
                 parsed.data.collateralCadastreNumber
               ),
+              collateralOwnerFullName: normalizeOptional(
+                parsed.data.collateralOwnerFullName
+              ),
+              collateralEstimatedValue,
             },
           },
         });
@@ -1012,8 +957,7 @@ router.patch(
       });
 
       return res.json({
-        message:
-          'Молиявий маълумотлар ва гаров мулки сақланди',
+        message: 'Гаров мулки маълумотлари сақланди',
         item: result,
       });
     } catch (error) {
