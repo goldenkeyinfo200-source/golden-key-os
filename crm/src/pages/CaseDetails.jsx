@@ -228,6 +228,12 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   const [financeError, setFinanceError] = useState('');
   const [financeSuccess, setFinanceSuccess] = useState('');
 
+  const [bankOfferState, setBankOfferState] = useState({
+    offers: [],
+    selectedOffer: null,
+    loading: true,
+  });
+
   const loadCase = useCallback(async () => {
     if (!caseId) {
       return;
@@ -402,19 +408,18 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
   const applicant = item.applicant || {};
   const selectedBankOffer =
+    bankOfferState.selectedOffer ||
     item.bankOffers?.find((offer) => offer.status === 'SELECTED') ||
-    item.bankOffers?.[0] ||
     null;
 
   const displayedBankName =
-    item.bankName ||
     selectedBankOffer?.bankName ||
-    selectedBankOffer?.bank?.name ||
+    item.bankName ||
     'Танланмаган';
 
   const displayedApprovedAmount =
-    item.approvedAmount ??
     selectedBankOffer?.approvedAmount ??
+    item.approvedAmount ??
     null;
 
   return (
@@ -875,6 +880,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <BankOffersSection
             caseId={item.id}
             onCaseChanged={loadCase}
+            onOfferStateChange={setBankOfferState}
           />
 
           <section className="panel details-section">
@@ -887,7 +893,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               <Banknote size={21} />
             </div>
 
-            {selectedBankOffer ? (
+            {selectedBankOffer || (item.bankName && item.approvedAmount) ? (
               <div className="financial-summary">
                 <div>
                   <span>Танланган банк</span>
