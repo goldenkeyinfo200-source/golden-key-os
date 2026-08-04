@@ -1,0 +1,514 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  DIRECTOR
+  BRANCH_MANAGER
+  RECEPTION_MANAGER
+  EXECUTOR
+  BANK_EMPLOYEE
+  LAWYER
+  ACCOUNTANT
+  CLIENT
+}
+
+enum CaseStatus {
+  NEW
+  DATA_COLLECTION
+  BANK_REVIEW
+  CLIENT_PREAPPROVED
+  OFFICE_VISIT
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  ASSIGNED_TO_EXECUTOR
+  IN_EXECUTION
+  PROPERTY_MONITORING
+  CREDIT_APPROVED
+  CREDIT_ISSUED
+  CLIENT_RECEIVED_FUNDS
+  SERVICE_FEE_PAID
+  COMPLETED
+  REJECTED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ServiceType {
+  PRIMARY_MORTGAGE
+  SECONDARY_MORTGAGE
+  MICROLOAN
+  REALTOR_SERVICE
+  SALE_PURCHASE
+  CADASTRE_SERVICE
+  OTHER
+}
+
+enum BorrowerStatus {
+  CANDIDATE
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ACTIVE
+  REPLACED
+}
+
+enum ContractStatus {
+  DRAFT
+  MANAGER_REVIEW
+  READY_TO_SIGN
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+enum BankOfferStatus {
+  DRAFT
+  SUBMITTED
+  SELECTED
+  REJECTED
+  CANCELLED
+}
+
+enum CaseBankStatus {
+  SENT
+  VIEWED
+  UNDER_REVIEW
+  NEEDS_DOCUMENTS
+  OFFER_SUBMITTED
+  REJECTED
+  SELECTED
+  CLOSED
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches Branch[]
+  users    User[]
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  city      String?
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  users   User[]
+  cases   Case[]
+  kiosks  KioskDevice[]
+
+  @@index([companyId])
+}
+
+model Bank {
+  id            String   @id @default(cuid())
+  name          String
+  shortName     String?
+  inn           String?
+  mfo           String?
+  licenseNumber String?
+  address       String?
+  phone         String?
+  email         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employees   User[]
+  assignments CaseBankAssignment[]
+  offers      BankOffer[]
+
+  @@unique([name])
+  @@index([isActive])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  companyId    String?
+  branchId     String?
+  bankId       String?
+  bankPosition String?
+  fullName     String
+  phone        String?
+  email        String?  @unique
+  login        String?  @unique
+  passwordHash String?
+  telegramId   String?  @unique
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+
+  managedCases  Case[]        @relation("ReceptionManagerCases")
+  executedCases Case[]        @relation("ExecutorCases")
+  auditLogs     AuditLog[]
+  kiosks        KioskDevice[]
+  bankOffers    BankOffer[]
+  bankAssignments CaseBankAssignment[] @relation("AssignedBankEmployee")
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([bankId])
+  @@index([role])
+  @@index([isActive])
+}
+
+model Client {
+  id             String   @id @default(cuid())
+  telegramId     String?
+  fullName       String
+  pinfl          String?
+  passportSeries String?
+  passportNumber String?
+  birthDate      DateTime?
+  address        String?
+  phone          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  applicantCases Case[]     @relation("ApplicantCases")
+  borrowers      Borrower[]
+  documents      Document[]
+
+  @@index([fullName])
+  @@index([phone])
+  @@index([pinfl])
+  @@index([passportNumber])
+  @@index([telegramId])
+}
+
+model Case {
+  id                 String      @id @default(cuid())
+  displayId          String      @unique
+  branchId           String?
+  applicantClientId  String
+  receptionManagerId String?
+  executorId         String?
+  serviceType        ServiceType
+  status             CaseStatus  @default(NEW)
+  requestedAmount    Decimal?    @db.Decimal(18, 2)
+  approvedAmount             Decimal?    @db.Decimal(18, 2)
+  serviceFeePercent           Decimal     @default(4.5) @db.Decimal(6, 3)
+  serviceFeeAutoAmount        Decimal?    @db.Decimal(18, 2)
+  serviceFee                  Decimal?    @db.Decimal(18, 2)
+
+  collateralType              String?
+  collateralAddress           String?
+  collateralCadastreNumber    String?
+  collateralOwnerFullName     String?
+  collateralOwnerPinfl        String?
+  collateralOwnerPassportSeries String?
+  collateralOwnerPassportNumber String?
+  collateralOwnerPhone        String?
+  collateralOwnerAddress      String?
+  collateralArea              Decimal?    @db.Decimal(12, 2)
+  collateralEstimatedValue    Decimal?    @db.Decimal(18, 2)
+  collateralNotes             String?
+
+  bankName           String?
+  nextAction         String?
+  nextActionDueAt    DateTime?
+  creditIssuedAt     DateTime?
+  clientReceivedAt   DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  applicant Client @relation("ApplicantCases", fields: [applicantClientId], references: [id])
+
+  receptionManager User? @relation("ReceptionManagerCases", fields: [receptionManagerId], references: [id])
+
+  executor User? @relation("ExecutorCases", fields: [executorId], references: [id])
+
+  borrowers   Borrower[]
+  contracts   Contract[]
+  documents   Document[]
+  payments    Payment[]
+  invitations Invitation[]
+  history     CaseHistory[]
+  bankOffers  BankOffer[]
+  bankAssignments CaseBankAssignment[]
+
+  @@index([branchId])
+  @@index([applicantClientId])
+  @@index([receptionManagerId])
+  @@index([executorId])
+  @@index([serviceType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Borrower {
+  id         String         @id @default(cuid())
+  caseId     String
+  clientId   String
+  status     BorrowerStatus @default(CANDIDATE)
+  sequence   Int
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  contracts Contract[]
+
+  @@unique([caseId, sequence])
+  @@index([caseId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model ContractTemplate {
+  id          String      @id @default(cuid())
+  name        String
+  serviceType ServiceType
+  version     Int
+  htmlBody    String
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  contracts Contract[]
+
+  @@unique([serviceType, version])
+  @@index([serviceType])
+  @@index([isActive])
+}
+
+model Contract {
+  id          String         @id @default(cuid())
+  displayId   String         @unique
+  caseId      String
+  borrowerId  String?
+  templateId  String
+  status      ContractStatus @default(DRAFT)
+  pdfUrl      String?
+  signedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  borrower Borrower? @relation(fields: [borrowerId], references: [id])
+
+  template ContractTemplate @relation(fields: [templateId], references: [id])
+
+  invitations Invitation[]
+
+  @@index([caseId])
+  @@index([borrowerId])
+  @@index([templateId])
+  @@index([status])
+}
+
+model Invitation {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  caseId     String
+  contractId String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  contract Contract? @relation(fields: [contractId], references: [id])
+
+  @@index([caseId])
+  @@index([contractId])
+  @@index([expiresAt])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  caseId    String?
+  clientId  String?
+  type      String
+  fileUrl   String
+  fileName  String?
+  mimeType  String?
+  createdAt DateTime @default(now())
+
+  case Case? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([clientId])
+  @@index([type])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  caseId    String
+  amount    Decimal       @db.Decimal(18, 2)
+  status    PaymentStatus @default(PENDING)
+  method    String?
+  paidAt    DateTime?
+  reference String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model CaseHistory {
+  id         String      @id @default(cuid())
+  caseId     String
+  fromStatus CaseStatus?
+  toStatus   CaseStatus
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([toStatus])
+  @@index([createdAt])
+}
+
+model CaseBankAssignment {
+  id                     String         @id @default(cuid())
+  caseId                 String
+  bankId                 String
+  assignedBankEmployeeId String?
+  status                 CaseBankStatus @default(SENT)
+  katmStatus             String?
+  katmNote               String?
+  collateralStatus       String?
+  collateralNote         String?
+  sentAt                 DateTime       @default(now())
+  viewedAt               DateTime?
+  respondedAt            DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bank Bank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  assignedBankEmployee User? @relation("AssignedBankEmployee", fields: [assignedBankEmployeeId], references: [id], onDelete: SetNull)
+  offers BankOffer[]
+
+  @@unique([caseId, bankId])
+  @@index([caseId])
+  @@index([bankId])
+  @@index([assignedBankEmployeeId])
+  @@index([status])
+}
+
+model BankOffer {
+  id               String          @id @default(cuid())
+  caseId           String
+  bankId           String?
+  assignmentId     String?
+  bankEmployeeId   String?
+  bankName         String
+  status           BankOfferStatus @default(DRAFT)
+  interestRate     Decimal?        @db.Decimal(8, 3)
+  termMonths       Int?
+  approvedAmount   Decimal?        @db.Decimal(18, 2)
+  initialPayment   Decimal?        @db.Decimal(18, 2)
+  monthlyPayment   Decimal?        @db.Decimal(18, 2)
+  insuranceAmount  Decimal?        @db.Decimal(18, 2)
+  commissionAmount Decimal?        @db.Decimal(18, 2)
+  validUntil       DateTime?
+  conditions       String?
+  rejectionReason  String?
+  submittedAt      DateTime?
+  selectedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+
+  assignment CaseBankAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  bankEmployee User? @relation(fields: [bankEmployeeId], references: [id])
+
+  @@index([caseId])
+  @@index([bankId])
+  @@index([assignmentId])
+  @@index([bankEmployeeId])
+  @@index([status])
+  @@index([bankName])
+  @@index([createdAt])
+}
+
+model KioskDevice {
+  id            String   @id @default(cuid())
+  branchId      String
+  managerId     String?
+  deviceCode    String   @unique
+  name          String
+  authTokenHash String   @unique
+  isOnline      Boolean  @default(false)
+  lastSeenAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  manager User? @relation(fields: [managerId], references: [id])
+
+  @@index([branchId])
+  @@index([managerId])
+  @@index([isOnline])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  entityType String
+  entityId   String
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}

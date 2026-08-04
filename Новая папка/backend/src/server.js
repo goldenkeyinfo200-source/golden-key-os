@@ -8,7 +8,6 @@ import morgan from 'morgan';
 import apiRouter from './routes/index.js';
 import bankOffersRouter from './routes/bank-offers.js';
 import banksRouter from './routes/banks.js';
-import telegramRouter from './routes/telegram.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -138,7 +137,6 @@ app.use('/api', apiRouter);
 */
 app.use('/api/bank-offers', bankOffersRouter);
 app.use('/api/banks', banksRouter);
-app.use('/api/telegram', telegramRouter);
 
 /* =========================================================
    404 HANDLER

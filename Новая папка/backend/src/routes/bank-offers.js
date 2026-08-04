@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
-import { notifyBankOfferSubmitted } from '../services/notify.js';
 
 const router = Router();
 
@@ -1059,15 +1058,6 @@ router.patch(
           return item;
         }
       );
-
-      if (result.status === 'SUBMITTED') {
-        notifyBankOfferSubmitted(result.id).catch((error) => {
-          console.error(
-            'Telegram: банк таклифи хабари юборилмади',
-            error.message
-          );
-        });
-      }
 
       return res.status(200).json({
         ok: true,

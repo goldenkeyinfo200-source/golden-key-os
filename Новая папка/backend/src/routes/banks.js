@@ -4,10 +4,6 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
-import {
-  notifyBankAssignment,
-  notifyBankReview,
-} from '../services/notify.js';
 
 const router = Router();
 
@@ -342,15 +338,6 @@ router.post('/cases/:caseId/assign', allowRoles(
       });
     });
 
-    for (const bankId of validIds) {
-      notifyBankAssignment(caseItem.id, bankId).catch((error) => {
-        console.error(
-          'Telegram: банкка бириктириш хабари юборилмади',
-          error.message
-        );
-      });
-    }
-
     return res.json({
       message: 'Мурожаат банкларга юборилди',
       items: result,
@@ -429,13 +416,6 @@ router.patch('/assignments/:assignmentId/review', allowRoles('BANK_EMPLOYEE'), a
         viewedAt: assignment.viewedAt || new Date(),
       },
       include: { bank: true },
-    });
-
-    notifyBankReview(item.id).catch((error) => {
-      console.error(
-        'Telegram: банк текшируви хабари юборилмади',
-        error.message
-      );
     });
 
     return res.json({ item });

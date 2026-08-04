@@ -1,0 +1,19 @@
+{
+  "name": "golden-key-telegram-bot",
+  "version": "1.0.0",
+  "description": "Golden Key CRM Telegram Bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.8.0",
+    "dotenv": "^16.4.7",
+    "telegraf": "^4.16.3",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.5"
+  }
+}

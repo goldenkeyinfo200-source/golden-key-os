@@ -3,10 +3,6 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
-import {
-  notifyNewCase,
-  notifyCaseStatusChanged,
-} from '../services/notify.js';
 
 const router = Router();
 
@@ -924,13 +920,6 @@ router.post(
         }
       );
 
-      notifyNewCase(result.id).catch((error) => {
-        console.error(
-          'Telegram: янги мурожаат хабари юборилмади',
-          error.message
-        );
-      });
-
       return res.status(201).json({
         message: 'Мурожаат муваффақиятли яратилди',
         item: result,
@@ -1331,17 +1320,6 @@ router.patch(
           return item;
         }
       );
-
-      notifyCaseStatusChanged(
-        result.id,
-        existingCase.status,
-        parsed.data.status
-      ).catch((error) => {
-        console.error(
-          'Telegram: статус ўзгариши хабари юборилмади',
-          error.message
-        );
-      });
 
       return res.json({
         message: 'Мурожаат ҳолати ўзгартирилди',
