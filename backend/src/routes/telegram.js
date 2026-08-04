@@ -33,7 +33,30 @@ const linkSchema = z.object({
 });
 
 function normalizePhone(phone) {
-  return phone.replace(/[^\d+]/g, '');
+  const digits = String(phone).replace(/[^\d]/g, '');
+  return digits;
+}
+
+function phoneVariants(phone) {
+  const digits = normalizePhone(phone);
+
+  const variants = new Set([digits, `+${digits}`]);
+
+  /*
+    Баъзи ёзувларда мамлакат коди (998) билан,
+    баъзиларида кодсиз сақланган бўлиши мумкин.
+  */
+  if (digits.startsWith('998') && digits.length > 9) {
+    const local = digits.slice(3);
+    variants.add(local);
+    variants.add(`+998${local}`);
+    variants.add(`998${local}`);
+  } else if (digits.length === 9) {
+    variants.add(`998${digits}`);
+    variants.add(`+998${digits}`);
+  }
+
+  return [...variants];
 }
 
 /**
@@ -55,12 +78,12 @@ router.post('/link', async (req, res, next) => {
     }
 
     const { phone, telegramId } = parsed.data;
-    const normalizedPhone = normalizePhone(phone);
+    const variants = phoneVariants(phone);
     const telegramIdStr = String(telegramId);
 
     // Аввал тизим ходими (User) сифатида қидирамиз
     const user = await prisma.user.findFirst({
-      where: { phone: normalizedPhone },
+      where: { phone: { in: variants } },
     });
 
     if (user) {
@@ -79,7 +102,7 @@ router.post('/link', async (req, res, next) => {
 
     // Сўнг мижоз (Client) сифатида қидирамиз — энг сўнггисини оламиз
     const client = await prisma.client.findFirst({
-      where: { phone: normalizedPhone },
+      where: { phone: { in: variants } },
       orderBy: { createdAt: 'desc' },
     });
 
