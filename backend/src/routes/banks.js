@@ -264,6 +264,43 @@ router.patch('/employees/:userId', allowRoles(...ADMIN_ROLES), async (req, res, 
   }
 });
 
+/**
+ * DELETE /api/banks/employees/:userId
+ *
+ * Диққат: ходим кириш тарихи (AuditLog), банк таклифлари ва
+ * мурожаат текширувлари билан боғланган бўлиши мумкин, шунинг
+ * учун базадан бутунлай ўчирилмайди — балки "isActive: false"
+ * қилиб, тизимга кириш ва янги ишларга бириктирилиш ҳуқуқи
+ * олиб қўйилади. Тарихий маълумотлар (ким нима қилганлиги)
+ * сақланиб қолади.
+ */
+router.delete(
+  '/employees/:userId',
+  allowRoles(...ADMIN_ROLES),
+  async (req, res, next) => {
+    try {
+      const employee = await prisma.user.findUnique({
+        where: { id: req.params.userId },
+      });
+
+      if (!employee || employee.role !== 'BANK_EMPLOYEE') {
+        return res.status(404).json({ error: 'Ходим топилмади' });
+      }
+
+      await prisma.user.update({
+        where: { id: employee.id },
+        data: { isActive: false },
+      });
+
+      return res.json({
+        message: 'Ходим тизимдан ўчирилди (тизимга кира олмайди)',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.post('/cases/:caseId/assign', allowRoles(
   'SUPER_ADMIN',
   'DIRECTOR',

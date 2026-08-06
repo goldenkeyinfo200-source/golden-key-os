@@ -5,6 +5,7 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -43,6 +44,7 @@ export function BanksPage() {
   const [bankForm, setBankForm] = useState(EMPTY_BANK);
   const [employeeForm, setEmployeeForm] = useState(EMPTY_EMPLOYEE);
   const [employees, setEmployees] = useState([]);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -111,6 +113,7 @@ export function BanksPage() {
   const openEmployees = async (bank) => {
     setEmployeeBank(bank);
     setEmployeeForm(EMPTY_EMPLOYEE);
+    setEditingEmployeeId(null);
     setEmployees([]);
 
     try {
@@ -121,22 +124,82 @@ export function BanksPage() {
     }
   };
 
-  const createEmployee = async (event) => {
+  const startEditEmployee = (employee) => {
+    setEditingEmployeeId(employee.id);
+    setEmployeeForm({
+      fullName: employee.fullName || '',
+      phone: employee.phone || '',
+      email: employee.email || '',
+      login: employee.login || '',
+      password: '',
+      bankPosition: employee.bankPosition || '',
+      isActive: employee.isActive !== false,
+    });
+  };
+
+  const cancelEditEmployee = () => {
+    setEditingEmployeeId(null);
+    setEmployeeForm(EMPTY_EMPLOYEE);
+  };
+
+  const saveEmployee = async (event) => {
     event.preventDefault();
     setSaving(true);
     setError('');
 
     try {
-      await apiRequest(`/banks/${employeeBank.id}/employees`, {
-        method: 'POST',
-        body: JSON.stringify(employeeForm),
-      });
+      if (editingEmployeeId) {
+        const payload = { ...employeeForm };
+        if (!payload.password) delete payload.password;
+        delete payload.login;
+
+        await apiRequest(`/banks/employees/${editingEmployeeId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiRequest(`/banks/${employeeBank.id}/employees`, {
+          method: 'POST',
+          body: JSON.stringify(employeeForm),
+        });
+      }
 
       setEmployeeForm(EMPTY_EMPLOYEE);
+      setEditingEmployeeId(null);
       await openEmployees(employeeBank);
       await load();
     } catch (requestError) {
-      setError(requestError.message || 'Ходимни қўшиб бўлмади.');
+      setError(requestError.message || 'Ходимни сақлаб бўлмади.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeEmployee = async (employee) => {
+    if (
+      !window.confirm(
+        `"${employee.fullName}" ходимини ўчиришни (тизимга киришини блоклашни) тасдиқлайсизми?`
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await apiRequest(`/banks/employees/${employee.id}`, {
+        method: 'DELETE',
+      });
+
+      if (editingEmployeeId === employee.id) {
+        cancelEditEmployee();
+      }
+
+      await openEmployees(employeeBank);
+      await load();
+    } catch (requestError) {
+      setError(requestError.message || 'Ходимни ўчириб бўлмади.');
     } finally {
       setSaving(false);
     }
@@ -273,26 +336,53 @@ export function BanksPage() {
               <div><span>{employeeBank.name}</span><h3>Банк ходимлари</h3></div>
               <button type="button" onClick={() => setEmployeeBank(null)}><X size={20} /></button>
             </div>
-            <form className="banks-form" onSubmit={createEmployee}>
+            <form className="banks-form" onSubmit={saveEmployee}>
               <div className="banks-form-grid">
                 {[
                   ['fullName','Ф.И.Ш.'],
                   ['phone','Телефон'],
                   ['email','Email'],
                   ['login','Логин'],
-                  ['password','Пароль'],
+                  ['password', editingEmployeeId ? 'Янги пароль (ихтиёрий)' : 'Пароль'],
                   ['bankPosition','Лавозим'],
                 ].map(([key,label]) => (
-                  <label key={key}><span>{label}</span><input type={key==='password'?'password':'text'} value={employeeForm[key]} onChange={(e)=>setEmployeeForm({...employeeForm,[key]:e.target.value})} required={['fullName','login','password'].includes(key)} /></label>
+                  <label key={key}>
+                    <span>{label}</span>
+                    <input
+                      type={key==='password'?'password':'text'}
+                      value={employeeForm[key]}
+                      onChange={(e)=>setEmployeeForm({...employeeForm,[key]:e.target.value})}
+                      required={editingEmployeeId ? ['fullName'].includes(key) : ['fullName','login','password'].includes(key)}
+                      disabled={key === 'login' && Boolean(editingEmployeeId)}
+                    />
+                  </label>
                 ))}
               </div>
-              <button className="banks-primary" disabled={saving}><UserPlus size={17}/>{saving?'Қўшилмоқда...':'Банк ходимини қўшиш'}</button>
+              <div className="banks-actions">
+                <button className="banks-primary" disabled={saving}>
+                  <UserPlus size={17}/>
+                  {saving ? 'Сақланмоқда...' : editingEmployeeId ? 'Ўзгаришларни сақлаш' : 'Банк ходимини қўшиш'}
+                </button>
+                {editingEmployeeId ? (
+                  <button type="button" className="banks-secondary" onClick={cancelEditEmployee}>
+                    Бекор қилиш
+                  </button>
+                ) : null}
+              </div>
             </form>
             <div className="employees-list">
               {employees.map((employee)=>(
                 <div className="employee-row" key={employee.id}>
                   <div><strong>{employee.fullName}</strong><span>{employee.bankPosition || 'Банк ходими'} · {employee.login}</span></div>
-                  <strong>{employee.isActive?'Фаол':'Блокланган'}</strong>
+                  <div className="banks-actions">
+                    <strong>{employee.isActive?'Фаол':'Блокланган'}</strong>
+                    <button type="button" className="banks-secondary" onClick={() => startEditEmployee(employee)}>
+                      <Edit3 size={15} />
+                    </button>
+                    <button type="button" className="banks-secondary" onClick={() => removeEmployee(employee)}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

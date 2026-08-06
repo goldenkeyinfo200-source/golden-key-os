@@ -11,6 +11,7 @@ import {
   Menu,
   ShieldCheck,
   UserRound,
+  Users,
   WalletCards,
   X,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import { CasesPage } from './pages/CasesPage.jsx';
 import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
+import { UsersPage } from './pages/UsersPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -31,10 +33,34 @@ const menu = [
   ['Мурожаатлар', FileText],
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
+  ['Ходимлар', Users],
   ['Шартномалар', FileText],
   ['Молия', WalletCards],
   ['Архив', Archive],
 ];
+
+/**
+ * Ҳар бир рол қайси меню бўлимларини кўра олиши.
+ * Backend'да маълумотлар аллақачон рол бўйича чегараланган
+ * (масалан EXECUTOR фақат ўзига бириктирилган ишларни кўради),
+ * бу эса фақат интерфейсда ортиқча бўлимларни яширади.
+ */
+const MENU_ACCESS = {
+  SUPER_ADMIN: null, // null = ҳаммаси кўринади
+  DIRECTOR: null,
+  BRANCH_MANAGER: [
+    'Бош панель',
+    'Мурожаатлар',
+    'Ижродаги ишлар',
+    'Шартномалар',
+    'Молия',
+    'Архив',
+  ],
+  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'Архив'],
+  EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
+  LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
+  ACCOUNTANT: ['Бош панель', 'Молия', 'Архив'],
+};
 
 const roleNames = {
   SUPER_ADMIN: 'Бош администратор',
@@ -293,6 +319,12 @@ function Dashboard({ user, onLogout }) {
     [user]
   );
 
+  const visibleMenu = useMemo(() => {
+    const allowed = MENU_ACCESS[user?.role];
+    if (!allowed) return menu;
+    return menu.filter(([label]) => allowed.includes(label));
+  }, [user]);
+
   const loadDashboard = useCallback(async () => {
     setDashboardLoading(true);
     setDashboardError('');
@@ -468,6 +500,10 @@ function Dashboard({ user, onLogout }) {
       return <BanksPage />;
     }
 
+    if (activeMenu === 'Ходимлар') {
+      return <UsersPage />;
+    }
+
     if (activeMenu === 'Мурожаатлар') {
       return (
         <CasesPage
@@ -502,7 +538,7 @@ function Dashboard({ user, onLogout }) {
         </div>
 
         <nav>
-          {menu.map(([label, Icon]) => (
+          {visibleMenu.map(([label, Icon]) => (
             <button
               type="button"
               className={activeMenu === label ? 'active' : ''}
