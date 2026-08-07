@@ -610,6 +610,14 @@ router.get('/', async (req, res, next) => {
 
     const where = {};
 
+    // Одатий "Мурожаатлар" рўйхатида архивланган ва бекор қилинган
+    // мурожаатлар кўринмайди. Улар тегишли махсус бўлимларда чиқади.
+    if (!scope && !status) {
+      where.status = {
+        notIn: ['ARCHIVED', 'CANCELLED'],
+      };
+    }
+
     if (scope === 'execution') {
       where.status = {
         in: [

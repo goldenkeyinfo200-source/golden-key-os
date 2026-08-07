@@ -3,6 +3,7 @@ import {
   Archive,
   BriefcaseBusiness,
   Building2,
+  CircleDollarSign,
   Eye,
   EyeOff,
   FileText,
@@ -28,6 +29,7 @@ import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
 import { ContractsPage } from './pages/ContractsPage.jsx';
 import { FinancePage } from './pages/FinancePage.jsx';
+import { DebtorsPage } from './pages/DebtorsPage.jsx';
 import { ArchivePage } from './pages/ArchivePage.jsx';
 import {
   API_URL,
@@ -46,6 +48,7 @@ const menu = [
   ['Ходимлар', Users],
   ['Шартномалар', FileText],
   ['Молия', WalletCards],
+  ['Қарздорлар', CircleDollarSign],
   ['Архив', Archive],
 ];
 
@@ -66,12 +69,13 @@ const MENU_ACCESS = {
     'Ижродаги ишлар',
     'Шартномалар',
     'Молия',
+    'Қарздорлар',
     'Архив',
   ],
-  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'QR экранлар', 'Архив'],
+  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'QR экранлар', 'Қарздорлар', 'Архив'],
   EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
   LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
-  ACCOUNTANT: ['Бош панель', 'Молия', 'Архив'],
+  ACCOUNTANT: ['Бош панель', 'Молия', 'Қарздорлар', 'Архив'],
 };
 
 const roleNames = {
@@ -745,6 +749,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Молия') {
       return <FinancePage />;
+    }
+
+    if (activeMenu === 'Қарздорлар') {
+      return <DebtorsPage />;
     }
 
     if (activeMenu === 'Архив') {
