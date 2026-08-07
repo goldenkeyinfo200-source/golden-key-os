@@ -1,20 +1,14 @@
-GK Bank Review — 1-bosqich
+GK Bank Offers Compare
 
-Almashtiriladigan fayl:
-crm/src/pages/BankPortalPage.jsx
+Алмаштирилади:
+crm/src/components/bank-offers/BankOffersSection.jsx
 
-Backend bu bosqichda o'zgarmaydi.
-Mavjud endpointlar ishlatiladi:
-GET /api/banks/cases/:caseId/assignments
-PATCH /api/banks/assignments/:assignmentId/review
+Қўшилди:
+- 2 ёки ундан кўп таклиф бўлса "Таклифларни солиштириш" тугмаси.
+- Бир жадвалда банк, сумма, фоиз, муддат, бошланғич ва ойлик тўлов.
+- Энг катта тасдиқланган сумма автомат ажратиб кўрсатилади.
+- Энг паст фоиз, ойлик тўлов ва бошланғич тўлов автомат ажратилади.
+- Golden Key ходими жадвалдан "Мижоз танлади" босиши мумкин.
+- Танланган таклиф алоҳида кўрсатилади.
 
-Qo'shildi:
-- KATM natijasi
-- KATM izohi
-- Garov tekshiruvi
-- Garov izohi
-- VIEWED / UNDER_REVIEW / NEEDS_DOCUMENTS / REJECTED holatlari
-- Natijani saqlash
-
-Keyingi qadam:
-mavjud BankOffersSection orqali bank taklifini test qilamiz.
+Backend ўзгармайди. Мавжуд /bank-offers/:offerId/select endpoint ишлатилади.

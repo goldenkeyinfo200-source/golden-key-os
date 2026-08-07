@@ -117,6 +117,55 @@ function formatDate(value) {
   }).format(date);
 }
 
+
+function numericValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function bestOfferIds(offers) {
+  const active = offers.filter(
+    (offer) =>
+      !['REJECTED', 'CANCELLED'].includes(offer.status) &&
+      numericValue(offer.approvedAmount) !== null
+  );
+
+  if (!active.length) {
+    return {
+      maxAmount: '',
+      minRate: '',
+      minMonthly: '',
+      minInitial: '',
+    };
+  }
+
+  const pick = (field, mode) => {
+    const candidates = active.filter(
+      (offer) => numericValue(offer[field]) !== null
+    );
+
+    if (!candidates.length) return '';
+
+    return candidates.reduce((best, current) => {
+      const bestValue = numericValue(best[field]);
+      const currentValue = numericValue(current[field]);
+
+      if (mode === 'max') {
+        return currentValue > bestValue ? current : best;
+      }
+
+      return currentValue < bestValue ? current : best;
+    }).id;
+  };
+
+  return {
+    maxAmount: pick('approvedAmount', 'max'),
+    minRate: pick('interestRate', 'min'),
+    minMonthly: pick('monthlyPayment', 'min'),
+    minInitial: pick('initialPayment', 'min'),
+  };
+}
+
 function makePayload(form) {
   const data = {
     ...form,
@@ -507,7 +556,7 @@ function OfferCard({
             disabled={busy || !offer.approvedAmount}
           >
             {busy ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}
-            Танлаш
+            Мижоз танлади
           </button>
         ) : null}
 
@@ -544,6 +593,17 @@ export function BankOffersSection({
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [compareMode, setCompareMode] = useState(false);
+
+  const comparison = useMemo(() => bestOfferIds(offers), [offers]);
+
+  const comparableOffers = useMemo(
+    () =>
+      offers.filter(
+        (offer) => !['REJECTED', 'CANCELLED'].includes(offer.status)
+      ),
+    [offers]
+  );
 
   const publishState = useCallback(
     (nextOffers, nextSelectedOffer, nextLoading = false) => {
@@ -1045,6 +1105,75 @@ export function BankOffersSection({
           text-align: left;
         }
 
+
+        .gk-bank-compare {
+          margin-bottom: 18px;
+          overflow-x: auto;
+          border: 1px solid #e2e5e9;
+          border-radius: 14px;
+          background: #fff;
+        }
+
+        .gk-bank-compare table {
+          width: 100%;
+          min-width: 780px;
+          border-collapse: collapse;
+        }
+
+        .gk-bank-compare th,
+        .gk-bank-compare td {
+          padding: 11px 12px;
+          border-right: 1px solid #eceef1;
+          border-bottom: 1px solid #eceef1;
+          text-align: left;
+          vertical-align: middle;
+          font-size: 12px;
+        }
+
+        .gk-bank-compare th {
+          background: #f7f8f9;
+          font-size: 11px;
+          color: #555c65;
+        }
+
+        .gk-bank-compare tr:last-child td {
+          border-bottom: 0;
+        }
+
+        .gk-bank-compare td:last-child,
+        .gk-bank-compare th:last-child {
+          border-right: 0;
+        }
+
+        .gk-bank-best {
+          background: #f1fff6;
+          color: #087742;
+          font-weight: 900;
+        }
+
+        .gk-bank-compare-bank {
+          display: grid;
+          gap: 3px;
+        }
+
+        .gk-bank-compare-bank strong {
+          font-size: 13px;
+        }
+
+        .gk-bank-compare-bank span {
+          color: #8a9098;
+          font-size: 10px;
+        }
+
+        .gk-bank-client-choice {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #087742;
+          font-size: 10px;
+          font-weight: 900;
+        }
+
         @media (max-width: 700px) {
           .gk-bank-head {
             align-items: stretch;
@@ -1089,6 +1218,17 @@ export function BankOffersSection({
           </div>
 
           <div className="gk-bank-head-actions">
+            {offers.length > 1 ? (
+              <button
+                type="button"
+                className="gk-bank-secondary"
+                onClick={() => setCompareMode((value) => !value)}
+              >
+                <Landmark size={16} />
+                {compareMode ? 'Карточкалар' : 'Таклифларни солиштириш'}
+              </button>
+            ) : null}
+
             <button
               type="button"
               className="gk-bank-icon-button"
@@ -1114,6 +1254,114 @@ export function BankOffersSection({
             ) : null}
           </div>
         </div>
+
+
+        {compareMode && comparableOffers.length > 1 ? (
+          <div className="gk-bank-compare">
+            <table>
+              <thead>
+                <tr>
+                  <th>Банк</th>
+                  <th>Тасдиқланган сумма</th>
+                  <th>Фоиз</th>
+                  <th>Муддат</th>
+                  <th>Бошланғич тўлов</th>
+                  <th>Ойлик тўлов</th>
+                  <th>Ҳолат</th>
+                  {SELECT.includes(role) ? <th>Танлов</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {comparableOffers.map((offer) => (
+                  <tr key={offer.id}>
+                    <td>
+                      <div className="gk-bank-compare-bank">
+                        <strong>{offer.bankName}</strong>
+                        <span>
+                          {offer.bankEmployee?.fullName ||
+                            'Банк ходими кўрсатилмаган'}
+                        </span>
+                        {offer.status === 'SELECTED' ? (
+                          <span className="gk-bank-client-choice">
+                            <CheckCircle2 size={12} />
+                            Мижоз танлади
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td
+                      className={
+                        comparison.maxAmount === offer.id
+                          ? 'gk-bank-best'
+                          : ''
+                      }
+                    >
+                      {formatAmount(offer.approvedAmount)}
+                    </td>
+                    <td
+                      className={
+                        comparison.minRate === offer.id
+                          ? 'gk-bank-best'
+                          : ''
+                      }
+                    >
+                      {offer.interestRate !== null &&
+                      offer.interestRate !== undefined
+                        ? `${offer.interestRate}%`
+                        : '—'}
+                    </td>
+                    <td>{formatTerm(offer.termMonths)}</td>
+                    <td
+                      className={
+                        comparison.minInitial === offer.id
+                          ? 'gk-bank-best'
+                          : ''
+                      }
+                    >
+                      {formatAmount(offer.initialPayment)}
+                    </td>
+                    <td
+                      className={
+                        comparison.minMonthly === offer.id
+                          ? 'gk-bank-best'
+                          : ''
+                      }
+                    >
+                      {formatAmount(offer.monthlyPayment)}
+                    </td>
+                    <td>{STATUS_LABELS[offer.status] || offer.status}</td>
+                    {SELECT.includes(role) ? (
+                      <td>
+                        {offer.status === 'SELECTED' ? (
+                          <span className="gk-bank-client-choice">
+                            <CheckCircle2 size={14} />
+                            Танланган
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="gk-bank-select"
+                            onClick={() => choose(offer)}
+                            disabled={
+                              busyId === offer.id || !offer.approvedAmount
+                            }
+                          >
+                            {busyId === offer.id ? (
+                              <LoaderCircle className="spin" size={15} />
+                            ) : (
+                              <CheckCircle2 size={15} />
+                            )}
+                            Мижоз танлади
+                          </button>
+                        )}
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
 
         {pageError ? (
           <div className="gk-bank-error">
