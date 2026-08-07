@@ -26,7 +26,7 @@ import { KioskPage } from './pages/KioskPage.jsx';
 import { KioskDevicesPage } from './pages/KioskDevicesPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
-import { ExecutionPage } from './pages/ExecutionPage.jsx';
+import { ContractsPage } from './pages/ContractsPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -737,8 +737,8 @@ function Dashboard({ user, onLogout }) {
       );
     }
 
-    if (activeMenu === 'Ижродаги ишлар') {
-      return <ExecutionPage user={user} />;
+    if (activeMenu === 'Шартномалар') {
+      return <ContractsPage />;
     }
 
     return renderPlaceholder();

@@ -136,6 +136,151 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 
 router.use(auth);
 
+
+router.get(
+  '/',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const page = Math.max(Number(req.query.page) || 1, 1);
+      const limit = Math.min(
+        Math.max(Number(req.query.limit) || 20, 1),
+        100
+      );
+
+      const search =
+        typeof req.query.search === 'string'
+          ? req.query.search.trim()
+          : '';
+
+      const status =
+        typeof req.query.status === 'string'
+          ? req.query.status.trim()
+          : '';
+
+      const where = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.OR = [
+          {
+            displayId: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            case: {
+              displayId: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            case: {
+              applicant: {
+                fullName: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+          {
+            case: {
+              applicant: {
+                phone: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        ];
+      }
+
+      if (
+        req.user.role === 'BRANCH_MANAGER' &&
+        req.user.branchId
+      ) {
+        where.case = {
+          ...(where.case || {}),
+          branchId: req.user.branchId,
+        };
+      }
+
+      const [items, total] = await prisma.$transaction([
+        prisma.contract.findMany({
+          where,
+          include: {
+            template: {
+              select: {
+                id: true,
+                name: true,
+                version: true,
+              },
+            },
+            case: {
+              include: {
+                applicant: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phone: true,
+                  },
+                },
+                branch: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.contract.count({ where }),
+      ]);
+
+      const itemsWithPdf = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          pdfUrl: item.pdfUrl
+            ? await createSignedFileUrl(
+                item.pdfUrl,
+                60 * 60 * 24
+              )
+            : null,
+        }))
+      );
+
+      return res.json({
+        items: itemsWithPdf,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(
+            Math.ceil(total / limit),
+            1
+          ),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.get(
   '/case/:caseId',
   allowRoles(...MANAGE_ROLES),
