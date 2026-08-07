@@ -1,17 +1,20 @@
-GK Execution Workflow v2
+GK Bank Review — 1-bosqich
 
-1. backend/src/routes/cases.js — мавжуд файл ўрнига алмаштиринг.
-2. crm/src/pages/ExecutionPage.jsx — мавжуд файл ўрнига алмаштиринг.
-3. Commit + Push.
-4. Railway/Vercel deploy тугашини кутинг.
+Almashtiriladigan fayl:
+crm/src/pages/BankPortalPage.jsx
 
-Янги имкониятлар:
-- Ижро карточкасини очиш.
-- Кейинги босқичга ўтиш.
-- Изоҳ сақлаш.
-- Жараён тарихи.
-- EXECUTOR фақат ўзига бириктирилган ишни ўзгартиради.
-- EXECUTOR босқичларни фақат кетма-кет ўтказади.
-- CREDIT_ISSUED -> creditIssuedAt автомат.
-- CLIENT_RECEIVED_FUNDS -> clientReceivedAt автомат.
-- COMPLETED -> completedAt автомат.
+Backend bu bosqichda o'zgarmaydi.
+Mavjud endpointlar ishlatiladi:
+GET /api/banks/cases/:caseId/assignments
+PATCH /api/banks/assignments/:assignmentId/review
+
+Qo'shildi:
+- KATM natijasi
+- KATM izohi
+- Garov tekshiruvi
+- Garov izohi
+- VIEWED / UNDER_REVIEW / NEEDS_DOCUMENTS / REJECTED holatlari
+- Natijani saqlash
+
+Keyingi qadam:
+mavjud BankOffersSection orqali bank taklifini test qilamiz.

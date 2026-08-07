@@ -29,6 +29,17 @@ const STATUS_LABELS = {
   CLIENT_PREAPPROVED: 'Дастлабки тасдиқ',
 };
 
+const REVIEW_STATUS_LABELS = {
+  SENT: 'Банкка юборилган',
+  VIEWED: 'Кўрилган',
+  UNDER_REVIEW: 'Текширилмоқда',
+  NEEDS_DOCUMENTS: 'Қўшимча ҳужжат керак',
+  OFFER_SUBMITTED: 'Таклиф юборилган',
+  REJECTED: 'Рад этилган',
+  SELECTED: 'Таклиф танланган',
+  CLOSED: 'Ёпилган',
+};
+
 const SERVICE_LABELS = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
   SECONDARY_MORTGAGE: 'Иккиламчи ипотека',
@@ -73,6 +84,242 @@ function InfoBox({ label, value }) {
       <span>{label}</span>
       <strong>{value || '—'}</strong>
     </div>
+  );
+}
+
+
+function BankReviewSection({ caseId, onChanged }) {
+  const [assignment, setAssignment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [form, setForm] = useState({
+    status: 'UNDER_REVIEW',
+    katmStatus: '',
+    katmNote: '',
+    collateralStatus: '',
+    collateralNote: '',
+  });
+
+  const loadAssignment = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = await apiRequest(`/banks/cases/${caseId}/assignments`);
+      const item = Array.isArray(data.items) ? data.items[0] || null : null;
+      setAssignment(item);
+
+      if (item) {
+        setForm({
+          status:
+            ['VIEWED', 'UNDER_REVIEW', 'NEEDS_DOCUMENTS', 'REJECTED'].includes(
+              item.status
+            )
+              ? item.status
+              : 'UNDER_REVIEW',
+          katmStatus: item.katmStatus || '',
+          katmNote: item.katmNote || '',
+          collateralStatus: item.collateralStatus || '',
+          collateralNote: item.collateralNote || '',
+        });
+      }
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          'Банк текшируви топшириғини юклаб бўлмади.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [caseId]);
+
+  useEffect(() => {
+    loadAssignment();
+  }, [loadAssignment]);
+
+  const updateField = (key, value) => {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+
+    if (!assignment?.id) {
+      setError('Ушбу мурожаат учун банк топшириғи топилмади.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const data = await apiRequest(
+        `/banks/assignments/${assignment.id}/review`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: form.status,
+            katmStatus: form.katmStatus.trim(),
+            katmNote: form.katmNote.trim(),
+            collateralStatus: form.collateralStatus.trim(),
+            collateralNote: form.collateralNote.trim(),
+          }),
+        }
+      );
+
+      setAssignment(data.item || assignment);
+      setSuccess('Банк текшируви маълумотлари сақланди.');
+      await onChanged?.();
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          'Банк текшируви маълумотларини сақлаб бўлмади.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="bank-portal-card bank-review-section">
+      <div className="bank-portal-section-head">
+        <div>
+          <span className="bank-portal-kicker">Текширув</span>
+          <h3>КАТМ ва гаров натижаси</h3>
+          <p>
+            Текширув натижаларини сақланг. Кейин пастда банк таклифини
+            киритиш мумкин.
+          </p>
+        </div>
+        <ShieldCheck size={21} />
+      </div>
+
+      {loading ? (
+        <div className="bank-review-loading">
+          <LoaderCircle className="spin" size={24} />
+          <span>Банк топшириғи юкланмоқда...</span>
+        </div>
+      ) : !assignment ? (
+        <div className="bank-review-warning">
+          Ушбу банкка бириктирилган топшириқ топилмади.
+        </div>
+      ) : (
+        <>
+          <div className="bank-review-current">
+            <span>Жорий ҳолат</span>
+            <strong>
+              {REVIEW_STATUS_LABELS[assignment.status] ||
+                assignment.status ||
+                '—'}
+            </strong>
+            {assignment.assignedBankEmployee?.fullName ? (
+              <small>
+                Масъул: {assignment.assignedBankEmployee.fullName}
+              </small>
+            ) : null}
+          </div>
+
+          <form className="bank-review-form" onSubmit={submit}>
+            <label>
+              <span>Текширув ҳолати</span>
+              <select
+                value={form.status}
+                onChange={(event) =>
+                  updateField('status', event.target.value)
+                }
+                disabled={saving}
+              >
+                <option value="VIEWED">Кўрилган</option>
+                <option value="UNDER_REVIEW">Текширилмоқда</option>
+                <option value="NEEDS_DOCUMENTS">
+                  Қўшимча ҳужжат керак
+                </option>
+                <option value="REJECTED">Рад этилган</option>
+              </select>
+            </label>
+
+            <label>
+              <span>КАТМ натижаси</span>
+              <input
+                value={form.katmStatus}
+                onChange={(event) =>
+                  updateField('katmStatus', event.target.value)
+                }
+                placeholder="Масалан: ижобий / салбий / қўшимча текширув"
+                disabled={saving}
+              />
+            </label>
+
+            <label className="bank-review-wide">
+              <span>КАТМ бўйича изоҳ</span>
+              <textarea
+                rows={3}
+                value={form.katmNote}
+                onChange={(event) =>
+                  updateField('katmNote', event.target.value)
+                }
+                placeholder="Кредит тарихи, қарздорлик ёки бошқа изоҳ..."
+                disabled={saving}
+              />
+            </label>
+
+            <label>
+              <span>Гаров текшируви</span>
+              <input
+                value={form.collateralStatus}
+                onChange={(event) =>
+                  updateField('collateralStatus', event.target.value)
+                }
+                placeholder="Масалан: мос / мос эмас / текширилмоқда"
+                disabled={saving}
+              />
+            </label>
+
+            <label className="bank-review-wide">
+              <span>Гаров бўйича изоҳ</span>
+              <textarea
+                rows={3}
+                value={form.collateralNote}
+                onChange={(event) =>
+                  updateField('collateralNote', event.target.value)
+                }
+                placeholder="Кадастр, таъқиқ, баҳолаш ёки бошқа изоҳ..."
+                disabled={saving}
+              />
+            </label>
+
+            {error ? <div className="bank-review-error">{error}</div> : null}
+            {success ? (
+              <div className="bank-review-success">{success}</div>
+            ) : null}
+
+            <button
+              type="submit"
+              className="bank-review-submit"
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <LoaderCircle className="spin" size={17} />
+                  Сақланмоқда...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={17} />
+                  Текширув натижасини сақлаш
+                </>
+              )}
+            </button>
+          </form>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -229,6 +476,14 @@ function BankCaseDetails({ caseId, onBack, onReloadList }) {
           />
         </div>
       </section>
+
+      <BankReviewSection
+        caseId={item.id}
+        onChanged={async () => {
+          await load();
+          await onReloadList?.();
+        }}
+      />
 
       <DocumentsSection
         caseId={item.id}
@@ -947,6 +1202,137 @@ function BankPortalStyles() {
         display: none;
       }
 
+
+      .bank-review-section .bank-portal-section-head p {
+        margin: 5px 0 0;
+        color: #7f858c;
+        font-size: 13px;
+      }
+
+      .bank-review-loading {
+        min-height: 90px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        color: #777d85;
+      }
+
+      .bank-review-warning {
+        padding: 14px;
+        border: 1px solid #f1c6cb;
+        border-radius: 10px;
+        background: #fff5f6;
+        color: #a52333;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .bank-review-current {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: #f6f7f8;
+      }
+
+      .bank-review-current span {
+        color: #858b92;
+        font-size: 12px;
+      }
+
+      .bank-review-current strong {
+        font-size: 13px;
+      }
+
+      .bank-review-current small {
+        margin-left: auto;
+        color: #777d85;
+      }
+
+      .bank-review-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 13px;
+      }
+
+      .bank-review-form label {
+        display: grid;
+        gap: 6px;
+      }
+
+      .bank-review-form label > span {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .bank-review-form input,
+      .bank-review-form select,
+      .bank-review-form textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #dfe3e7;
+        border-radius: 10px;
+        padding: 10px 11px;
+        background: #fff;
+        color: #16191d;
+        font: inherit;
+        outline: none;
+      }
+
+      .bank-review-form input:focus,
+      .bank-review-form select:focus,
+      .bank-review-form textarea:focus {
+        border-color: #ef233c;
+        box-shadow: 0 0 0 3px rgba(239,35,60,.08);
+      }
+
+      .bank-review-wide {
+        grid-column: 1 / -1;
+      }
+
+      .bank-review-error,
+      .bank-review-success {
+        grid-column: 1 / -1;
+        padding: 10px 12px;
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .bank-review-error {
+        color: #a52333;
+        background: #fff2f3;
+      }
+
+      .bank-review-success {
+        color: #137333;
+        background: #edf9f0;
+      }
+
+      .bank-review-submit {
+        grid-column: 1 / -1;
+        min-height: 43px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 10px;
+        background: #ef233c;
+        color: #fff;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .bank-review-submit:disabled {
+        opacity: .65;
+        cursor: wait;
+      }
+
       @media (max-width: 900px) {
         .bank-portal-sidebar {
           transform: translateX(-100%);
@@ -985,6 +1371,24 @@ function BankPortalStyles() {
       }
 
       @media (max-width: 650px) {
+        .bank-review-form {
+          grid-template-columns: 1fr;
+        }
+
+        .bank-review-wide {
+          grid-column: auto;
+        }
+
+        .bank-review-current {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .bank-review-current small {
+          margin-left: 0;
+        }
+
+
         .bank-portal-content {
           width: min(100% - 20px, 1180px);
           padding-top: 12px;
