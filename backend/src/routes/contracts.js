@@ -26,6 +26,7 @@ const createSchema = z.object({
 
 const qrSchema = z.object({
   expiresInMinutes: z.coerce.number().int().min(2).max(60).default(15),
+  kioskId: z.string().trim().min(1).optional().nullable(),
 });
 
 function hashToken(token) {
@@ -386,6 +387,46 @@ router.post(
         width: 420,
       });
 
+      let kiosk = null;
+
+      if (parsed.data.kioskId) {
+        kiosk = await prisma.kioskDevice.findUnique({
+          where: {
+            id: parsed.data.kioskId,
+          },
+        });
+
+        if (!kiosk) {
+          return res.status(404).json({
+            error: 'QR экран қурилмаси топилмади',
+          });
+        }
+
+        if (
+          req.user.role !== 'SUPER_ADMIN' &&
+          req.user.role !== 'DIRECTOR' &&
+          req.user.branchId &&
+          kiosk.branchId !== req.user.branchId
+        ) {
+          return res.status(403).json({
+            error: 'Бошқа филиал QR экранига юбориш мумкин эмас',
+          });
+        }
+
+        await prisma.kioskDevice.update({
+          where: {
+            id: kiosk.id,
+          },
+          data: {
+            currentContractId: contract.id,
+            currentQrDataUrl: qrDataUrl,
+            currentSignUrl: signUrl,
+            qrExpiresAt: expiresAt,
+            displayStatus: 'QR_READY',
+          },
+        });
+      }
+
       return res.json({
         message: 'Бир марталик QR-код яратилди',
         contractId: contract.id,
@@ -393,6 +434,13 @@ router.post(
         expiresAt,
         signUrl,
         qrDataUrl,
+        kiosk: kiosk
+          ? {
+              id: kiosk.id,
+              name: kiosk.name,
+              deviceCode: kiosk.deviceCode,
+            }
+          : null,
       });
     } catch (error) {
       next(error);
