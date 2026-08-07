@@ -100,7 +100,7 @@ function QrReadyView({ display, now }) {
       </h1>
 
       <p style={styles.subtitle}>
-        Шартномани ўз телефонингизда очиб, тўлиқ ўқиб чиқинг ва тасдиқланг.
+        Шартномани телефонингизда очиб, ўқиб чиқинг ва тасдиқланг.
       </p>
 
       <div style={styles.qrCard}>
@@ -335,7 +335,7 @@ const styles = {
     border: '1px solid #e5e7eb',
   },
   header: {
-    padding: '18px 20px',
+    padding: '10px 14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -349,8 +349,8 @@ const styles = {
   },
   logo: {
     display: 'block',
-    width: 'min(220px, 46vw)',
-    maxHeight: 64,
+    width: 'min(180px, 42vw)',
+    maxHeight: 48,
     objectFit: 'contain',
     objectPosition: 'left center',
   },
@@ -376,7 +376,8 @@ const styles = {
   main: {
     flex: 1,
     display: 'flex',
-    padding: '24px 22px',
+    padding: '12px 16px',
+    minHeight: 0,
   },
   centerContent: {
     width: '100%',
@@ -394,8 +395,8 @@ const styles = {
     background: '#fff1f2',
     border: '1px solid #fecdd3',
     borderRadius: 999,
-    padding: '8px 14px',
-    marginBottom: 14,
+    padding: '6px 11px',
+    marginBottom: 8,
   },
   successBadge: {
     fontSize: 12,
@@ -409,17 +410,17 @@ const styles = {
     marginBottom: 12,
   },
   title: {
-    fontSize: 'clamp(25px, 6vw, 40px)',
+    fontSize: 'clamp(21px, 5vw, 34px)',
     lineHeight: 1.08,
-    margin: '0 0 12px',
+    margin: '0 0 8px',
     maxWidth: 620,
   },
   subtitle: {
     margin: 0,
     maxWidth: 570,
     color: '#667085',
-    fontSize: 'clamp(15px, 3.8vw, 19px)',
-    lineHeight: 1.55,
+    fontSize: 'clamp(13px, 3.3vw, 17px)',
+    lineHeight: 1.4,
   },
   idleIcon: {
     width: 132,
@@ -468,11 +469,11 @@ const styles = {
     fontWeight: 700,
   },
   qrCard: {
-    width: 'min(72vw, 360px)',
+    width: 'min(68vw, 34dvh, 285px)',
     aspectRatio: '1 / 1',
-    margin: '22px 0 14px',
-    padding: 14,
-    borderRadius: 28,
+    margin: '12px 0 8px',
+    padding: 10,
+    borderRadius: 22,
     background: '#ffffff',
     border: '2px solid #111827',
     boxShadow: '0 16px 40px rgba(17, 24, 39, 0.10)',
@@ -487,27 +488,29 @@ const styles = {
     objectFit: 'contain',
   },
   contractId: {
-    fontSize: 'clamp(18px, 4.5vw, 25px)',
-    letterSpacing: 0.4,
-    marginTop: 8,
+    fontSize: 'clamp(16px, 4vw, 22px)',
+    letterSpacing: 0.3,
+    marginTop: 4,
   },
   timer: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
+    gap: 7,
+    marginTop: 8,
     color: '#b45309',
     background: '#fffbeb',
     border: '1px solid #fde68a',
     borderRadius: 999,
-    padding: '9px 14px',
+    padding: '7px 11px',
     fontWeight: 800,
+    fontSize: 12,
   },
   smallNote: {
-    margin: '18px 0 0',
+    margin: '8px 0 0',
     color: '#98a2b3',
-    fontSize: 12,
-    maxWidth: 440,
+    fontSize: 10.5,
+    maxWidth: 420,
+    lineHeight: 1.3,
   },
   retryButton: {
     marginTop: 24,
@@ -527,7 +530,7 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
   footer: {
-    padding: '14px 20px 18px',
+    padding: '7px 12px 9px',
     display: 'flex',
     justifyContent: 'center',
     flexWrap: 'wrap',
