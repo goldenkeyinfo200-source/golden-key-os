@@ -478,36 +478,24 @@ model BankOffer {
 }
 
 model KioskDevice {
-  id            String   @id @default(cuid())
-  branchId      String
-  managerId     String?
-
-  deviceCode    String   @unique
-  name          String
-  authTokenHash String   @unique
-
-  isOnline      Boolean  @default(false)
-  lastSeenAt    DateTime?
-
+  id                String   @id @default(cuid())
+  branchId          String
+  managerId         String?
+  deviceCode        String   @unique
+  name              String
+  authTokenHash     String   @unique
+  isOnline          Boolean  @default(false)
+  lastSeenAt        DateTime?
   currentContractId String?
   currentQrDataUrl  String?
   currentSignUrl    String?
   qrExpiresAt       DateTime?
   displayStatus     String   @default("IDLE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  branch Branch @relation(
-    fields: [branchId],
-    references: [id],
-    onDelete: Cascade
-  )
-
-  manager User? @relation(
-    fields: [managerId],
-    references: [id]
-  )
+  branch  Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  manager User?  @relation(fields: [managerId], references: [id])
 
   @@index([branchId])
   @@index([managerId])
