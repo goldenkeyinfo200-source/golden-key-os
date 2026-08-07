@@ -21,6 +21,7 @@ import { CasesPage } from './pages/CasesPage.jsx';
 import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
+import { KioskPage } from './pages/KioskPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
 import {
@@ -847,6 +848,14 @@ export function App() {
 
   if (isPublicContractSignPage) {
     return <ContractSignPage />;
+  }
+
+  const isKioskPage = /^\/kiosk\/[^/]+\/?$/.test(
+    window.location.pathname
+  );
+
+  if (isKioskPage) {
+    return <KioskPage />;
   }
 
   const [user, setUser] = useState(() => readSavedUser());
