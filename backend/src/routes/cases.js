@@ -56,6 +56,19 @@ const caseStatuses = [
   'ARCHIVED',
 ];
 
+const EXECUTION_FLOW = [
+  'ASSIGNED_TO_EXECUTOR',
+  'IN_EXECUTION',
+  'PROPERTY_MONITORING',
+  'CREDIT_APPROVED',
+  'CREDIT_ISSUED',
+  'CLIENT_RECEIVED_FUNDS',
+  'SERVICE_FEE_PAID',
+  'COMPLETED',
+];
+
+const EXECUTOR_ALLOWED_STATUSES = new Set(EXECUTION_FLOW);
+
 const createCaseSchema = z.object({
   fullName: z
     .string()
@@ -1303,6 +1316,39 @@ router.patch(
         });
       }
 
+      if (
+        req.user.role === 'EXECUTOR' &&
+        existingCase.executorId !== req.user.id
+      ) {
+        return res.status(403).json({
+          error: 'Сизга бириктирилмаган иш ҳолатини ўзгартира олмайсиз',
+        });
+      }
+
+      if (
+        req.user.role === 'EXECUTOR' &&
+        !EXECUTOR_ALLOWED_STATUSES.has(parsed.data.status)
+      ) {
+        return res.status(403).json({
+          error: 'Ижрочи ушбу ҳолатни танлай олмайди',
+        });
+      }
+
+      if (req.user.role === 'EXECUTOR') {
+        const currentIndex = EXECUTION_FLOW.indexOf(existingCase.status);
+        const nextIndex = EXECUTION_FLOW.indexOf(parsed.data.status);
+
+        if (
+          currentIndex === -1 ||
+          nextIndex === -1 ||
+          nextIndex !== currentIndex + 1
+        ) {
+          return res.status(400).json({
+            error: 'Ижро босқичларини кетма-кет ўзгартириш керак',
+          });
+        }
+      }
+
       const result = await prisma.$transaction(
         async (tx) => {
           const item = await tx.case.update({
@@ -1313,10 +1359,25 @@ router.patch(
             data: {
               status: parsed.data.status,
 
+              creditIssuedAt:
+                parsed.data.status === 'CREDIT_ISSUED'
+                  ? existingCase.creditIssuedAt || new Date()
+                  : existingCase.creditIssuedAt,
+
+              clientReceivedAt:
+                parsed.data.status === 'CLIENT_RECEIVED_FUNDS'
+                  ? existingCase.clientReceivedAt || new Date()
+                  : existingCase.clientReceivedAt,
+
               completedAt:
                 parsed.data.status === 'COMPLETED'
-                  ? new Date()
+                  ? existingCase.completedAt || new Date()
                   : existingCase.completedAt,
+
+              nextAction:
+                parsed.data.status === 'COMPLETED'
+                  ? 'Иш якунланди'
+                  : existingCase.nextAction,
             },
 
             include: caseInclude,

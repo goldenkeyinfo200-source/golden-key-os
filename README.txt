@@ -1,10 +1,17 @@
-GK Execution Frontend
+GK Execution Workflow v2
 
-1) crm/src/App.jsx файлини ушбу App.jsx билан алмаштиринг.
-2) crm/src/pages/ExecutionPage.jsx файлини қўшинг.
-3) GitHub'га commit/push қилинг.
-4) Railway deploy тугагач, "Ижродаги ишлар" бўлимини очинг.
+1. backend/src/routes/cases.js — мавжуд файл ўрнига алмаштиринг.
+2. crm/src/pages/ExecutionPage.jsx — мавжуд файл ўрнига алмаштиринг.
+3. Commit + Push.
+4. Railway/Vercel deploy тугашини кутинг.
 
-Backend талаби:
-GET /api/cases?scope=execution&page=1&limit=20
-Сиздаги cases.js бу scope'ни қўллаб-қувватлайди.
+Янги имкониятлар:
+- Ижро карточкасини очиш.
+- Кейинги босқичга ўтиш.
+- Изоҳ сақлаш.
+- Жараён тарихи.
+- EXECUTOR фақат ўзига бириктирилган ишни ўзгартиради.
+- EXECUTOR босқичларни фақат кетма-кет ўтказади.
+- CREDIT_ISSUED -> creditIssuedAt автомат.
+- CLIENT_RECEIVED_FUNDS -> clientReceivedAt автомат.
+- COMPLETED -> completedAt автомат.
