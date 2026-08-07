@@ -10,6 +10,7 @@ import bankOffersRouter from './routes/bank-offers.js';
 import banksRouter from './routes/banks.js';
 import telegramRouter from './routes/telegram.js';
 import usersRouter from './routes/users.js';
+import branchesRouter from './routes/branches.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -115,6 +116,10 @@ app.get('/', (req, res) => {
       api: '/api',
       health: '/api/health',
       bankOffers: '/api/bank-offers',
+      banks: '/api/banks',
+      telegram: '/api/telegram',
+      users: '/api/users',
+      branches: '/api/branches',
     },
   });
 });
@@ -131,16 +136,18 @@ app.get('/', (req, res) => {
   /api/cases
   ва бошқалар
 */
+
 app.use('/api', apiRouter);
 
 /*
-  Банк таклифлари маршрути:
-  /api/bank-offers
+  Алоҳида API маршрутлар
 */
+
 app.use('/api/bank-offers', bankOffersRouter);
 app.use('/api/banks', banksRouter);
 app.use('/api/telegram', telegramRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/branches', branchesRouter);
 
 /* =========================================================
    404 HANDLER
@@ -210,7 +217,11 @@ function shutdown(signal) {
 
   server.close((error) => {
     if (error) {
-      console.error('Серверни тўхтатишда хато:', error);
+      console.error(
+        'Серверни тўхтатишда хато:',
+        error
+      );
+
       process.exit(1);
     }
 
@@ -219,5 +230,12 @@ function shutdown(signal) {
   });
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on(
+  'SIGTERM',
+  () => shutdown('SIGTERM')
+);
+
+process.on(
+  'SIGINT',
+  () => shutdown('SIGINT')
+);
