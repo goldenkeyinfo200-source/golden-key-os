@@ -481,21 +481,39 @@ model KioskDevice {
   id            String   @id @default(cuid())
   branchId      String
   managerId     String?
+
   deviceCode    String   @unique
   name          String
   authTokenHash String   @unique
+
   isOnline      Boolean  @default(false)
   lastSeenAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  currentContractId String?
+  currentQrDataUrl  String?
+  currentSignUrl    String?
+  qrExpiresAt       DateTime?
+  displayStatus     String   @default("IDLE")
 
-  manager User? @relation(fields: [managerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch Branch @relation(
+    fields: [branchId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  manager User? @relation(
+    fields: [managerId],
+    references: [id]
+  )
 
   @@index([branchId])
   @@index([managerId])
   @@index([isOnline])
+  @@index([currentContractId])
+  @@index([displayStatus])
 }
 
 model AuditLog {
