@@ -14,9 +14,15 @@ import {
 
 const require = createRequire(import.meta.url);
 
+/* =========================================================
+   FILE / FONT HELPERS
+========================================================= */
+
 function resolveBundledFont(fileName) {
   try {
-    return require.resolve(`dejavu-fonts-ttf/ttf/${fileName}`);
+    return require.resolve(
+      `dejavu-fonts-ttf/ttf/${fileName}`
+    );
   } catch {
     return null;
   }
@@ -36,22 +42,34 @@ const BOLD_FONT_CANDIDATES = [
   process.env.PDF_BOLD_FONT_PATH,
   resolveBundledFont('DejaVuSans-Bold.ttf'),
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
   '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
   '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
 ].filter(Boolean);
 
 const LOGO_CANDIDATES = [
   process.env.PDF_LOGO_PATH,
-  path.join(process.cwd(), 'assets', 'golden-key-logo.jpg'),
-  path.join(process.cwd(), 'backend', 'assets', 'golden-key-logo.jpg'),
+  path.join(
+    process.cwd(),
+    'assets',
+    'golden-key-logo.jpg'
+  ),
+  path.join(
+    process.cwd(),
+    'backend',
+    'assets',
+    'golden-key-logo.jpg'
+  ),
 ].filter(Boolean);
 
 function findExistingFile(candidates) {
   return (
     candidates.find((filePath) => {
       try {
-        return Boolean(filePath) && fs.existsSync(filePath);
+        return (
+          Boolean(filePath) &&
+          fs.existsSync(filePath)
+        );
       } catch {
         return false;
       }
@@ -59,12 +77,20 @@ function findExistingFile(candidates) {
   );
 }
 
+/* =========================================================
+   FORMAT HELPERS
+========================================================= */
+
 function formatDateTime(value) {
-  if (!value) return '—';
+  if (!value) {
+    return '—';
+  }
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
 
   return new Intl.DateTimeFormat('uz-UZ', {
     day: '2-digit',
@@ -100,29 +126,232 @@ function contractVerificationHash({
 
 function buildVerificationUrl(contract) {
   const baseUrl =
-    process.env.PUBLIC_VERIFY_URL?.replace(/\/+$/, '') ||
+    process.env.PUBLIC_VERIFY_URL?.replace(
+      /\/+$/,
+      ''
+    ) ||
     'https://taplink.cc/goldenkey';
 
   if (process.env.PUBLIC_VERIFY_URL) {
-    return `${baseUrl}/${encodeURIComponent(contract.displayId)}`;
+    return `${baseUrl}/${encodeURIComponent(
+      contract.displayId
+    )}`;
   }
 
   return baseUrl;
 }
 
-function writeHeading(doc, text) {
-  doc
-    .moveDown(0.5)
-    .font('Bold')
-    .fontSize(12)
-    .fillColor('#111111')
-    .text(text, {
-      align: 'left',
-    })
-    .moveDown(0.25);
+/* =========================================================
+   HTML -> STRUCTURED BLOCKS
+========================================================= */
+
+/*
+  Шартнома HTML'ини битта узун plain text қилиш ўрнига
+  h1 / h2 / p блокларга ажратамиз.
+
+  Шу орқали:
+  - сарлавҳалар алоҳида форматланади;
+  - абзацлар орасида ортиқча бўшлиқ йўқолади;
+  - PDFKit матнни табиий равишда саҳифаларга бўлади.
+*/
+function htmlFragmentToText(html) {
+  const text = htmlToText(String(html || ''), {
+    wordwrap: false,
+    preserveNewlines: false,
+
+    selectors: [
+      {
+        selector: 'a',
+        options: {
+          ignoreHref: true,
+        },
+      },
+      {
+        selector: 'img',
+        format: 'skip',
+      },
+    ],
+  });
+
+  return text
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }
 
-function writeLabelValue(doc, label, value) {
+function extractContractBlocks(renderedHtml) {
+  const blocks = [];
+
+  const source = String(renderedHtml || '');
+
+  const pattern =
+    /<(h1|h2|p)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+
+  let match;
+
+  while ((match = pattern.exec(source))) {
+    const tag = match[1].toLowerCase();
+    const innerHtml = match[2];
+
+    const text = htmlFragmentToText(innerHtml);
+
+    if (!text) {
+      continue;
+    }
+
+    blocks.push({
+      type:
+        tag === 'h1'
+          ? 'title'
+          : tag === 'h2'
+            ? 'heading'
+            : 'paragraph',
+
+      text,
+    });
+  }
+
+  /*
+    Агар қандайдир сабаб билан HTML блоклар
+    ажратилмаса, fallback сифатида бутун матнни
+    битта paragraph қилиб чиқарамиз.
+  */
+  if (blocks.length === 0) {
+    const fallback = htmlFragmentToText(source);
+
+    if (fallback) {
+      blocks.push({
+        type: 'paragraph',
+        text: fallback,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+/* =========================================================
+   PAGE / TEXT HELPERS
+========================================================= */
+
+function bodyBottom(doc) {
+  /*
+    Footer тахминан 790 дан бошланади.
+    Матн footer устига чиқиб кетмаслиги учун
+    body bottom'ни 770 атрофида ушлаймиз.
+  */
+  return Math.min(
+    doc.page.height -
+      doc.page.margins.bottom,
+    770
+  );
+}
+
+function ensureSpace(doc, requiredHeight = 40) {
+  if (
+    doc.y + requiredHeight >
+    bodyBottom(doc)
+  ) {
+    doc.addPage();
+  }
+}
+
+function writeContractTitle(doc, text) {
+  ensureSpace(doc, 70);
+
+  doc
+    .moveDown(0.15)
+    .font('Bold')
+    .fontSize(12.5)
+    .fillColor('#111111')
+    .text(text, {
+      width: 495,
+      align: 'center',
+      lineGap: 1,
+    })
+    .moveDown(0.35);
+}
+
+function writeContractHeading(doc, text) {
+  /*
+    Сарлавҳа саҳифа охирида якка қолиб кетмаслиги
+    учун камида сарлавҳа + 2-3 қатор матнга жой
+    бўлишини текширамиз.
+  */
+  ensureSpace(doc, 62);
+
+  doc
+    .moveDown(0.22)
+    .font('Bold')
+    .fontSize(10.6)
+    .fillColor('#111111')
+    .text(text, {
+      width: 495,
+      align: 'left',
+      lineGap: 0.7,
+    })
+    .moveDown(0.18);
+}
+
+function writeContractParagraph(doc, text) {
+  if (!text) {
+    return;
+  }
+
+  ensureSpace(doc, 24);
+
+  doc
+    .font('Regular')
+    .fontSize(9.15)
+    .fillColor('#111111')
+    .text(text, {
+      width: 495,
+      align: 'justify',
+      lineGap: 1.15,
+      paragraphGap: 0,
+    })
+    .moveDown(0.24);
+}
+
+function writeContractBlocks(doc, blocks) {
+  for (const block of blocks) {
+    if (block.type === 'title') {
+      writeContractTitle(
+        doc,
+        block.text
+      );
+
+      continue;
+    }
+
+    if (block.type === 'heading') {
+      writeContractHeading(
+        doc,
+        block.text
+      );
+
+      continue;
+    }
+
+    writeContractParagraph(
+      doc,
+      block.text
+    );
+  }
+}
+
+/* =========================================================
+   SMALL TEXT HELPERS
+========================================================= */
+
+function writeLabelValue(
+  doc,
+  label,
+  value
+) {
   doc
     .font('Bold')
     .fontSize(9)
@@ -135,29 +364,74 @@ function writeLabelValue(doc, label, value) {
     .moveDown(0.15);
 }
 
+function writeLabelValueAt(
+  doc,
+  x,
+  y,
+  label,
+  value
+) {
+  doc
+    .font('Bold')
+    .fontSize(9)
+    .fillColor('#111111')
+    .text(`${label}:`, x, y, {
+      width: 230,
+    })
+    .font('Regular')
+    .fontSize(8.5)
+    .text(
+      String(value ?? '—'),
+      x,
+      y + 14,
+      {
+        width: 230,
+      }
+    );
+}
+
+/* =========================================================
+   HEADER / FOOTER
+========================================================= */
+
 function drawHeader(doc, logoPath) {
   if (logoPath) {
-    doc.image(logoPath, 50, 28, {
-      fit: [180, 48],
-      align: 'left',
-      valign: 'center',
-    });
+    doc.image(
+      logoPath,
+      50,
+      28,
+      {
+        fit: [180, 48],
+        align: 'left',
+        valign: 'center',
+      }
+    );
   }
 
   doc
     .font('Regular')
     .fontSize(7.5)
     .fillColor('#666666')
-    .text('www.taplink.cc/goldenkey', 360, 37, {
-      width: 185,
-      align: 'right',
-      link: 'https://taplink.cc/goldenkey',
-      underline: true,
-    })
-    .text('+998 99 999 79 73', 360, 50, {
-      width: 185,
-      align: 'right',
-    });
+    .text(
+      'www.taplink.cc/goldenkey',
+      360,
+      37,
+      {
+        width: 185,
+        align: 'right',
+        link: 'https://taplink.cc/goldenkey',
+        underline: true,
+      }
+    )
+    .text(
+      '+998 99 999 79 73',
+      360,
+      50,
+      {
+        width: 185,
+        align: 'right',
+      }
+    );
 
   doc
     .strokeColor('#E30613')
@@ -167,7 +441,12 @@ function drawHeader(doc, logoPath) {
     .stroke();
 }
 
-function drawFooter(doc, contract, pageNumber, pageCount) {
+function drawFooter(
+  doc,
+  contract,
+  pageNumber,
+  pageCount
+) {
   doc
     .strokeColor('#E6E6E6')
     .lineWidth(0.6)
@@ -190,144 +469,247 @@ function drawFooter(doc, contract, pageNumber, pageCount) {
     );
 }
 
-function drawCover(doc, { logoPath, contract, caseItem, confirmation }) {
+/* =========================================================
+   COVER
+========================================================= */
+
+function drawCover(
+  doc,
+  {
+    logoPath,
+    contract,
+    caseItem,
+    confirmation,
+  }
+) {
   if (logoPath) {
-    doc.image(logoPath, 95, 90, {
-      fit: [405, 105],
-      align: 'center',
-      valign: 'center',
-    });
+    doc.image(
+      logoPath,
+      95,
+      90,
+      {
+        fit: [405, 105],
+        align: 'center',
+        valign: 'center',
+      }
+    );
   }
 
   doc
     .font('Bold')
     .fontSize(18)
     .fillColor('#111111')
-    .text('РИЭЛТОРЛИК ВА ИПОТЕКА ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА', 60, 235, {
-      width: 475,
-      align: 'center',
-    })
+    .text(
+      'РИЭЛТОРЛИК ВА ИПОТЕКА ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА',
+      60,
+      235,
+      {
+        width: 475,
+        align: 'center',
+      }
+    )
     .moveDown(0.35)
     .fontSize(20)
     .fillColor('#E30613')
-    .text('ЭЛЕКТРОН ШАРТНОМА', {
-      align: 'center',
-    })
+    .text(
+      'ЭЛЕКТРОН ШАРТНОМА',
+      {
+        align: 'center',
+      }
+    )
     .moveDown(1);
 
   doc
     .font('Bold')
     .fontSize(13)
     .fillColor('#111111')
-    .text(`№ ${contract.displayId}`, {
-      align: 'center',
-    })
+    .text(
+      `№ ${contract.displayId}`,
+      {
+        align: 'center',
+      }
+    )
     .moveDown(0.8)
     .font('Regular')
     .fontSize(10)
-    .text(`Мурожаат: ${caseItem.displayId}`, {
-      align: 'center',
-    })
-    .text(`Қўқон шаҳри · ${formatDateTime(confirmation.signedAt)}`, {
-      align: 'center',
-    });
+    .text(
+      `Мурожаат: ${caseItem.displayId}`,
+      {
+        align: 'center',
+      }
+    )
+    .text(
+      `Қўқон шаҳри · ${formatDateTime(
+        confirmation.signedAt
+      )}`,
+      {
+        align: 'center',
+      }
+    );
 
   doc
-    .roundedRect(95, 430, 405, 125, 10)
-    .fillAndStroke('#FFF7F7', '#F2B7BB');
+    .roundedRect(
+      95,
+      430,
+      405,
+      125,
+      10
+    )
+    .fillAndStroke(
+      '#FFF7F7',
+      '#F2B7BB'
+    );
 
   doc
     .font('Bold')
     .fontSize(11)
     .fillColor('#B0000B')
-    .text('ФУҚАРОЛИК ЖАВОБГАРЛИГИ СУҒУРТАЛАНГАН', 115, 455, {
-      width: 365,
-      align: 'center',
-    })
+    .text(
+      'ФУҚАРОЛИК ЖАВОБГАРЛИГИ СУҒУРТАЛАНГАН',
+      115,
+      455,
+      {
+        width: 365,
+        align: 'center',
+      }
+    )
     .moveDown(0.35)
     .font('Regular')
     .fontSize(10)
     .fillColor('#222222')
-    .text('«KAFOLAT» Суғурта компанияси АЖ', {
-      width: 365,
-      align: 'center',
-    })
-    .text('Суғурта полиси № 0077162 · 29.08.2025', {
-      width: 365,
-      align: 'center',
-    });
+    .text(
+      '«KAFOLAT» Суғурта компанияси АЖ',
+      {
+        width: 365,
+        align: 'center',
+      }
+    )
+    .text(
+      'Суғурта полиси № 0077162 · 29.08.2025',
+      {
+        width: 365,
+        align: 'center',
+      }
+    );
 
   doc
     .font('Regular')
     .fontSize(9)
     .fillColor('#666666')
-    .text('www.taplink.cc/goldenkey', 150, 690, {
-      width: 295,
-      align: 'center',
-      link: 'https://taplink.cc/goldenkey',
-      underline: true,
-    })
-    .text('+998 99 999 79 73 · goldenkeyinfo200@gmail.com', {
-      width: 295,
-      align: 'center',
-    });
+    .text(
+      'www.taplink.cc/goldenkey',
+      150,
+      690,
+      {
+        width: 295,
+        align: 'center',
+        link: 'https://taplink.cc/goldenkey',
+        underline: true,
+      }
+    )
+    .text(
+      '+998 99 999 79 73 · goldenkeyinfo200@gmail.com',
+      {
+        width: 295,
+        align: 'center',
+      }
+    );
 }
 
-function drawVerificationPage(doc, {
-  logoPath,
-  contract,
-  caseItem,
-  confirmation,
-  verificationHash,
-  qrBuffer,
-  verificationUrl,
-}) {
+/* =========================================================
+   VERIFICATION PAGE
+========================================================= */
+
+function drawVerificationPage(
+  doc,
+  {
+    contract,
+    caseItem,
+    confirmation,
+    verificationHash,
+    qrBuffer,
+    verificationUrl,
+  }
+) {
   doc.addPage();
-  drawHeader(doc, logoPath);
 
   doc
     .font('Bold')
     .fontSize(17)
     .fillColor('#111111')
-    .text('ЭЛЕКТРОН ТАСДИҚ ВА ҲУЖЖАТНИ ТЕКШИРИШ', 60, 110, {
-      width: 475,
-      align: 'center',
-    });
+    .text(
+      'ЭЛЕКТРОН ТАСДИҚ ВА ҲУЖЖАТНИ ТЕКШИРИШ',
+      60,
+      110,
+      {
+        width: 475,
+        align: 'center',
+      }
+    );
 
   doc
-    .roundedRect(65, 160, 465, 95, 10)
-    .fillAndStroke('#F0FBF5', '#9FD7B8');
+    .roundedRect(
+      65,
+      160,
+      465,
+      95,
+      10
+    )
+    .fillAndStroke(
+      '#F0FBF5',
+      '#9FD7B8'
+    );
 
   doc
     .font('Bold')
     .fontSize(14)
     .fillColor('#087742')
-    .text('✓ QR ОРҚАЛИ ТАСДИҚЛАНГАН', 85, 185, {
-      width: 425,
-      align: 'center',
-    })
+    .text(
+      '✓ QR ОРҚАЛИ ТАСДИҚЛАНГАН',
+      85,
+      185,
+      {
+        width: 425,
+        align: 'center',
+      }
+    )
     .font('Regular')
     .fontSize(10)
     .fillColor('#222222')
-    .text(formatDateTime(confirmation.signedAt), {
-      width: 425,
-      align: 'center',
-    });
+    .text(
+      formatDateTime(
+        confirmation.signedAt
+      ),
+      {
+        width: 425,
+        align: 'center',
+      }
+    );
 
   if (qrBuffer) {
-    doc.image(qrBuffer, 80, 300, {
-      fit: [175, 175],
-    });
+    doc.image(
+      qrBuffer,
+      80,
+      300,
+      {
+        fit: [175, 175],
+      }
+    );
   }
 
   doc
     .font('Bold')
     .fontSize(10)
     .fillColor('#111111')
-    .text('QR-код', 80, 485, {
-      width: 175,
-      align: 'center',
-    })
+    .text(
+      'QR-код',
+      80,
+      485,
+      {
+        width: 175,
+        align: 'center',
+      }
+    )
     .font('Regular')
     .fontSize(8)
     .fillColor('#666666')
@@ -347,49 +729,99 @@ function drawVerificationPage(doc, {
     .font('Bold')
     .fontSize(10)
     .fillColor('#111111')
-    .text('Шартнома рақами', 300, 305)
+    .text(
+      'Шартнома рақами',
+      300,
+      305
+    )
     .font('Regular')
     .fontSize(9)
-    .text(contract.displayId, 300, 322, {
-      width: 230,
-    });
+    .text(
+      contract.displayId,
+      300,
+      322,
+      {
+        width: 230,
+      }
+    );
 
-  writeLabelValueAt(doc, 300, 355, 'Мурожаат', caseItem.displayId);
-  writeLabelValueAt(doc, 300, 390, 'Invitation ID', confirmation.invitationId || '—');
-  writeLabelValueAt(doc, 300, 425, 'IP манзил', confirmation.ip || 'Қайд этилмаган');
+  writeLabelValueAt(
+    doc,
+    300,
+    355,
+    'Мурожаат',
+    caseItem.displayId
+  );
+
+  writeLabelValueAt(
+    doc,
+    300,
+    390,
+    'Invitation ID',
+    confirmation.invitationId || '—'
+  );
+
+  writeLabelValueAt(
+    doc,
+    300,
+    425,
+    'IP манзил',
+    confirmation.ip ||
+      'Қайд этилмаган'
+  );
+
   writeLabelValueAt(
     doc,
     300,
     460,
     'Telegram ID',
-    caseItem.applicant?.telegramId || 'Уланмаган'
+    caseItem.applicant?.telegramId ||
+      'Уланмаган'
   );
 
   doc
     .font('Bold')
     .fontSize(9)
     .fillColor('#111111')
-    .text('SHA-256', 65, 565)
+    .text(
+      'SHA-256',
+      65,
+      565
+    )
     .font('Regular')
     .fontSize(7)
-    .text(verificationHash, 65, 582, {
-      width: 465,
-      lineGap: 2,
-    });
+    .text(
+      verificationHash,
+      65,
+      582,
+      {
+        width: 465,
+        lineGap: 2,
+      }
+    );
 
   doc
     .font('Bold')
     .fontSize(9)
     .fillColor('#111111')
-    .text('QR манзили', 65, 630)
+    .text(
+      'QR манзили',
+      65,
+      630
+    )
     .font('Regular')
     .fontSize(7.5)
     .fillColor('#444444')
-    .text(verificationUrl, 65, 647, {
-      width: 465,
-      link: verificationUrl,
-      underline: true,
-    });
+    .text(
+      verificationUrl,
+      65,
+      647,
+      {
+        width: 465,
+        link: verificationUrl,
+        underline: true,
+      }
+    );
 
   doc
     .font('Regular')
@@ -407,20 +839,9 @@ function drawVerificationPage(doc, {
     );
 }
 
-function writeLabelValueAt(doc, x, y, label, value) {
-  doc
-    .font('Bold')
-    .fontSize(9)
-    .fillColor('#111111')
-    .text(`${label}:`, x, y, {
-      width: 230,
-    })
-    .font('Regular')
-    .fontSize(8.5)
-    .text(String(value ?? '—'), x, y + 14, {
-      width: 230,
-    });
-}
+/* =========================================================
+   GENERATE CONTRACT PDF
+========================================================= */
 
 export async function generateContractPdf({
   contract,
@@ -428,167 +849,281 @@ export async function generateContractPdf({
   selectedOffer,
   confirmation,
 }) {
-  if (!contract || !caseItem || !confirmation?.signedAt) {
-    const error = new Error('PDF яратиш учун шартнома маълумотлари тўлиқ эмас');
+  if (
+    !contract ||
+    !caseItem ||
+    !confirmation?.signedAt
+  ) {
+    const error = new Error(
+      'PDF яратиш учун шартнома маълумотлари тўлиқ эмас'
+    );
+
     error.status = 400;
+
     throw error;
   }
 
-  const context = buildContractContext({
-    contract,
-    caseItem,
-    selectedOffer,
-  });
+  /*
+    Dynamic contract context.
+  */
+  const context =
+    buildContractContext({
+      contract,
+      caseItem,
+      selectedOffer,
+    });
 
-  const renderedHtml = renderContractHtml(
-    contract.template?.htmlBody,
-    context
-  );
+  /*
+    DB'да сақланган template HTML
+    мижоз маълумотлари билан тўлдирилади.
+  */
+  const renderedHtml =
+    renderContractHtml(
+      contract.template?.htmlBody,
+      context
+    );
 
-  const contractText = htmlToText(renderedHtml, {
-    wordwrap: 105,
-    preserveNewlines: true,
-    selectors: [
-      {
-        selector: 'h1',
-        options: {
-          uppercase: false,
-        },
-      },
-      {
-        selector: 'a',
-        options: {
-          ignoreHref: true,
-        },
-      },
-      {
-        selector: 'img',
-        format: 'skip',
-      },
-    ],
-  });
+  /*
+    Энди HTML'ни structured blocks қилиб оламиз.
+  */
+  const contractBlocks =
+    extractContractBlocks(
+      renderedHtml
+    );
 
-  const verificationHash = contractVerificationHash({
-    contract,
-    renderedHtml,
-    signedAt: confirmation.signedAt,
-    invitationId: confirmation.invitationId,
-  });
+  /*
+    Электрон ҳужжат verification hash.
+  */
+  const verificationHash =
+    contractVerificationHash({
+      contract,
+      renderedHtml,
+      signedAt:
+        confirmation.signedAt,
+      invitationId:
+        confirmation.invitationId,
+    });
 
-  const regularFont = findExistingFile(FONT_CANDIDATES);
-  const boldFont = findExistingFile(BOLD_FONT_CANDIDATES);
-  const logoPath = findExistingFile(LOGO_CANDIDATES);
+  const regularFont =
+    findExistingFile(
+      FONT_CANDIDATES
+    );
+
+  const boldFont =
+    findExistingFile(
+      BOLD_FONT_CANDIDATES
+    );
+
+  const logoPath =
+    findExistingFile(
+      LOGO_CANDIDATES
+    );
 
   if (!regularFont) {
     const error = new Error(
       'PDF учун DejaVu Sans шрифти топилмади. dejavu-fonts-ttf пакети ўрнатилганини текширинг.'
     );
+
     error.status = 503;
+
     throw error;
   }
 
-  const verificationUrl = buildVerificationUrl(contract);
-  const qrBuffer = await QRCode.toBuffer(verificationUrl, {
-    type: 'png',
-    width: 500,
-    margin: 2,
-    errorCorrectionLevel: 'M',
-  });
+  /*
+    Verification QR.
+  */
+  const verificationUrl =
+    buildVerificationUrl(
+      contract
+    );
 
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-
-    const doc = new PDFDocument({
-      size: 'A4',
-      margins: {
-        top: 100,
-        bottom: 60,
-        left: 50,
-        right: 50,
-      },
-      info: {
-        Title: contract.displayId,
-        Author: 'GOLDEN KEY INFO',
-        Subject: 'QR орқали электрон тарзда тасдиқланган шартнома',
-        Keywords: 'Golden Key, contract, QR confirmation',
-        CreationDate: new Date(confirmation.signedAt),
-      },
-      bufferPages: true,
-      autoFirstPage: true,
-    });
-
-    doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('error', reject);
-    doc.on('end', () => {
-      resolve({
-        buffer: Buffer.concat(chunks),
-        verificationHash,
-        renderedHtml,
-        verificationUrl,
-      });
-    });
-
-    doc.registerFont('Regular', regularFont);
-    doc.registerFont('Bold', boldFont || regularFont);
-
-    drawCover(doc, {
-      logoPath,
-      contract,
-      caseItem,
-      confirmation,
-    });
-
-    doc.addPage();
-    drawHeader(doc, logoPath);
-
-    doc
-      .font('Bold')
-      .fontSize(15)
-      .fillColor('#111111')
-      .text('ШАРТНОМА МАТНИ', 50, 105, {
-        width: 495,
-        align: 'center',
-      })
-      .moveDown(1);
-
-    doc
-      .font('Regular')
-      .fontSize(9.3)
-      .fillColor('#111111')
-      .text(contractText, {
-        align: 'justify',
-        lineGap: 2.4,
-      });
-
-    drawVerificationPage(doc, {
-      logoPath,
-      contract,
-      caseItem,
-      confirmation,
-      verificationHash,
-      qrBuffer,
+  const qrBuffer =
+    await QRCode.toBuffer(
       verificationUrl,
-    });
-
-    const pageRange = doc.bufferedPageRange();
-
-    for (
-      let pageIndex = pageRange.start;
-      pageIndex < pageRange.start + pageRange.count;
-      pageIndex += 1
-    ) {
-      doc.switchToPage(pageIndex);
-
-      if (pageIndex > 0) {
-        drawFooter(
-          doc,
-          contract,
-          pageIndex + 1,
-          pageRange.count
-        );
+      {
+        type: 'png',
+        width: 500,
+        margin: 2,
+        errorCorrectionLevel: 'M',
       }
-    }
+    );
 
-    doc.end();
-  });
+  return new Promise(
+    (resolve, reject) => {
+      const chunks = [];
+
+      const doc =
+        new PDFDocument({
+          size: 'A4',
+
+          margins: {
+            top: 100,
+            bottom: 72,
+            left: 50,
+            right: 50,
+          },
+
+          info: {
+            Title:
+              contract.displayId,
+
+            Author:
+              'GOLDEN KEY INFO',
+
+            Subject:
+              'QR орқали электрон тарзда тасдиқланган шартнома',
+
+            Keywords:
+              'Golden Key, contract, QR confirmation',
+
+            CreationDate:
+              new Date(
+                confirmation.signedAt
+              ),
+          },
+
+          bufferPages: true,
+          autoFirstPage: true,
+        });
+
+      doc.on(
+        'data',
+        (chunk) =>
+          chunks.push(chunk)
+      );
+
+      doc.on(
+        'error',
+        reject
+      );
+
+      doc.on(
+        'end',
+        () => {
+          resolve({
+            buffer:
+              Buffer.concat(chunks),
+
+            verificationHash,
+
+            renderedHtml,
+
+            verificationUrl,
+          });
+        }
+      );
+
+      doc.registerFont(
+        'Regular',
+        regularFont
+      );
+
+      doc.registerFont(
+        'Bold',
+        boldFont ||
+          regularFont
+      );
+
+      /* ===============================================
+         1. COVER
+      =============================================== */
+
+      drawCover(doc, {
+        logoPath,
+        contract,
+        caseItem,
+        confirmation,
+      });
+
+      /* ===============================================
+         2. CONTRACT TEXT
+      =============================================== */
+
+      doc.addPage();
+
+      /*
+        Бошланиш нуқтаси.
+        Header 82px гача, шунинг учун матн 105px дан.
+      */
+      doc.y = 105;
+
+      doc
+        .font('Bold')
+        .fontSize(14)
+        .fillColor('#111111')
+        .text(
+          'ШАРТНОМА МАТНИ',
+          50,
+          doc.y,
+          {
+            width: 495,
+            align: 'center',
+          }
+        )
+        .moveDown(0.55);
+
+      writeContractBlocks(
+        doc,
+        contractBlocks
+      );
+
+      /* ===============================================
+         3. VERIFICATION PAGE
+      =============================================== */
+
+      drawVerificationPage(
+        doc,
+        {
+          contract,
+          caseItem,
+          confirmation,
+          verificationHash,
+          qrBuffer,
+          verificationUrl,
+        }
+      );
+
+      /* ===============================================
+         4. HEADER + FOOTER FOR ALL PAGES
+      =============================================== */
+
+      const pageRange =
+        doc.bufferedPageRange();
+
+      for (
+        let pageIndex =
+          pageRange.start;
+
+        pageIndex <
+        pageRange.start +
+          pageRange.count;
+
+        pageIndex += 1
+      ) {
+        doc.switchToPage(
+          pageIndex
+        );
+
+        /*
+          Cover page'га header/footer қўймаймиз.
+          Қолган барча саҳифаларда бир хил header.
+        */
+        if (pageIndex > 0) {
+          drawHeader(
+            doc,
+            logoPath
+          );
+
+          drawFooter(
+            doc,
+            contract,
+            pageIndex + 1,
+            pageRange.count
+          );
+        }
+      }
+
+      doc.end();
+    }
+  );
 }
