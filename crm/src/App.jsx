@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { CasesPage } from './pages/CasesPage.jsx';
+import { ExecutionPage } from './pages/ExecutionPage.jsx';
 import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
@@ -741,6 +742,10 @@ function Dashboard({ user, onLogout }) {
           onStatsChange={handleStatsChange}
         />
       );
+    }
+
+    if (activeMenu === 'Ижродаги ишлар') {
+      return <ExecutionPage user={user} />;
     }
 
     if (activeMenu === 'Шартномалар') {
