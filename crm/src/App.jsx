@@ -28,6 +28,7 @@ import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
 import { ContractsPage } from './pages/ContractsPage.jsx';
 import { FinancePage } from './pages/FinancePage.jsx';
+import { ArchivePage } from './pages/ArchivePage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -744,6 +745,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Молия') {
       return <FinancePage />;
+    }
+
+    if (activeMenu === 'Архив') {
+      return <ArchivePage />;
     }
 
     return renderPlaceholder();

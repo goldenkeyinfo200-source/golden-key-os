@@ -576,7 +576,7 @@ router.get('/stats', async (req, res, next) => {
  * search
  * status
  * serviceType
- * scope=execution
+ * scope=execution | archive
  * page
  * limit
  */
@@ -620,6 +620,17 @@ router.get('/', async (req, res, next) => {
           'CREDIT_ISSUED',
           'CLIENT_RECEIVED_FUNDS',
           'SERVICE_FEE_PAID',
+        ],
+      };
+    }
+
+    if (scope === 'archive') {
+      where.status = {
+        in: [
+          'COMPLETED',
+          'ARCHIVED',
+          'REJECTED',
+          'CANCELLED',
         ],
       };
     }
