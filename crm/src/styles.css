@@ -279,6 +279,38 @@ a {
   line-height: 1.5;
 }
 
+.login-success {
+  padding: 13px 14px;
+  border: 1px solid #bfe6c8;
+  border-radius: 10px;
+  color: #1a7a37;
+  background: #f0fbf3;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-hint {
+  margin: 0;
+  color: #6d747c;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.login-link-btn {
+  border: 0;
+  background: transparent;
+  color: #ef232d;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.login-link-btn:hover {
+  text-decoration: underline;
+}
+
 .login-submit {
   min-height: 54px;
   border: 0;

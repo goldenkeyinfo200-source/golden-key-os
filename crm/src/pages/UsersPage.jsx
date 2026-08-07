@@ -328,7 +328,9 @@ export function UsersPage() {
 
                 <label>
                   <span>
-                    {editingId ? 'Янги пароль (ихтиёрий)' : 'Пароль'}
+                    {editingId
+                      ? 'Янги пароль (ихтиёрий)'
+                      : 'Пароль (ихтиёрий)'}
                   </span>
                   <input
                     type="password"
@@ -336,7 +338,6 @@ export function UsersPage() {
                     onChange={(e) =>
                       setForm({ ...form, password: e.target.value })
                     }
-                    required={!editingId}
                   />
                 </label>
 
@@ -374,6 +375,13 @@ export function UsersPage() {
                   </select>
                 </label>
               </div>
+
+              <p style={{ margin: '-4px 0 4px', color: '#7d838b', fontSize: 12, lineHeight: 1.6 }}>
+                Паролни бўш қолдирсангиз, ходим Golden Key OS ботида
+                телефонини боғлаб, CRM логин саҳифасидаги "Паролни
+                унутдингизми ёки биринчи марта кираяпсизми?" тугмаси орқали
+                ўзи ўрнатади.
+              </p>
 
               <button className="users-primary" disabled={saving}>
                 <ShieldCheck size={17} />

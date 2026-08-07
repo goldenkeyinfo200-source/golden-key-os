@@ -148,6 +148,83 @@ function LoginPage({ onLogin }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [mode, setMode] = useState('login'); // 'login' | 'request' | 'confirm'
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetLogin, setResetLogin] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+
+  const requestCode = async (event) => {
+    event.preventDefault();
+    setResetError('');
+    setResetMessage('');
+    setResetSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/request-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: resetIdentifier.trim() }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Хатолик юз берди.');
+      }
+
+      setResetMessage(
+        data.message || 'Код Telegram орқали юборилди.'
+      );
+      setMode('confirm');
+    } catch (requestError) {
+      setResetError(requestError.message || 'Хатолик юз берди.');
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
+  const confirmSetPassword = async (event) => {
+    event.preventDefault();
+    setResetError('');
+    setResetSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/set-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: resetIdentifier.trim(),
+          code: resetCode.trim(),
+          newPassword: resetPassword,
+          newLogin: resetLogin.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Хатолик юз берди.');
+      }
+
+      setResetMessage(
+        'Парол ўрнатилди! Энди шу маълумотлар билан тизимга киринг.'
+      );
+      setLogin(resetLogin.trim() || resetIdentifier.trim());
+      setPassword('');
+      setMode('login');
+      setResetCode('');
+      setResetPassword('');
+    } catch (requestError) {
+      setResetError(requestError.message || 'Хатолик юз берди.');
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     setError('');
@@ -236,7 +313,7 @@ function LoginPage({ onLogin }) {
             <p>Сизга берилган логин ва парольни киритинг.</p>
           </div>
 
-          <form onSubmit={submit} className="login-form">
+          <form onSubmit={submit} className="login-form" style={{ display: mode === 'login' ? 'grid' : 'none' }}>
             <label>
               <span>Логин ёки электрон почта</span>
 
@@ -283,6 +360,9 @@ function LoginPage({ onLogin }) {
             </label>
 
             {error ? <div className="login-error">{error}</div> : null}
+            {resetMessage && mode === 'login' ? (
+              <div className="login-success">{resetMessage}</div>
+            ) : null}
 
             <button
               type="submit"
@@ -291,7 +371,133 @@ function LoginPage({ onLogin }) {
             >
               {submitting ? 'Текширилмоқда...' : 'Тизимга кириш'}
             </button>
+
+            <button
+              type="button"
+              className="login-link-btn"
+              onClick={() => {
+                setMode('request');
+                setResetError('');
+                setResetMessage('');
+              }}
+            >
+              Паролни унутдингизми ёки биринчи марта кираяпсизми?
+            </button>
           </form>
+
+          {mode === 'request' ? (
+            <form onSubmit={requestCode} className="login-form">
+              <p className="login-hint">
+                Телефон рақамингиз ёки логинингизни киритинг — Telegram
+                ботингизга бир марталик код юборамиз. (Аввал ботда /start
+                босиб, телефонингизни боғлаган бўлишингиз керак.)
+              </p>
+
+              <label>
+                <span>Телефон ёки логин</span>
+                <div className="input-wrap">
+                  <UserRound size={19} />
+                  <input
+                    type="text"
+                    value={resetIdentifier}
+                    onChange={(e) => setResetIdentifier(e.target.value)}
+                    placeholder="+998901234567 ёки логин"
+                    disabled={resetSubmitting}
+                  />
+                </div>
+              </label>
+
+              {resetError ? (
+                <div className="login-error">{resetError}</div>
+              ) : null}
+
+              <button
+                type="submit"
+                className="login-submit"
+                disabled={resetSubmitting}
+              >
+                {resetSubmitting ? 'Юборилмоқда...' : 'Кодни юбориш'}
+              </button>
+
+              <button
+                type="button"
+                className="login-link-btn"
+                onClick={() => setMode('login')}
+              >
+                Ортга
+              </button>
+            </form>
+          ) : null}
+
+          {mode === 'confirm' ? (
+            <form onSubmit={confirmSetPassword} className="login-form">
+              {resetMessage ? (
+                <div className="login-success">{resetMessage}</div>
+              ) : null}
+
+              <label>
+                <span>Telegram'дан келган код</span>
+                <div className="input-wrap">
+                  <ShieldCheck size={19} />
+                  <input
+                    type="text"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value)}
+                    placeholder="6 хонали код"
+                    disabled={resetSubmitting}
+                  />
+                </div>
+              </label>
+
+              <label>
+                <span>Янги пароль</span>
+                <div className="input-wrap">
+                  <ShieldCheck size={19} />
+                  <input
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    placeholder="Камида 6 та белги"
+                    disabled={resetSubmitting}
+                  />
+                </div>
+              </label>
+
+              <label>
+                <span>Янги логин (ихтиёрий)</span>
+                <div className="input-wrap">
+                  <UserRound size={19} />
+                  <input
+                    type="text"
+                    value={resetLogin}
+                    onChange={(e) => setResetLogin(e.target.value)}
+                    placeholder="Бўш қолдирсангиз, эскиси қолади"
+                    disabled={resetSubmitting}
+                  />
+                </div>
+              </label>
+
+              {resetError ? (
+                <div className="login-error">{resetError}</div>
+              ) : null}
+
+              <button
+                type="submit"
+                className="login-submit"
+                disabled={resetSubmitting}
+              >
+                {resetSubmitting ? 'Сақланмоқда...' : 'Паролни ўрнатиш'}
+              </button>
+
+              <button
+                type="button"
+                className="login-link-btn"
+                onClick={() => setMode('request')}
+              >
+                Ортга
+              </button>
+            </form>
+          ) : null}
 
           <div className="login-footer">
             <span>Golden Key Info</span>

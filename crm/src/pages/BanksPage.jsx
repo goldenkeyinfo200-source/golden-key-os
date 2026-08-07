@@ -343,7 +343,7 @@ export function BanksPage() {
                   ['phone','Телефон'],
                   ['email','Email'],
                   ['login','Логин'],
-                  ['password', editingEmployeeId ? 'Янги пароль (ихтиёрий)' : 'Пароль'],
+                  ['password', editingEmployeeId ? 'Янги пароль (ихтиёрий)' : 'Пароль (ихтиёрий)'],
                   ['bankPosition','Лавозим'],
                 ].map(([key,label]) => (
                   <label key={key}>
@@ -352,12 +352,18 @@ export function BanksPage() {
                       type={key==='password'?'password':'text'}
                       value={employeeForm[key]}
                       onChange={(e)=>setEmployeeForm({...employeeForm,[key]:e.target.value})}
-                      required={editingEmployeeId ? ['fullName'].includes(key) : ['fullName','login','password'].includes(key)}
+                      required={editingEmployeeId ? ['fullName'].includes(key) : ['fullName','login'].includes(key)}
                       disabled={key === 'login' && Boolean(editingEmployeeId)}
                     />
                   </label>
                 ))}
               </div>
+              <p style={{ margin: '-4px 0 4px', color: '#7d838b', fontSize: 12, lineHeight: 1.6 }}>
+                Паролни бўш қолдирсангиз, ходим Golden Key OS ботида
+                телефонини боғлаб, CRM логин саҳифасидаги "Паролни
+                унутдингизми ёки биринчи марта кираяпсизми?" тугмаси орқали
+                ўзи ўрнатади.
+              </p>
               <div className="banks-actions">
                 <button className="banks-primary" disabled={saving}>
                   <UserPlus size={17}/>
