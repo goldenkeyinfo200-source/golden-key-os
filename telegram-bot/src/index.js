@@ -188,7 +188,7 @@ bot.on('contact', async (ctx) => {
   clearSession(telegramId);
 
   try {
-    const data = await callCrm('/api/telegram/link', {
+    const data = await callCrm('/telegram/link', {
       method: 'POST',
       body: JSON.stringify({ phone, telegramId }),
     });
@@ -402,7 +402,7 @@ bot.action('case:confirm', async (ctx) => {
   await ctx.editMessageText('⏳ Юборилмоқда...').catch(() => {});
 
   try {
-    const result = await callCrm('/api/telegram/case', {
+    const result = await callCrm('/telegram/case', {
       method: 'POST',
       body: JSON.stringify({
         phone: session.data.phone,
@@ -444,7 +444,7 @@ bot.action('case:cancel', async (ctx) => {
 bot.hears('📄 Аризам ҳолати', async (ctx) => {
   try {
     const data = await callCrm(
-      `/api/telegram/cases?telegramId=${ctx.from.id}`
+      `/telegram/cases?telegramId=${ctx.from.id}`
     );
 
     if (!data.items || data.items.length === 0) {
