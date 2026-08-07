@@ -27,6 +27,12 @@ const STAFF_ROLES = [
 // Ходимларни бошқариш ҳуқуқи — фақат юқори раҳбарият
 const ADMIN_ROLES = ['SUPER_ADMIN', 'DIRECTOR'];
 
+const EXECUTOR_LOOKUP_ROLES = [
+  'SUPER_ADMIN',
+  'DIRECTOR',
+  'BRANCH_MANAGER',
+];
+
 const staffSelect = {
   id: true,
   fullName: true,
@@ -71,6 +77,68 @@ router.get(
       const items = await prisma.branch.findMany({
         select: { id: true, name: true, city: true },
         orderBy: { name: 'asc' },
+      });
+
+      return res.json({ items });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/users/executors
+ * Ижрочига бириктириш формаси учун фаол ижрочилар рўйхати.
+ *
+ * SUPER_ADMIN / DIRECTOR:
+ *   - branchId query берилса шу филиал ижрочилари
+ *   - branchId берилмаса барча фаол ижрочилар
+ *
+ * BRANCH_MANAGER:
+ *   - фақат ўз филиалидаги фаол ижрочилар
+ */
+router.get(
+  '/executors',
+  allowRoles(...EXECUTOR_LOOKUP_ROLES),
+  async (req, res, next) => {
+    try {
+      let branchId =
+        typeof req.query.branchId === 'string'
+          ? req.query.branchId.trim()
+          : '';
+
+      if (req.user.role === 'BRANCH_MANAGER') {
+        branchId = req.user.branchId || '';
+      }
+
+      const where = {
+        role: 'EXECUTOR',
+        isActive: true,
+      };
+
+      if (branchId) {
+        where.branchId = branchId;
+      }
+
+      const items = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          branchId: true,
+          isActive: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+            },
+          },
+        },
+        orderBy: {
+          fullName: 'asc',
+        },
       });
 
       return res.json({ items });

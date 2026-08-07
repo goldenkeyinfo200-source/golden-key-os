@@ -14,6 +14,7 @@ import {
   Phone,
   RefreshCw,
   ShieldCheck,
+  UserCheck,
   UserRound,
   WalletCards,
 } from 'lucide-react';
@@ -238,6 +239,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     loading: true,
   });
 
+  const [executors, setExecutors] = useState([]);
+  const [executorId, setExecutorId] = useState('');
+  const [executorsLoading, setExecutorsLoading] = useState(false);
+  const [executorSaving, setExecutorSaving] = useState(false);
+  const [executorError, setExecutorError] = useState('');
+  const [executorSuccess, setExecutorSuccess] = useState('');
+  const [canAssignExecutor, setCanAssignExecutor] = useState(true);
+
   const loadCase = useCallback(async () => {
     if (!caseId) {
       return;
@@ -292,6 +301,52 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     loadCase();
   }, [loadCase]);
 
+  const loadExecutors = useCallback(async (branchId) => {
+    if (!branchId) {
+      setExecutors([]);
+      return;
+    }
+
+    setExecutorsLoading(true);
+    setExecutorError('');
+
+    try {
+      const params = new URLSearchParams({
+        branchId,
+      });
+
+      const data = await apiRequest(
+        `/users/executors?${params.toString()}`
+      );
+
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      setExecutors(items);
+      setCanAssignExecutor(true);
+    } catch (error) {
+      if (error.status === 403) {
+        setCanAssignExecutor(false);
+        setExecutors([]);
+      } else {
+        setExecutorError(
+          error.message || 'Ижрочилар рўйхатини юклаб бўлмади.'
+        );
+      }
+    } finally {
+      setExecutorsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!item?.branchId) {
+      return;
+    }
+
+    setExecutorId(item.executor?.id || '');
+    setExecutorSuccess('');
+    loadExecutors(item.branchId);
+  }, [item?.branchId, item?.executor?.id, loadExecutors]);
+
   const currentTimelineIndex = useMemo(() => {
     if (!item) {
       return -1;
@@ -330,6 +385,46 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
       setStatusError(error.message || 'Статусни ўзгартириб бўлмади.');
     } finally {
       setSavingStatus(false);
+    }
+  };
+
+  const assignExecutor = async (event) => {
+    event.preventDefault();
+
+    if (!item || !executorId) {
+      setExecutorError('Ижрочини танланг.');
+      return;
+    }
+
+    setExecutorSaving(true);
+    setExecutorError('');
+    setExecutorSuccess('');
+
+    try {
+      const data = await apiRequest(
+        `/cases/${item.id}/assign-executor`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            executorId,
+          }),
+        }
+      );
+
+      setItem(data.item);
+      setStatusValue(data.item.status);
+      setExecutorId(data.item.executor?.id || '');
+      setExecutorSuccess(
+        `${data.item.executor?.fullName || 'Ижрочи'}га иш муваффақиятли бириктирилди.`
+      );
+
+      onChanged?.(data.item);
+    } catch (error) {
+      setExecutorError(
+        error.message || 'Ишни ижрочига бириктириб бўлмади.'
+      );
+    } finally {
+      setExecutorSaving(false);
     }
   };
 
@@ -487,6 +582,108 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         .finance-collateral-form button.primary:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+
+        .executor-assign-panel {
+          border: 1px solid #e1e5e9;
+          border-radius: 12px;
+          background: #fff;
+        }
+
+        .executor-current {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 14px;
+          border-radius: 10px;
+          padding: 11px 12px;
+          background: #f6f8fa;
+        }
+
+        .executor-current-icon {
+          width: 36px;
+          height: 36px;
+          display: grid;
+          place-items: center;
+          flex: 0 0 auto;
+          border-radius: 9px;
+          background: #fff1f2;
+          color: #e5232f;
+        }
+
+        .executor-current > div {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .executor-current span {
+          color: #7d838b;
+          font-size: 11px;
+        }
+
+        .executor-assign-form {
+          display: grid;
+          gap: 11px;
+        }
+
+        .executor-assign-form label {
+          display: grid;
+          gap: 6px;
+        }
+
+        .executor-assign-form label > span {
+          color: #555c65;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .executor-assign-form select {
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+          border: 1px solid #dfe3e8;
+          border-radius: 10px;
+          background: #fff;
+          color: #15171a;
+          font: inherit;
+          font-size: 13px;
+          padding: 11px 12px;
+          outline: none;
+        }
+
+        .executor-assign-form select:focus {
+          border-color: #e5232f;
+          box-shadow: 0 0 0 3px rgba(229, 35, 47, 0.1);
+        }
+
+        .executor-assign-button {
+          min-height: 40px;
+          border: 0;
+          border-radius: 10px;
+          background: #e5232f;
+          color: #fff;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 0 14px;
+          cursor: pointer;
+        }
+
+        .executor-assign-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .executor-note {
+          margin: 0;
+          color: #7d838b;
+          font-size: 11px;
+          line-height: 1.5;
         }
 
         @media (max-width: 900px) {
@@ -965,6 +1162,110 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         </div>
 
         <aside className="case-details-side-column">
+          {canAssignExecutor ? (
+            <section className="panel details-section executor-assign-panel">
+              <div className="details-section-head">
+                <div>
+                  <span className="section-kicker">Ижро</span>
+                  <h3>Ижрочига бириктириш</h3>
+                  <p>
+                    Шартнома тасдиқлангандан кейин ишни филиал ижрочисига
+                    бириктиринг.
+                  </p>
+                </div>
+
+                <UserCheck size={21} />
+              </div>
+
+              <div className="executor-current">
+                <div className="executor-current-icon">
+                  <UserRound size={18} />
+                </div>
+
+                <div>
+                  <span>Ҳозирги ижрочи</span>
+                  <strong>
+                    {item.executor?.fullName || 'Ҳали бириктирилмаган'}
+                  </strong>
+                </div>
+              </div>
+
+              <form
+                className="executor-assign-form"
+                onSubmit={assignExecutor}
+              >
+                <label>
+                  <span>Ижрочини танланг</span>
+
+                  <select
+                    value={executorId}
+                    onChange={(event) => {
+                      setExecutorId(event.target.value);
+                      setExecutorError('');
+                      setExecutorSuccess('');
+                    }}
+                    disabled={executorsLoading || executorSaving}
+                  >
+                    <option value="">
+                      {executorsLoading
+                        ? 'Ижрочилар юкланмоқда...'
+                        : '— Ижрочини танланг —'}
+                    </option>
+
+                    {executors.map((executor) => (
+                      <option value={executor.id} key={executor.id}>
+                        {executor.fullName}
+                        {executor.branch?.name
+                          ? ` — ${executor.branch.name}`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {executors.length === 0 && !executorsLoading ? (
+                  <p className="executor-note">
+                    Ушбу филиалда фаол ижрочи топилмади. «Ходимлар» бўлимида
+                    EXECUTOR ролида ходим қўшинг.
+                  </p>
+                ) : null}
+
+                {executorError ? (
+                  <div className="form-error">{executorError}</div>
+                ) : null}
+
+                {executorSuccess ? (
+                  <div className="form-success">{executorSuccess}</div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="executor-assign-button"
+                  disabled={
+                    executorSaving ||
+                    executorsLoading ||
+                    !executorId ||
+                    executorId === item.executor?.id
+                  }
+                >
+                  {executorSaving ? (
+                    <>
+                      <LoaderCircle className="spin" size={17} />
+                      Бириктирилмоқда...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck size={17} />
+                      {item.executor
+                        ? 'Ижрочини алмаштириш'
+                        : 'Ижрочига бириктириш'}
+                    </>
+                  )}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
           <section className="panel details-section status-control-panel">
             <div className="details-section-head">
               <div>
