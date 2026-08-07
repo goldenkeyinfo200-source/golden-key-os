@@ -8,6 +8,7 @@ import casesRouter from './cases.js';
 import contractsRouter from './contracts.js';
 import publicContractsRouter from './public-contracts.js';
 import documentsRouter from './documents.js';
+import financeRouter from './finance.js';
 import healthRouter from './health.js';
 import kiosksRouter from './kiosks.js';
 import telegramRouter from './telegram.js';
@@ -50,6 +51,12 @@ router.use('/bank-offers', bankOffersRouter);
 ========================================================= */
 
 router.use('/documents', documentsRouter);
+
+/* =========================================================
+   FINANCE
+========================================================= */
+
+router.use('/finance', financeRouter);
 
 /* =========================================================
    CONTRACTS
@@ -106,6 +113,7 @@ router.get('/', (_req, res) => {
       branches: '/api/branches',
       users: '/api/users',
       documents: '/api/documents',
+      finance: '/api/finance',
       contracts: '/api/contracts',
       contractList: '/api/contracts/case/:caseId',
       contractQr: '/api/contracts/:contractId/qr',

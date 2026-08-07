@@ -27,6 +27,7 @@ import { KioskDevicesPage } from './pages/KioskDevicesPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
 import { ContractsPage } from './pages/ContractsPage.jsx';
+import { FinancePage } from './pages/FinancePage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -739,6 +740,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Шартномалар') {
       return <ContractsPage />;
+    }
+
+    if (activeMenu === 'Молия') {
+      return <FinancePage />;
     }
 
     return renderPlaceholder();
