@@ -55,6 +55,10 @@ export function ContractsSection({ caseId, onChanged }) {
   const [qrLoadingId, setQrLoadingId] = useState('');
   const [qrError, setQrError] = useState('');
 
+  const [kiosks, setKiosks] = useState([]);
+  const [kioskPicker, setKioskPicker] = useState(null);
+  const [kioskLoading, setKioskLoading] = useState(false);
+
   const [pdfLoadingId, setPdfLoadingId] = useState('');
   const [pdfMessage, setPdfMessage] = useState('');
   const [pdfError, setPdfError] = useState('');
@@ -75,9 +79,23 @@ export function ContractsSection({ caseId, onChanged }) {
     }
   }, [caseId]);
 
+  const loadKiosks = useCallback(async () => {
+    setKioskLoading(true);
+
+    try {
+      const data = await apiRequest('/kiosks');
+      setKiosks(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      setKiosks([]);
+    } finally {
+      setKioskLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadContracts();
-  }, [loadContracts]);
+    loadKiosks();
+  }, [loadContracts, loadKiosks]);
 
   useEffect(() => {
     if (!qrModal) return undefined;
@@ -121,19 +139,58 @@ export function ContractsSection({ caseId, onChanged }) {
     }
   };
 
-  const createQr = async (contractId) => {
+  const createQr = async (contractId, selectedKioskId = null) => {
     setQrLoadingId(contractId);
     setQrError('');
 
     try {
+      let kioskId = selectedKioskId;
+
+      if (!kioskId) {
+        let availableKiosks = kiosks;
+
+        if (!availableKiosks.length) {
+          const kioskData = await apiRequest('/kiosks');
+          availableKiosks = Array.isArray(kioskData.items) ? kioskData.items : [];
+          setKiosks(availableKiosks);
+        }
+
+        const onlineKiosks = availableKiosks.filter((item) => item.isOnline);
+
+        if (onlineKiosks.length === 1) {
+          kioskId = onlineKiosks[0].id;
+        } else if (onlineKiosks.length > 1) {
+          setKioskPicker({
+            contractId,
+            items: onlineKiosks,
+          });
+          return;
+        } else if (availableKiosks.length === 1) {
+          kioskId = availableKiosks[0].id;
+        } else if (availableKiosks.length > 1) {
+          setKioskPicker({
+            contractId,
+            items: availableKiosks,
+          });
+          return;
+        } else {
+          throw new Error(
+            'QR экран топилмади. Аввал “QR экранлар” бўлимида оператор телефонини қўшинг ва телефонда kiosk саҳифасини очиб қўйинг.'
+          );
+        }
+      }
+
       const data = await apiRequest(`/contracts/${contractId}/qr`, {
         method: 'POST',
         body: JSON.stringify({
           expiresInMinutes: 15,
+          kioskId,
         }),
       });
 
+      setKioskPicker(null);
       setQrModal(data);
+      await loadKiosks();
     } catch (error) {
       setQrError(error.message || 'QR-кодни яратиб бўлмади.');
     } finally {
@@ -476,6 +533,72 @@ export function ContractsSection({ caseId, onChanged }) {
           font-weight: 800;
         }
 
+        .contract-kiosk-picker {
+          width: min(560px, 100%);
+          border-radius: 16px;
+          overflow: hidden;
+          background: #fff;
+          box-shadow: 0 25px 70px rgba(0, 0, 0, 0.24);
+        }
+
+        .contract-kiosk-list {
+          display: grid;
+          gap: 10px;
+          padding: 18px 20px 22px;
+        }
+
+        .contract-kiosk-option {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          border: 1px solid #dfe3e8;
+          border-radius: 12px;
+          background: #fff;
+          color: #25282c;
+          padding: 13px 14px;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .contract-kiosk-option:hover {
+          border-color: #e5232f;
+          background: #fff8f8;
+        }
+
+        .contract-kiosk-option > div {
+          display: grid;
+          gap: 3px;
+        }
+
+        .contract-kiosk-option strong {
+          font-size: 14px;
+        }
+
+        .contract-kiosk-option span {
+          color: #7b828c;
+          font-size: 11px;
+        }
+
+        .contract-kiosk-online {
+          flex: 0 0 auto;
+          border-radius: 999px;
+          padding: 5px 8px;
+          background: #dcf8e8;
+          color: #087742 !important;
+          font-weight: 800;
+        }
+
+        .contract-kiosk-offline {
+          flex: 0 0 auto;
+          border-radius: 999px;
+          padding: 5px 8px;
+          background: #f0f2f4;
+          color: #747b85 !important;
+          font-weight: 800;
+        }
+
         @media (max-width: 700px) {
           .contracts-head {
             flex-direction: column;
@@ -518,6 +641,16 @@ export function ContractsSection({ caseId, onChanged }) {
               title="Янгилаш"
             >
               <RefreshCw size={17} className={loading ? 'spin' : ''} />
+            </button>
+
+            <button
+              type="button"
+              className="contracts-refresh"
+              onClick={loadKiosks}
+              disabled={kioskLoading}
+              title="QR экранлар ҳолатини янгилаш"
+            >
+              <QrCode size={17} className={kioskLoading ? 'spin' : ''} />
             </button>
 
             <button
@@ -683,6 +816,71 @@ export function ContractsSection({ caseId, onChanged }) {
         ) : null}
       </section>
 
+      {kioskPicker ? (
+        <div
+          className="contract-qr-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setKioskPicker(null);
+              setQrLoadingId('');
+            }
+          }}
+        >
+          <section
+            className="contract-kiosk-picker"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="contract-qr-head">
+              <div>
+                <span>QR ЭКРАННИ ТАНЛАНГ</span>
+                <h3>Қайси телефонда QR чиқсин?</h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setKioskPicker(null);
+                  setQrLoadingId('');
+                }}
+                aria-label="Ойнани ёпиш"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="contract-kiosk-list">
+              {kioskPicker.items.map((kiosk) => (
+                <button
+                  type="button"
+                  className="contract-kiosk-option"
+                  key={kiosk.id}
+                  onClick={() => createQr(kioskPicker.contractId, kiosk.id)}
+                >
+                  <div>
+                    <strong>{kiosk.name}</strong>
+                    <span>
+                      {kiosk.branch?.name || 'Филиал'} ·{' '}
+                      {kiosk.manager?.fullName || 'Оператор бириктирилмаган'}
+                    </span>
+                  </div>
+
+                  <span
+                    className={
+                      kiosk.isOnline
+                        ? 'contract-kiosk-online'
+                        : 'contract-kiosk-offline'
+                    }
+                  >
+                    {kiosk.isOnline ? 'Онлайн' : 'Офлайн'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {qrModal ? (
         <div
           className="contract-qr-backdrop"
@@ -717,7 +915,15 @@ export function ContractsSection({ caseId, onChanged }) {
                 <img src={qrModal.qrDataUrl} alt="Шартномани тасдиқлаш QR-коди" />
               </div>
 
-              <strong>Мижоз ўз телефони билан QR-кодни сканерласин</strong>
+              <strong>
+                Мижоз QR-кодни махсус телефон экранидан ўз телефони билан сканерласин
+              </strong>
+
+              {qrModal.kiosk?.name ? (
+                <p>
+                  QR экран: <b>{qrModal.kiosk.name}</b>
+                </p>
+              ) : null}
 
               <p>
                 QR-код бир марта ишлайди ва{' '}
