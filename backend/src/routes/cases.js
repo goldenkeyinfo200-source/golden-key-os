@@ -563,6 +563,7 @@ router.get('/stats', async (req, res, next) => {
  * search
  * status
  * serviceType
+ * scope=execution
  * page
  * limit
  */
@@ -589,7 +590,26 @@ router.get('/', async (req, res, next) => {
         ? req.query.serviceType.trim()
         : '';
 
+    const scope =
+      typeof req.query.scope === 'string'
+        ? req.query.scope.trim()
+        : '';
+
     const where = {};
+
+    if (scope === 'execution') {
+      where.status = {
+        in: [
+          'ASSIGNED_TO_EXECUTOR',
+          'IN_EXECUTION',
+          'PROPERTY_MONITORING',
+          'CREDIT_APPROVED',
+          'CREDIT_ISSUED',
+          'CLIENT_RECEIVED_FUNDS',
+          'SERVICE_FEE_PAID',
+        ],
+      };
+    }
 
     if (status && caseStatuses.includes(status)) {
       where.status = status;
