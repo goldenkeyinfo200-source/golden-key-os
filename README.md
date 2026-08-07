@@ -20,3 +20,4 @@ npm --workspace backend run prisma:migrate
 npm run dev:backend
 npm run dev:crm
 ```
+Deployment restart
