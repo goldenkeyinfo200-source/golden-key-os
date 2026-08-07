@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MonitorSmartphone,
   ShieldCheck,
   UserRound,
   Users,
@@ -22,6 +23,7 @@ import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import { KioskPage } from './pages/KioskPage.jsx';
+import { KioskDevicesPage } from './pages/KioskDevicesPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
 import {
@@ -37,6 +39,7 @@ const menu = [
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
   ['Филиаллар', Building2],
+  ['QR экранлар', MonitorSmartphone],
   ['Ходимлар', Users],
   ['Шартномалар', FileText],
   ['Молия', WalletCards],
@@ -55,13 +58,14 @@ const MENU_ACCESS = {
   BRANCH_MANAGER: [
     'Бош панель',
     'Филиаллар',
+    'QR экранлар',
     'Мурожаатлар',
     'Ижродаги ишлар',
     'Шартномалар',
     'Молия',
     'Архив',
   ],
-  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'Архив'],
+  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'QR экранлар', 'Архив'],
   EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
   LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
   ACCOUNTANT: ['Бош панель', 'Молия', 'Архив'],
@@ -713,6 +717,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Филиаллар') {
       return <BranchesPage user={user} />;
+    }
+
+    if (activeMenu === 'QR экранлар') {
+      return <KioskDevicesPage user={user} />;
     }
 
     if (activeMenu === 'Ходимлар') {
