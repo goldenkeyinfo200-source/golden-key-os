@@ -26,6 +26,7 @@ import { KioskPage } from './pages/KioskPage.jsx';
 import { KioskDevicesPage } from './pages/KioskDevicesPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
 import { BranchesPage } from './pages/BranchesPage.jsx';
+import { ExecutionPage } from './pages/ExecutionPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -734,6 +735,10 @@ function Dashboard({ user, onLogout }) {
           onStatsChange={handleStatsChange}
         />
       );
+    }
+
+    if (activeMenu === 'Ижродаги ишлар') {
+      return <ExecutionPage user={user} />;
     }
 
     return renderPlaceholder();
