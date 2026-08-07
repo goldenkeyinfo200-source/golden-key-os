@@ -111,17 +111,16 @@ router.get(
         branchId = req.user.branchId || '';
       }
 
-      const where = {
+      const baseWhere = {
         role: 'EXECUTOR',
         isActive: true,
       };
 
-      if (branchId) {
-        where.branchId = branchId;
-      }
-
-      const items = await prisma.user.findMany({
-        where,
+      let items = await prisma.user.findMany({
+        where: {
+          ...baseWhere,
+          ...(branchId ? { branchId } : {}),
+        },
         select: {
           id: true,
           fullName: true,
@@ -140,6 +139,36 @@ router.get(
           fullName: 'asc',
         },
       });
+
+      // Агар SUPER_ADMIN / DIRECTOR учун филиал ID бўйича натижа чиқмаса,
+      // барча фаол ижрочиларни қайтарамиз. Бу эски мурожаатларда branchId
+      // номувофиқ бўлиб қолган ҳолатларда ҳам ижрочини танлаш имконини беради.
+      if (
+        items.length === 0 &&
+        branchId &&
+        (req.user.role === 'SUPER_ADMIN' || req.user.role === 'DIRECTOR')
+      ) {
+        items = await prisma.user.findMany({
+          where: baseWhere,
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            branchId: true,
+            isActive: true,
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                city: true,
+              },
+            },
+          },
+          orderBy: {
+            fullName: 'asc',
+          },
+        });
+      }
 
       return res.json({ items });
     } catch (error) {

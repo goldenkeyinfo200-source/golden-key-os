@@ -319,7 +319,16 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         `/users/executors?${params.toString()}`
       );
 
-      const items = Array.isArray(data.items) ? data.items : [];
+      let items = Array.isArray(data.items) ? data.items : [];
+
+      // Эски мурожаатларда branchId ходим филиали билан мос келмай қолган
+      // бўлиши мумкин. Агар рўйхат бўш бўлса, умумий фаол ижрочиларни оламиз.
+      if (items.length === 0) {
+        const fallbackData = await apiRequest('/users/executors');
+        items = Array.isArray(fallbackData.items)
+          ? fallbackData.items
+          : [];
+      }
 
       setExecutors(items);
       setCanAssignExecutor(true);
@@ -1225,8 +1234,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
                 {executors.length === 0 && !executorsLoading ? (
                   <p className="executor-note">
-                    Ушбу филиалда фаол ижрочи топилмади. «Ходимлар» бўлимида
-                    EXECUTOR ролида ходим қўшинг.
+                    Фаол ижрочи топилмади. «Ходимлар» бўлимида EXECUTOR
+                    роли ва «Фаол» ҳолатини текширинг.
                   </p>
                 ) : null}
 
