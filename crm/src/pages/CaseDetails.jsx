@@ -301,29 +301,20 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     loadCase();
   }, [loadCase]);
 
-  const loadExecutors = useCallback(async (branchId) => {
-    if (!branchId) {
-      setExecutors([]);
-      return;
-    }
-
+  const loadExecutors = useCallback(async (branchId = '') => {
     setExecutorsLoading(true);
     setExecutorError('');
 
     try {
-      const params = new URLSearchParams({
-        branchId,
-      });
+      const query = branchId
+        ? `?${new URLSearchParams({ branchId }).toString()}`
+        : '';
 
-      const data = await apiRequest(
-        `/users/executors?${params.toString()}`
-      );
-
+      const data = await apiRequest(`/users/executors${query}`);
       let items = Array.isArray(data.items) ? data.items : [];
 
-      // Эски мурожаатларда branchId ходим филиали билан мос келмай қолган
-      // бўлиши мумкин. Агар рўйхат бўш бўлса, умумий фаол ижрочиларни оламиз.
-      if (items.length === 0) {
+      // Агар филиал бўйича ҳеч ким чиқмаса, барча фаол ижрочиларни оламиз.
+      if (items.length === 0 && branchId) {
         const fallbackData = await apiRequest('/users/executors');
         items = Array.isArray(fallbackData.items)
           ? fallbackData.items
@@ -337,6 +328,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         setCanAssignExecutor(false);
         setExecutors([]);
       } else {
+        setExecutors([]);
         setExecutorError(
           error.message || 'Ижрочилар рўйхатини юклаб бўлмади.'
         );
@@ -347,14 +339,26 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   }, []);
 
   useEffect(() => {
-    if (!item?.branchId) {
+    if (!item) {
       return;
     }
 
+    const effectiveBranchId =
+      item.branchId ||
+      item.branch?.id ||
+      item.branch?.branchId ||
+      '';
+
     setExecutorId(item.executor?.id || '');
     setExecutorSuccess('');
-    loadExecutors(item.branchId);
-  }, [item?.branchId, item?.executor?.id, loadExecutors]);
+    loadExecutors(effectiveBranchId);
+  }, [
+    item,
+    item?.branchId,
+    item?.branch?.id,
+    item?.executor?.id,
+    loadExecutors,
+  ]);
 
   const currentTimelineIndex = useMemo(() => {
     if (!item) {
