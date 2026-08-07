@@ -53,7 +53,7 @@ const staffSchema = z.object({
   phone: z.string().trim().optional().nullable(),
   email: z.string().trim().email("Email нотўғри").optional().nullable().or(z.literal('')),
   login: z.string().trim().min(3, "Логин камида 3 та белгидан иборат бўлиши керак"),
-  password: z.string().min(6, "Пароль камида 6 та белгидан иборат бўлиши керак").max(200).optional().or(z.literal('')),
+  password: z.string().min(6, "Пароль камида 6 та белгидан иборат бўлиши керак").max(200),
   role: z.enum(STAFF_ROLES, { errorMap: () => ({ message: 'Рол нотўғри' }) }),
   branchId: z.string().trim().optional().nullable().or(z.literal('')),
   isActive: z.boolean().optional(),
@@ -122,9 +122,7 @@ router.post('/', allowRoles(...ADMIN_ROLES), async (req, res, next) => {
       });
     }
 
-    const passwordHash = data.password
-      ? await bcrypt.hash(data.password, 12)
-      : null;
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
     const item = await prisma.user.create({
       data: {

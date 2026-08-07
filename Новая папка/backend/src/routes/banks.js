@@ -30,7 +30,7 @@ const employeeSchema = z.object({
   phone: z.string().trim().max(30).optional().or(z.literal('')),
   email: z.string().trim().email().optional().or(z.literal('')),
   login: z.string().trim().min(3).max(100),
-  password: z.string().min(6).max(200).optional().or(z.literal('')),
+  password: z.string().min(6).max(200),
   bankPosition: z.string().trim().max(120).optional().or(z.literal('')),
   isActive: z.boolean().optional().default(true),
 });
@@ -184,9 +184,7 @@ router.post('/:bankId/employees', allowRoles(...ADMIN_ROLES), async (req, res, n
       return res.status(404).json({ error: 'Банк топилмади' });
     }
 
-    const passwordHash = parsed.data.password
-      ? await bcrypt.hash(parsed.data.password, 12)
-      : null;
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
     const item = await prisma.user.create({
       data: {

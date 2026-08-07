@@ -160,8 +160,6 @@ model User {
   telegramId   String?  @unique
   role         UserRole
   isActive     Boolean  @default(true)
-  resetCodeHash      String?
-  resetCodeExpiresAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
