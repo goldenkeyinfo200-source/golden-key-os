@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
   BriefcaseBusiness,
+  Building2,
   Eye,
   EyeOff,
   FileText,
@@ -21,6 +22,7 @@ import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import { UsersPage } from './pages/UsersPage.jsx';
+import { BranchesPage } from './pages/BranchesPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -33,6 +35,7 @@ const menu = [
   ['Мурожаатлар', FileText],
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
+  ['Филиаллар', Building2],
   ['Ходимлар', Users],
   ['Шартномалар', FileText],
   ['Молия', WalletCards],
@@ -50,6 +53,7 @@ const MENU_ACCESS = {
   DIRECTOR: null,
   BRANCH_MANAGER: [
     'Бош панель',
+    'Филиаллар',
     'Мурожаатлар',
     'Ижродаги ишлар',
     'Шартномалар',
@@ -704,6 +708,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Банклар') {
       return <BanksPage />;
+    }
+
+    if (activeMenu === 'Филиаллар') {
+      return <BranchesPage user={user} />;
     }
 
     if (activeMenu === 'Ходимлар') {
