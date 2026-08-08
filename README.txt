@@ -1,23 +1,13 @@
-GK Execution Fix
+GK PAYMENT RECEIPT UPDATE
 
-Муаммо:
-"Ижродаги ишлар" менюси бор эди, лекин App.jsx renderContent() ичида
-ExecutionPage уланмаган. Шунинг учун placeholder чиқарди.
+1. telegram.js -> backend/src/services/telegram.js га алмаштиринг.
+2. Бу файлга sendPaymentReceiptToClient() функцияси қўшилди.
+3. Кейинги босқичда payments/finance route ичида:
+   - тўловни сақлаш
+   - PDF квитанция яратиш
+   - sendPaymentReceiptToClient() ни чақириш
+   уланади.
 
-Алмаштирилади:
-crm/src/App.jsx
-
-Текширинг:
-crm/src/pages/ExecutionPage.jsx файли жойида қолиши керак.
-
-Deploy:
-1) App.jsx ни тўлиқ алмаштиринг
-2) Commit + Push
-3) Vercel/Railway frontend deploy
-4) "Ижродаги ишлар" бўлимини қайта очинг
-
-Бу версияда қолган янги бўлимлар сақланган:
-- Шартномалар
-- Молия
-- Қарздорлар
-- Архив
+Эслатма:
+Фақат telegram.js билан квитанция автоматик кетмайди.
+Тўлов сақланадиган backend route ҳам янгиланиши керак.

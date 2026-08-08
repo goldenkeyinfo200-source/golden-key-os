@@ -69,3 +69,96 @@ export async function sendContractPdfToClient({
     messageId: data.result?.message_id || null,
   };
 }
+/**
+ * Мижозга хизмат ҳақи тўлови учун PDF квитанция юбориш.
+ *
+ * paymentDisplayId — квитанция/тўлов рақами (масалан GK-PAY-2026-000001)
+ * caseDisplayId    — мурожаат рақами
+ * paidAmount       — ушбу тўлов суммаси
+ * remainingAmount  — тўловдан кейинги қолдиқ
+ */
+export async function sendPaymentReceiptToClient({
+  telegramId,
+  pdfBuffer,
+  fileName,
+  paymentDisplayId,
+  caseDisplayId,
+  paidAmount,
+  remainingAmount,
+}) {
+  const botToken = getBotToken();
+
+  if (!botToken || !telegramId) {
+    return {
+      sent: false,
+      skipped: true,
+      reason: !botToken
+        ? 'Telegram bot token созланмаган'
+        : 'Мижоз Telegram ID уланмаган',
+    };
+  }
+
+  const formatMoney = (value) => {
+    const amount = Number(value || 0);
+    return `${new Intl.NumberFormat('uz-UZ').format(amount)} сўм`;
+  };
+
+  const fullyPaid = Number(remainingAmount || 0) <= 0;
+
+  const caption = [
+    '🧾 ТЎЛОВ КВИТАНЦИЯСИ',
+    '',
+    paymentDisplayId ? `Квитанция: ${paymentDisplayId}` : null,
+    caseDisplayId ? `Мурожаат: ${caseDisplayId}` : null,
+    `Тўланган сумма: ${formatMoney(paidAmount)}`,
+    `Қолдиқ: ${formatMoney(remainingAmount)}`,
+    '',
+    fullyPaid
+      ? '✅ Хизмат ҳақи тўлиқ тўланди.'
+      : '✅ Тўлов қабул қилинди.',
+    '',
+    'PDF квитанция илова қилинди.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const formData = new FormData();
+
+  formData.append('chat_id', String(telegramId));
+  formData.append('caption', caption);
+
+  formData.append(
+    'document',
+    new Blob([pdfBuffer], {
+      type: 'application/pdf',
+    }),
+    fileName
+  );
+
+  const response = await fetch(
+    `${TELEGRAM_API_BASE}/bot${botToken}/sendDocument`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.ok) {
+    const error = new Error(
+      data.description ||
+        'Telegram бот орқали тўлов квитанциясини юбориб бўлмади'
+    );
+
+    error.status = 502;
+    error.telegramResponse = data;
+    throw error;
+  }
+
+  return {
+    sent: true,
+    skipped: false,
+    messageId: data.result?.message_id || null,
+  };
+}
