@@ -1,26 +1,19 @@
-GK KIOSK ADS v1
+GK KIOSK ADS FIT v2
 
-ALMASHTIRILADI:
+MUAMMO:
+Telefon ekranida sahifa uzun bo'lib, pastga scroll qilishga to'g'ri kelayotgan edi.
+
+TUZATILDI:
+- Kiosk sahifa 100dvh ichiga qat'iy sig'dirildi.
+- Browser/body scroll o'chirildi.
+- Header, logo va footer ixchamlashtirildi.
+- Reklama ikonka, sarlavha va matn ekran balandligiga moslashadi.
+- QR kod ham kichik ekranlarda avtomatik ixchamlashadi.
+- QR, SIGNED va reklama rejimlari scrollsiz ishlaydi.
+
+ALMASHTIRING:
 crm/src/pages/KioskPage.jsx
 
-NIMA O'ZGARDI:
-- IDLE kutish ekrani reklama/informatsiya slayderiga aylandi.
-- EXPIRED holatida ham "QR-kod muddati tugadi" ekrani o'rniga reklama ko'rinadi.
-- 4 ta tayyor slayd 7 soniyada avtomatik almashadi:
-  1. Ipoteka
-  2. Mikroqarz
-  3. Ko'chmas mulk
-  4. Golden Key OS raqamli xizmatlar
-- Operator QR chiqarsa, reklama darhol yo'qoladi va QR chiqadi.
-- Shartnoma tasdiqlansa 5 soniya "Muvaffaqiyatli" ko'rinadi, keyin reklama qaytadi.
-- Backendga tegilmaydi.
-- QR ishlash mantig'i o'zgarmaydi.
-
 DEPLOY:
-1) KioskPage.jsx ni crm/src/pages ichiga almashtiring.
-2) Commit -> Push.
-3) Frontend deploy.
-4) Telefon kiosk sahifasini yangilang.
-
-KEYINGI VERSIYA:
-Admin paneldan reklama rasmlari/video va ko'rsatish vaqtini boshqarish.
+Commit -> Push -> frontend deploy.
+Telefon sahifasini to'liq yangilang.

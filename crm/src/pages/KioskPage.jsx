@@ -375,6 +375,22 @@ export function KioskPage() {
     return () => window.clearInterval(slider);
   }, []);
 
+  useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyMargin = document.body.style.margin;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.margin = '0';
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.margin = previousBodyMargin;
+    };
+  }, []);
+
   const status = data?.display?.status || 'IDLE';
 
   useEffect(() => {
@@ -423,21 +439,25 @@ export function KioskPage() {
 
 const styles = {
   page: {
-    minHeight: '100dvh',
+    height: '100dvh',
+    minHeight: 0,
+    overflow: 'hidden',
     background:
       'radial-gradient(circle at top, #fff7f7 0%, #f5f7fa 45%, #edf1f5 100%)',
     color: '#111827',
     fontFamily:
       'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    padding: 14,
+    padding: 8,
     boxSizing: 'border-box',
   },
   shell: {
-    minHeight: 'calc(100dvh - 28px)',
+    height: 'calc(100dvh - 16px)',
+    minHeight: 0,
+    maxHeight: 'calc(100dvh - 16px)',
     maxWidth: 720,
     margin: '0 auto',
     background: '#ffffff',
-    borderRadius: 28,
+    borderRadius: 22,
     boxShadow: '0 24px 70px rgba(17, 24, 39, 0.12)',
     display: 'flex',
     flexDirection: 'column',
@@ -445,7 +465,8 @@ const styles = {
     border: '1px solid #e5e7eb',
   },
   header: {
-    padding: '18px 20px',
+    flex: '0 0 auto',
+    padding: '10px 14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -459,8 +480,8 @@ const styles = {
   },
   logo: {
     display: 'block',
-    width: 'min(220px, 46vw)',
-    maxHeight: 64,
+    width: 'min(180px, 43vw)',
+    maxHeight: 50,
     objectFit: 'contain',
     objectPosition: 'left center',
   },
@@ -469,7 +490,7 @@ const styles = {
     textAlign: 'right',
     display: 'grid',
     gap: 3,
-    fontSize: 13,
+    fontSize: 10,
   },
   onlineRow: {
     display: 'flex',
@@ -484,12 +505,16 @@ const styles = {
     fontSize: 12,
   },
   main: {
-    flex: 1,
+    flex: '1 1 auto',
+    minHeight: 0,
+    overflow: 'hidden',
     display: 'flex',
-    padding: '24px 22px',
+    padding: '12px 16px',
   },
   centerContent: {
     width: '100%',
+    height: '100%',
+    minHeight: 0,
     margin: 'auto',
     display: 'flex',
     flexDirection: 'column',
@@ -539,7 +564,7 @@ const styles = {
     placeItems: 'center',
     color: '#b91c1c',
     background: '#fff1f2',
-    marginBottom: 22,
+    marginBottom: 12,
   },
   successIcon: {
     color: '#059669',
@@ -578,11 +603,11 @@ const styles = {
     fontWeight: 700,
   },
   qrCard: {
-    width: 'min(72vw, 360px)',
+    width: 'min(58vh, 72vw, 320px)',
     aspectRatio: '1 / 1',
-    margin: '22px 0 14px',
-    padding: 14,
-    borderRadius: 28,
+    margin: '10px 0 8px',
+    padding: 10,
+    borderRadius: 22,
     background: '#ffffff',
     border: '2px solid #111827',
     boxShadow: '0 16px 40px rgba(17, 24, 39, 0.10)',
@@ -597,7 +622,7 @@ const styles = {
     objectFit: 'contain',
   },
   contractId: {
-    fontSize: 'clamp(18px, 4.5vw, 25px)',
+    fontSize: 'clamp(16px, 3.2vh, 22px)',
     letterSpacing: 0.4,
     marginTop: 8,
   },
@@ -605,33 +630,36 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    marginTop: 14,
+    marginTop: 8,
     color: '#b45309',
     background: '#fffbeb',
     border: '1px solid #fde68a',
     borderRadius: 999,
-    padding: '9px 14px',
+    padding: '7px 12px',
     fontWeight: 800,
   },
   smallNote: {
-    margin: '18px 0 0',
+    margin: '10px 0 0',
     color: '#98a2b3',
     fontSize: 12,
     maxWidth: 440,
   },
   adsWrap: {
     width: '100%',
+    height: '100%',
+    minHeight: 0,
     margin: 'auto',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     textAlign: 'center',
-    padding: '10px 0 4px',
+    padding: '4px 0 0',
+    justifyContent: 'center',
   },
   adsIcon: {
-    width: 146,
-    height: 146,
-    borderRadius: 38,
+    width: 'clamp(88px, 15vh, 126px)',
+    height: 'clamp(88px, 15vh, 126px)',
+    borderRadius: 30,
     display: 'grid',
     placeItems: 'center',
     marginBottom: 22,
@@ -639,16 +667,16 @@ const styles = {
   },
   adsEyebrow: {
     borderRadius: 999,
-    padding: '8px 14px',
-    fontSize: 12,
+    padding: '6px 12px',
+    fontSize: 10,
     fontWeight: 900,
     letterSpacing: 1.2,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   adsTitle: {
-    margin: '0 0 14px',
+    margin: '0 0 8px',
     maxWidth: 610,
-    fontSize: 'clamp(28px, 7vw, 44px)',
+    fontSize: 'clamp(22px, 4.8vh, 36px)',
     lineHeight: 1.08,
     letterSpacing: -0.6,
   },
@@ -656,18 +684,18 @@ const styles = {
     margin: 0,
     maxWidth: 590,
     color: '#667085',
-    fontSize: 'clamp(16px, 4vw, 21px)',
-    lineHeight: 1.55,
+    fontSize: 'clamp(13px, 2.6vh, 18px)',
+    lineHeight: 1.4,
   },
   adsHint: {
     maxWidth: 570,
-    marginTop: 30,
+    marginTop: 14,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    padding: '11px 15px',
-    borderRadius: 16,
+    padding: '8px 12px',
+    borderRadius: 14,
     background: '#f8fafc',
     border: '1px solid #e5e7eb',
     color: '#475467',
@@ -680,7 +708,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 24,
+    marginTop: 12,
   },
   adsDot: {
     width: 8,
@@ -711,7 +739,8 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
   footer: {
-    padding: '14px 20px 18px',
+    flex: '0 0 auto',
+    padding: '8px 14px 10px',
     display: 'flex',
     justifyContent: 'center',
     flexWrap: 'wrap',
