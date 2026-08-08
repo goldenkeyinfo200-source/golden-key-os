@@ -1,13 +1,34 @@
-GK PAYMENT RECEIPT UPDATE
+GK PAYMENT RECEIPT WORKING v2
 
-1. telegram.js -> backend/src/services/telegram.js га алмаштиринг.
-2. Бу файлга sendPaymentReceiptToClient() функцияси қўшилди.
-3. Кейинги босқичда payments/finance route ичида:
-   - тўловни сақлаш
-   - PDF квитанция яратиш
-   - sendPaymentReceiptToClient() ни чақириш
-   уланади.
+САБАБ:
+Аввалги telegram.js фақат квитанцияни ЮБОРИШ функциясини олган эди.
+Лекин finance.js ва debtors.js тўлов сақланганидан кейин уни чақирмаган.
+Шунинг учун Telegram'га ҳеч нарса кетмаган.
 
-Эслатма:
-Фақат telegram.js билан квитанция автоматик кетмайди.
-Тўлов сақланадиган backend route ҳам янгиланиши керак.
+АЛМАШТИРИЛАДИ:
+1. backend/src/routes/finance.js
+2. backend/src/routes/debtors.js
+3. backend/src/services/telegram.js
+
+ЯНГИ ФАЙЛ:
+4. backend/src/services/payment-receipt.js
+
+ТЎЛОВ ОҚИМИ:
+Payment сақланади
+→ PDF квитанция автоматик яратилади
+→ Client.telegramId олинади
+→ Telegram sendDocument
+→ AuditLog'га натижа ёзилади.
+
+Railway backend Variables:
+TELEGRAM_BOT_TOKEN ёки BOT_TOKEN бўлиши шарт.
+
+Мижознинг Client.telegramId майдони ҳам бўлиши керак.
+Ботда телефонни улаган мижозларда бу автоматик сақланади.
+
+Frontend ўзгармайди.
+Фақат backend'ни redeploy қилинг.
+
+ТЕСТ:
+Молия → Тўлов қабул қилиш → кичик сумма.
+Сақлаш босилгандан кейин мижозга PDF квитанция келиши керак.

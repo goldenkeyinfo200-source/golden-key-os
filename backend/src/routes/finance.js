@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
+import { createPaymentReceiptPdf, makeReceiptNumber } from '../services/payment-receipt.js';
+import { sendPaymentReceiptToClient } from '../services/telegram.js';
 
 const router = Router();
 
@@ -335,6 +337,18 @@ router.post('/payments', async (req, res, next) => {
         id: data.caseId,
       },
       include: {
+        applicant: {
+          select: {
+            fullName: true,
+            phone: true,
+            telegramId: true,
+          },
+        },
+        branch: {
+          select: {
+            name: true,
+          },
+        },
         payments: {
           select: {
             amount: true,
@@ -450,11 +464,86 @@ router.post('/payments', async (req, res, next) => {
       }
     );
 
+    const paidAfter = alreadyPaid + data.amount;
+    const receiptNumber = makeReceiptNumber(payment);
+
+    let receipt = {
+      sent: false,
+      skipped: true,
+      reason: 'Квитанция юборилмади',
+    };
+
+    try {
+      const pdfBuffer = await createPaymentReceiptPdf({
+        payment,
+        caseItem,
+        paidBefore: alreadyPaid,
+        paidAfter,
+        remainingAfter,
+        operatorName:
+          req.user.fullName || req.user.login || null,
+      });
+
+      receipt = await sendPaymentReceiptToClient({
+        telegramId:
+          caseItem.applicant?.telegramId,
+        pdfBuffer,
+        fileName: `${receiptNumber}.pdf`,
+        receiptNumber,
+        caseDisplayId: caseItem.displayId,
+        paidAmount: data.amount,
+        remainingAmount: remainingAfter,
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.id,
+          entityType: 'Payment',
+          entityId: payment.id,
+          action: receipt.sent
+            ? 'PAYMENT_RECEIPT_SENT'
+            : 'PAYMENT_RECEIPT_SKIPPED',
+          metadata: {
+            receiptNumber,
+            reason: receipt.reason || null,
+          },
+        },
+      });
+    } catch (receiptError) {
+      console.error(
+        'Payment receipt error:',
+        receiptError
+      );
+
+      receipt = {
+        sent: false,
+        skipped: false,
+        error: receiptError.message,
+      };
+
+      await prisma.auditLog
+        .create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Payment',
+            entityId: payment.id,
+            action: 'PAYMENT_RECEIPT_FAILED',
+            metadata: {
+              receiptNumber,
+              error: receiptError.message,
+            },
+          },
+        })
+        .catch(() => {});
+    }
+
     return res.status(201).json({
       item: payment,
+      receiptNumber,
+      receipt,
       totals: {
         serviceFee,
-        paidAmount: alreadyPaid + data.amount,
+        paidAmount: paidAfter,
         remainingAmount: remainingAfter,
       },
     });

@@ -69,19 +69,13 @@ export async function sendContractPdfToClient({
     messageId: data.result?.message_id || null,
   };
 }
-/**
- * Мижозга хизмат ҳақи тўлови учун PDF квитанция юбориш.
- *
- * paymentDisplayId — квитанция/тўлов рақами (масалан GK-PAY-2026-000001)
- * caseDisplayId    — мурожаат рақами
- * paidAmount       — ушбу тўлов суммаси
- * remainingAmount  — тўловдан кейинги қолдиқ
- */
+
+
 export async function sendPaymentReceiptToClient({
   telegramId,
   pdfBuffer,
   fileName,
-  paymentDisplayId,
+  receiptNumber,
   caseDisplayId,
   paidAmount,
   remainingAmount,
@@ -98,40 +92,31 @@ export async function sendPaymentReceiptToClient({
     };
   }
 
-  const formatMoney = (value) => {
-    const amount = Number(value || 0);
-    return `${new Intl.NumberFormat('uz-UZ').format(amount)} сўм`;
-  };
-
-  const fullyPaid = Number(remainingAmount || 0) <= 0;
+  const money = (value) =>
+    `${new Intl.NumberFormat('uz-UZ').format(Number(value || 0))} сўм`;
 
   const caption = [
     '🧾 ТЎЛОВ КВИТАНЦИЯСИ',
     '',
-    paymentDisplayId ? `Квитанция: ${paymentDisplayId}` : null,
-    caseDisplayId ? `Мурожаат: ${caseDisplayId}` : null,
-    `Тўланган сумма: ${formatMoney(paidAmount)}`,
-    `Қолдиқ: ${formatMoney(remainingAmount)}`,
+    `Квитанция: ${receiptNumber}`,
+    `Мурожаат: ${caseDisplayId}`,
+    `Тўланган сумма: ${money(paidAmount)}`,
+    `Қолдиқ: ${money(remainingAmount)}`,
     '',
-    fullyPaid
+    Number(remainingAmount || 0) <= 0
       ? '✅ Хизмат ҳақи тўлиқ тўланди.'
       : '✅ Тўлов қабул қилинди.',
     '',
     'PDF квитанция илова қилинди.',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  ].join('\n');
 
   const formData = new FormData();
 
   formData.append('chat_id', String(telegramId));
   formData.append('caption', caption);
-
   formData.append(
     'document',
-    new Blob([pdfBuffer], {
-      type: 'application/pdf',
-    }),
+    new Blob([pdfBuffer], { type: 'application/pdf' }),
     fileName
   );
 

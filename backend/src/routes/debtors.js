@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
+import { createPaymentReceiptPdf, makeReceiptNumber } from '../services/payment-receipt.js';
+import { sendPaymentReceiptToClient } from '../services/telegram.js';
 
 const router = Router();
 
@@ -323,14 +325,26 @@ router.post(
           id: req.params.caseId,
         },
         include: {
-          payments: {
-            select: {
-              amount: true,
-              status: true,
-            },
+        applicant: {
+          select: {
+            fullName: true,
+            phone: true,
+            telegramId: true,
           },
         },
-      });
+        branch: {
+          select: {
+            name: true,
+          },
+        },
+        payments: {
+          select: {
+            amount: true,
+            status: true,
+          },
+        },
+      },
+    });
 
       if (!item) {
         return res.status(404).json({
@@ -474,16 +488,97 @@ router.post(
         }
       );
 
+      const paidAfter =
+        paidBefore + parsed.data.amount;
+      const receiptNumber =
+        makeReceiptNumber(result.payment);
+
+      let receipt = {
+        sent: false,
+        skipped: true,
+        reason: 'Квитанция юборилмади',
+      };
+
+      try {
+        const pdfBuffer =
+          await createPaymentReceiptPdf({
+            payment: result.payment,
+            caseItem: item,
+            paidBefore,
+            paidAfter,
+            remainingAfter,
+            operatorName:
+              req.user.fullName ||
+              req.user.login ||
+              null,
+          });
+
+        receipt =
+          await sendPaymentReceiptToClient({
+            telegramId:
+              item.applicant?.telegramId,
+            pdfBuffer,
+            fileName: `${receiptNumber}.pdf`,
+            receiptNumber,
+            caseDisplayId: item.displayId,
+            paidAmount: parsed.data.amount,
+            remainingAmount:
+              remainingAfter,
+          });
+
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Payment',
+            entityId: result.payment.id,
+            action: receipt.sent
+              ? 'PAYMENT_RECEIPT_SENT'
+              : 'PAYMENT_RECEIPT_SKIPPED',
+            metadata: {
+              receiptNumber,
+              reason: receipt.reason || null,
+            },
+          },
+        });
+      } catch (receiptError) {
+        console.error(
+          'Debtor receipt error:',
+          receiptError
+        );
+
+        receipt = {
+          sent: false,
+          skipped: false,
+          error: receiptError.message,
+        };
+
+        await prisma.auditLog
+          .create({
+            data: {
+              userId: req.user.id,
+              entityType: 'Payment',
+              entityId: result.payment.id,
+              action: 'PAYMENT_RECEIPT_FAILED',
+              metadata: {
+                receiptNumber,
+                error: receiptError.message,
+              },
+            },
+          })
+          .catch(() => {});
+      }
+
       return res.status(201).json({
         message:
           remainingAfter <= 0
             ? 'Қарз тўлиқ ёпилди ва мурожаат архивга ўтказилди'
             : 'Қисман тўлов сақланди',
         item: result,
+        receiptNumber,
+        receipt,
         totals: {
           serviceFee,
-          paidAmount:
-            paidBefore + parsed.data.amount,
+          paidAmount: paidAfter,
           remainingAmount: remainingAfter,
         },
         archived: remainingAfter <= 0,
