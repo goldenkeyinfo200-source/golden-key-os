@@ -2,14 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Clock3,
-  Home,
-  Landmark,
   LoaderCircle,
   QrCode,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
-  WalletCards,
   Wifi,
   WifiOff,
 } from 'lucide-react';
@@ -21,38 +17,10 @@ const AD_ROTATION_MS = 7000;
 const SIGNED_SUCCESS_MS = 5000;
 
 const AD_SLIDES = [
-  {
-    id: 'mortgage',
-    eyebrow: 'GOLDEN KEY IPOTEKA',
-    title: 'Ипотека бўйича маслаҳат керакми?',
-    text: 'Бирламчи ва иккиламчи уй-жойлар учун ипотека ечимлари. Мос вариантни мутахассисларимиз билан аниқланг.',
-    icon: Landmark,
-    tone: 'red',
-  },
-  {
-    id: 'microloan',
-    eyebrow: 'МОЛИЯВИЙ ЕЧИМ',
-    title: 'Микроқарз хизмати',
-    text: 'Кўчмас мулк билан боғлиқ молиявий эҳтиёжлар учун қулай ечимлар бўйича маълумот олинг.',
-    icon: WalletCards,
-    tone: 'gold',
-  },
-  {
-    id: 'realtor',
-    eyebrow: 'КЎЧМАС МУЛК',
-    title: 'Уй сотмоқчимисиз ёки сотиб олмоқчимисиз?',
-    text: 'Golden Key мутахассислари объект танлаш, сотиш ва расмийлаштириш жараёнида сизга ёрдам беради.',
-    icon: Home,
-    tone: 'green',
-  },
-  {
-    id: 'digital',
-    eyebrow: 'GOLDEN KEY OS',
-    title: 'Ҳужжатлар — рақамли, жараён — шаффоф',
-    text: 'Мурожаат ҳолати, электрон шартнома ва тўлов квитанциялари ягона рақамли тизимда.',
-    icon: Sparkles,
-    tone: 'blue',
-  },
+  '/kiosk-ads/ad-1.png',
+  '/kiosk-ads/ad-2.png',
+  '/kiosk-ads/ad-3.png',
+  '/kiosk-ads/ad-4.png',
 ];
 
 function getKioskCredentials() {
@@ -109,75 +77,20 @@ function BrandHeader({ kiosk, online }) {
 }
 
 function AdsView({ slideIndex = 0 }) {
-  const slide = AD_SLIDES[slideIndex % AD_SLIDES.length];
-  const Icon = slide.icon;
-
-  const toneStyles = {
-    red: {
-      iconBg: '#fff1f2',
-      iconColor: '#b91c1c',
-      eyebrowBg: '#fff1f2',
-      eyebrowColor: '#b91c1c',
-    },
-    gold: {
-      iconBg: '#fffbeb',
-      iconColor: '#b45309',
-      eyebrowBg: '#fffbeb',
-      eyebrowColor: '#b45309',
-    },
-    green: {
-      iconBg: '#ecfdf5',
-      iconColor: '#047857',
-      eyebrowBg: '#ecfdf5',
-      eyebrowColor: '#047857',
-    },
-    blue: {
-      iconBg: '#eff6ff',
-      iconColor: '#1d4ed8',
-      eyebrowBg: '#eff6ff',
-      eyebrowColor: '#1d4ed8',
-    },
-  };
-
-  const tone = toneStyles[slide.tone] || toneStyles.red;
+  const imageSrc = AD_SLIDES[slideIndex % AD_SLIDES.length];
 
   return (
     <div style={styles.adsWrap}>
-      <div
-        style={{
-          ...styles.adsIcon,
-          background: tone.iconBg,
-          color: tone.iconColor,
-        }}
-      >
-        <Icon size={76} strokeWidth={1.55} />
-      </div>
-
-      <div
-        style={{
-          ...styles.adsEyebrow,
-          background: tone.eyebrowBg,
-          color: tone.eyebrowColor,
-        }}
-      >
-        {slide.eyebrow}
-      </div>
-
-      <h1 style={styles.adsTitle}>{slide.title}</h1>
-
-      <p style={styles.adsText}>{slide.text}</p>
-
-      <div style={styles.adsHint}>
-        <QrCode size={19} />
-        <span>
-          Шартнома тайёр бўлганда QR-код автоматик равишда шу экранда пайдо бўлади.
-        </span>
-      </div>
+      <img
+        src={imageSrc}
+        alt={`Golden Key реклама ${slideIndex + 1}`}
+        style={styles.adImage}
+      />
 
       <div style={styles.adsDots}>
         {AD_SLIDES.map((item, index) => (
           <span
-            key={item.id}
+            key={item}
             style={{
               ...styles.adsDot,
               ...(index === slideIndex % AD_SLIDES.length
@@ -652,63 +565,27 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    textAlign: 'center',
-    padding: '4px 0 0',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  adsIcon: {
-    width: 'clamp(88px, 15vh, 126px)',
-    height: 'clamp(88px, 15vh, 126px)',
-    borderRadius: 30,
-    display: 'grid',
-    placeItems: 'center',
-    marginBottom: 22,
-    transition: 'all .35s ease',
+  adImage: {
+    width: '100%',
+    height: 'calc(100% - 24px)',
+    maxWidth: '100%',
+    maxHeight: 'calc(100% - 24px)',
+    display: 'block',
+    objectFit: 'contain',
+    objectPosition: 'center center',
+    userSelect: 'none',
+    WebkitUserDrag: 'none',
   },
-  adsEyebrow: {
-    borderRadius: 999,
-    padding: '6px 12px',
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  adsTitle: {
-    margin: '0 0 8px',
-    maxWidth: 610,
-    fontSize: 'clamp(22px, 4.8vh, 36px)',
-    lineHeight: 1.08,
-    letterSpacing: -0.6,
-  },
-  adsText: {
-    margin: 0,
-    maxWidth: 590,
-    color: '#667085',
-    fontSize: 'clamp(13px, 2.6vh, 18px)',
-    lineHeight: 1.4,
-  },
-  adsHint: {
-    maxWidth: 570,
-    marginTop: 14,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-    padding: '8px 12px',
-    borderRadius: 14,
-    background: '#f8fafc',
-    border: '1px solid #e5e7eb',
-    color: '#475467',
-    fontSize: 13,
-    fontWeight: 700,
-    lineHeight: 1.4,
-  },
+
   adsDots: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 12,
+    marginTop: 6,
   },
   adsDot: {
     width: 8,
