@@ -2,10 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Clock3,
+  Home,
+  Landmark,
   LoaderCircle,
   QrCode,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
+  WalletCards,
   Wifi,
   WifiOff,
 } from 'lucide-react';
@@ -13,6 +17,43 @@ import {
 import { API_URL } from '../services/api.js';
 
 const POLL_INTERVAL_MS = 2500;
+const AD_ROTATION_MS = 7000;
+const SIGNED_SUCCESS_MS = 5000;
+
+const AD_SLIDES = [
+  {
+    id: 'mortgage',
+    eyebrow: 'GOLDEN KEY IPOTEKA',
+    title: 'Ипотека бўйича маслаҳат керакми?',
+    text: 'Бирламчи ва иккиламчи уй-жойлар учун ипотека ечимлари. Мос вариантни мутахассисларимиз билан аниқланг.',
+    icon: Landmark,
+    tone: 'red',
+  },
+  {
+    id: 'microloan',
+    eyebrow: 'МОЛИЯВИЙ ЕЧИМ',
+    title: 'Микроқарз хизмати',
+    text: 'Кўчмас мулк билан боғлиқ молиявий эҳтиёжлар учун қулай ечимлар бўйича маълумот олинг.',
+    icon: WalletCards,
+    tone: 'gold',
+  },
+  {
+    id: 'realtor',
+    eyebrow: 'КЎЧМАС МУЛК',
+    title: 'Уй сотмоқчимисиз ёки сотиб олмоқчимисиз?',
+    text: 'Golden Key мутахассислари объект танлаш, сотиш ва расмийлаштириш жараёнида сизга ёрдам беради.',
+    icon: Home,
+    tone: 'green',
+  },
+  {
+    id: 'digital',
+    eyebrow: 'GOLDEN KEY OS',
+    title: 'Ҳужжатлар — рақамли, жараён — шаффоф',
+    text: 'Мурожаат ҳолати, электрон шартнома ва тўлов квитанциялари ягона рақамли тизимда.',
+    icon: Sparkles,
+    tone: 'blue',
+  },
+];
 
 function getKioskCredentials() {
   const pathParts = window.location.pathname.split('/').filter(Boolean);
@@ -67,22 +108,84 @@ function BrandHeader({ kiosk, online }) {
   );
 }
 
-function IdleView() {
+function AdsView({ slideIndex = 0 }) {
+  const slide = AD_SLIDES[slideIndex % AD_SLIDES.length];
+  const Icon = slide.icon;
+
+  const toneStyles = {
+    red: {
+      iconBg: '#fff1f2',
+      iconColor: '#b91c1c',
+      eyebrowBg: '#fff1f2',
+      eyebrowColor: '#b91c1c',
+    },
+    gold: {
+      iconBg: '#fffbeb',
+      iconColor: '#b45309',
+      eyebrowBg: '#fffbeb',
+      eyebrowColor: '#b45309',
+    },
+    green: {
+      iconBg: '#ecfdf5',
+      iconColor: '#047857',
+      eyebrowBg: '#ecfdf5',
+      eyebrowColor: '#047857',
+    },
+    blue: {
+      iconBg: '#eff6ff',
+      iconColor: '#1d4ed8',
+      eyebrowBg: '#eff6ff',
+      eyebrowColor: '#1d4ed8',
+    },
+  };
+
+  const tone = toneStyles[slide.tone] || toneStyles.red;
+
   return (
-    <div style={styles.centerContent}>
-      <div style={styles.idleIcon}>
-        <QrCode size={74} strokeWidth={1.6} />
+    <div style={styles.adsWrap}>
+      <div
+        style={{
+          ...styles.adsIcon,
+          background: tone.iconBg,
+          color: tone.iconColor,
+        }}
+      >
+        <Icon size={76} strokeWidth={1.55} />
       </div>
 
-      <h1 style={styles.title}>Шартнома учун тайёр</h1>
+      <div
+        style={{
+          ...styles.adsEyebrow,
+          background: tone.eyebrowBg,
+          color: tone.eyebrowColor,
+        }}
+      >
+        {slide.eyebrow}
+      </div>
 
-      <p style={styles.subtitle}>
-        Оператор шартномани юборганда QR-код шу экранда автомат пайдо бўлади.
-      </p>
+      <h1 style={styles.adsTitle}>{slide.title}</h1>
 
-      <div style={styles.securityPill}>
-        <ShieldCheck size={19} />
-        <span>Бир марталик ва муддати чекланган QR-код</span>
+      <p style={styles.adsText}>{slide.text}</p>
+
+      <div style={styles.adsHint}>
+        <QrCode size={19} />
+        <span>
+          Шартнома тайёр бўлганда QR-код автоматик равишда шу экранда пайдо бўлади.
+        </span>
+      </div>
+
+      <div style={styles.adsDots}>
+        {AD_SLIDES.map((item, index) => (
+          <span
+            key={item.id}
+            style={{
+              ...styles.adsDot,
+              ...(index === slideIndex % AD_SLIDES.length
+                ? styles.adsDotActive
+                : null),
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -100,7 +203,7 @@ function QrReadyView({ display, now }) {
       </h1>
 
       <p style={styles.subtitle}>
-        Шартномани телефонингизда очиб, ўқиб чиқинг ва тасдиқланг.
+        Шартномани ўз телефонингизда очиб, тўлиқ ўқиб чиқинг ва тасдиқланг.
       </p>
 
       <div style={styles.qrCard}>
@@ -155,22 +258,6 @@ function SignedView({ display }) {
   );
 }
 
-function ExpiredView() {
-  return (
-    <div style={styles.centerContent}>
-      <div style={styles.expiredIcon}>
-        <Clock3 size={78} strokeWidth={1.6} />
-      </div>
-
-      <h1 style={styles.title}>QR-код муддати тугади</h1>
-
-      <p style={styles.subtitle}>
-        Янги QR-код чиқариш учун операторга мурожаат қилинг.
-      </p>
-    </div>
-  );
-}
-
 function LoadingView() {
   return (
     <div style={styles.centerContent}>
@@ -208,6 +295,8 @@ export function KioskPage() {
   const [error, setError] = useState('');
   const [online, setOnline] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [adSlideIndex, setAdSlideIndex] = useState(0);
+  const [signedVisibleUntil, setSignedVisibleUntil] = useState(0);
 
   const loadDisplay = async ({ silent = false } = {}) => {
     if (!credentials.deviceCode || !credentials.token) {
@@ -278,9 +367,29 @@ export function KioskPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const slider = window.setInterval(() => {
+      setAdSlideIndex((current) => (current + 1) % AD_SLIDES.length);
+    }, AD_ROTATION_MS);
+
+    return () => window.clearInterval(slider);
+  }, []);
+
   const status = data?.display?.status || 'IDLE';
 
-  let content = <IdleView />;
+  useEffect(() => {
+    if (status === 'SIGNED') {
+      setSignedVisibleUntil((current) =>
+        current > Date.now()
+          ? current
+          : Date.now() + SIGNED_SUCCESS_MS
+      );
+    } else {
+      setSignedVisibleUntil(0);
+    }
+  }, [status, data?.display?.contractId]);
+
+  let content = <AdsView slideIndex={adSlideIndex} />;
 
   if (initialLoading) {
     content = <LoadingView />;
@@ -288,10 +397,11 @@ export function KioskPage() {
     content = <ErrorView message={error} onRetry={() => loadDisplay()} />;
   } else if (status === 'QR_READY') {
     content = <QrReadyView display={data?.display} now={now} />;
-  } else if (status === 'SIGNED') {
+  } else if (
+    status === 'SIGNED' &&
+    signedVisibleUntil > now
+  ) {
     content = <SignedView display={data?.display} />;
-  } else if (status === 'EXPIRED') {
-    content = <ExpiredView />;
   }
 
   return (
@@ -335,7 +445,7 @@ const styles = {
     border: '1px solid #e5e7eb',
   },
   header: {
-    padding: '10px 14px',
+    padding: '18px 20px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -349,8 +459,8 @@ const styles = {
   },
   logo: {
     display: 'block',
-    width: 'min(180px, 42vw)',
-    maxHeight: 48,
+    width: 'min(220px, 46vw)',
+    maxHeight: 64,
     objectFit: 'contain',
     objectPosition: 'left center',
   },
@@ -376,8 +486,7 @@ const styles = {
   main: {
     flex: 1,
     display: 'flex',
-    padding: '12px 16px',
-    minHeight: 0,
+    padding: '24px 22px',
   },
   centerContent: {
     width: '100%',
@@ -395,8 +504,8 @@ const styles = {
     background: '#fff1f2',
     border: '1px solid #fecdd3',
     borderRadius: 999,
-    padding: '6px 11px',
-    marginBottom: 8,
+    padding: '8px 14px',
+    marginBottom: 14,
   },
   successBadge: {
     fontSize: 12,
@@ -410,17 +519,17 @@ const styles = {
     marginBottom: 12,
   },
   title: {
-    fontSize: 'clamp(21px, 5vw, 34px)',
+    fontSize: 'clamp(25px, 6vw, 40px)',
     lineHeight: 1.08,
-    margin: '0 0 8px',
+    margin: '0 0 12px',
     maxWidth: 620,
   },
   subtitle: {
     margin: 0,
     maxWidth: 570,
     color: '#667085',
-    fontSize: 'clamp(13px, 3.3vw, 17px)',
-    lineHeight: 1.4,
+    fontSize: 'clamp(15px, 3.8vw, 19px)',
+    lineHeight: 1.55,
   },
   idleIcon: {
     width: 132,
@@ -469,11 +578,11 @@ const styles = {
     fontWeight: 700,
   },
   qrCard: {
-    width: 'min(68vw, 34dvh, 285px)',
+    width: 'min(72vw, 360px)',
     aspectRatio: '1 / 1',
-    margin: '12px 0 8px',
-    padding: 10,
-    borderRadius: 22,
+    margin: '22px 0 14px',
+    padding: 14,
+    borderRadius: 28,
     background: '#ffffff',
     border: '2px solid #111827',
     boxShadow: '0 16px 40px rgba(17, 24, 39, 0.10)',
@@ -488,29 +597,101 @@ const styles = {
     objectFit: 'contain',
   },
   contractId: {
-    fontSize: 'clamp(16px, 4vw, 22px)',
-    letterSpacing: 0.3,
-    marginTop: 4,
+    fontSize: 'clamp(18px, 4.5vw, 25px)',
+    letterSpacing: 0.4,
+    marginTop: 8,
   },
   timer: {
     display: 'flex',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 8,
+    gap: 8,
+    marginTop: 14,
     color: '#b45309',
     background: '#fffbeb',
     border: '1px solid #fde68a',
     borderRadius: 999,
-    padding: '7px 11px',
+    padding: '9px 14px',
     fontWeight: 800,
-    fontSize: 12,
   },
   smallNote: {
-    margin: '8px 0 0',
+    margin: '18px 0 0',
     color: '#98a2b3',
-    fontSize: 10.5,
-    maxWidth: 420,
-    lineHeight: 1.3,
+    fontSize: 12,
+    maxWidth: 440,
+  },
+  adsWrap: {
+    width: '100%',
+    margin: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
+    padding: '10px 0 4px',
+  },
+  adsIcon: {
+    width: 146,
+    height: 146,
+    borderRadius: 38,
+    display: 'grid',
+    placeItems: 'center',
+    marginBottom: 22,
+    transition: 'all .35s ease',
+  },
+  adsEyebrow: {
+    borderRadius: 999,
+    padding: '8px 14px',
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: 1.2,
+    marginBottom: 16,
+  },
+  adsTitle: {
+    margin: '0 0 14px',
+    maxWidth: 610,
+    fontSize: 'clamp(28px, 7vw, 44px)',
+    lineHeight: 1.08,
+    letterSpacing: -0.6,
+  },
+  adsText: {
+    margin: 0,
+    maxWidth: 590,
+    color: '#667085',
+    fontSize: 'clamp(16px, 4vw, 21px)',
+    lineHeight: 1.55,
+  },
+  adsHint: {
+    maxWidth: 570,
+    marginTop: 30,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    padding: '11px 15px',
+    borderRadius: 16,
+    background: '#f8fafc',
+    border: '1px solid #e5e7eb',
+    color: '#475467',
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.4,
+  },
+  adsDots: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  adsDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    background: '#d0d5dd',
+    transition: 'all .25s ease',
+  },
+  adsDotActive: {
+    width: 28,
+    background: '#b91c1c',
   },
   retryButton: {
     marginTop: 24,
@@ -530,7 +711,7 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
   footer: {
-    padding: '7px 12px 9px',
+    padding: '14px 20px 18px',
     display: 'flex',
     justifyContent: 'center',
     flexWrap: 'wrap',

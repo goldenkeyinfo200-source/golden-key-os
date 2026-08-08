@@ -1,34 +1,26 @@
-GK PAYMENT RECEIPT WORKING v2
+GK KIOSK ADS v1
 
-САБАБ:
-Аввалги telegram.js фақат квитанцияни ЮБОРИШ функциясини олган эди.
-Лекин finance.js ва debtors.js тўлов сақланганидан кейин уни чақирмаган.
-Шунинг учун Telegram'га ҳеч нарса кетмаган.
+ALMASHTIRILADI:
+crm/src/pages/KioskPage.jsx
 
-АЛМАШТИРИЛАДИ:
-1. backend/src/routes/finance.js
-2. backend/src/routes/debtors.js
-3. backend/src/services/telegram.js
+NIMA O'ZGARDI:
+- IDLE kutish ekrani reklama/informatsiya slayderiga aylandi.
+- EXPIRED holatida ham "QR-kod muddati tugadi" ekrani o'rniga reklama ko'rinadi.
+- 4 ta tayyor slayd 7 soniyada avtomatik almashadi:
+  1. Ipoteka
+  2. Mikroqarz
+  3. Ko'chmas mulk
+  4. Golden Key OS raqamli xizmatlar
+- Operator QR chiqarsa, reklama darhol yo'qoladi va QR chiqadi.
+- Shartnoma tasdiqlansa 5 soniya "Muvaffaqiyatli" ko'rinadi, keyin reklama qaytadi.
+- Backendga tegilmaydi.
+- QR ishlash mantig'i o'zgarmaydi.
 
-ЯНГИ ФАЙЛ:
-4. backend/src/services/payment-receipt.js
+DEPLOY:
+1) KioskPage.jsx ni crm/src/pages ichiga almashtiring.
+2) Commit -> Push.
+3) Frontend deploy.
+4) Telefon kiosk sahifasini yangilang.
 
-ТЎЛОВ ОҚИМИ:
-Payment сақланади
-→ PDF квитанция автоматик яратилади
-→ Client.telegramId олинади
-→ Telegram sendDocument
-→ AuditLog'га натижа ёзилади.
-
-Railway backend Variables:
-TELEGRAM_BOT_TOKEN ёки BOT_TOKEN бўлиши шарт.
-
-Мижознинг Client.telegramId майдони ҳам бўлиши керак.
-Ботда телефонни улаган мижозларда бу автоматик сақланади.
-
-Frontend ўзгармайди.
-Фақат backend'ни redeploy қилинг.
-
-ТЕСТ:
-Молия → Тўлов қабул қилиш → кичик сумма.
-Сақлаш босилгандан кейин мижозга PDF квитанция келиши керак.
+KEYINGI VERSIYA:
+Admin paneldan reklama rasmlari/video va ko'rsatish vaqtini boshqarish.
