@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js",
     "build": "prisma generate --schema=prisma/schema.prisma",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
-    "start": "prisma generate --schema=prisma/schema.prisma && node src/server.js",
+    "start": "prisma generate --schema=prisma/schema.prisma && prisma migrate deploy --schema=prisma/schema.prisma && node src/server.js",
     "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma --name init",
     "prisma:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",

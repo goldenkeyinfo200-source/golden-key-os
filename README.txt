@@ -1,24 +1,33 @@
-GOLDEN KEY OS — ARCHIVE FLOW v4
+GOLDEN KEY OS — PRISMA MIGRATION HOTFIX
 
-ҚИЛИНДИ:
-- ARCHIVED асосий «Мурожаатлар»дан яширилади.
-- CANCELLED асосий «Мурожаатлар»дан яширилади.
-- Иккаласи ҳам «Архив» бўлимида кўринади.
-- Эски маълумотларни база бўйича қўлда кўчириш шарт эмас.
-- Backend `scope=archive` бўйича уларни автомат архив рўйхатига беради.
-- Архивда қидирув, ҳолат ва хизмат фильтрлари бор.
+Сабаб:
+SALE_PURCHASE учун Prisma schema'га янги Case колонкалари қўшилган,
+лекин production PostgreSQL базасига migration автоматик қўлланмаган.
 
-ФАЙЛЛАР:
-backend/src/routes/cases.js
-crm/src/pages/CasesPage.jsx
-crm/src/pages/ArchivePage.jsx
-APP_PATCH.txt
+Шунинг учун:
+- /api/cases -> 500
+- Ижродаги ишлар -> 500
+- Dashboard'да сўнгги ишлар -> 500
+бўлиши мумкин.
 
-ЎРНАТИШ:
-1. backend ва crm папкаларини golden-key-os устига ташланг → Replace.
-2. APP_PATCH.txt даги 2 та кичик ўзгаришни crm/src/App.jsx га киритинг.
-3. GitHub Desktop:
-   Move cancelled and archived cases to archive
-4. Commit to main → Push origin.
-5. Backend ва CRM deploy.
-6. Ctrl+F5.
+Тузатиш:
+backend/package.json start командаси энди:
+1) prisma generate
+2) prisma migrate deploy
+3) node src/server.js
+тартибида ишлайди.
+
+Муҳим:
+backend/prisma/migrations/20260816_sale_purchase_dual_qr/migration.sql
+репозиторийда бўлиши шарт.
+
+Railway backend Root Directory:
+ /backend
+
+Ўрнатиш:
+1. ZIP'ни golden-key-os устига ташланг -> Replace.
+2. GitHub Desktop -> Commit -> Push.
+3. Railway backend auto deploy бўлади.
+4. Deploy Logs'да "Applying migration 20260816_sale_purchase_dual_qr"
+   ёки "No pending migrations to apply" чиқиши керак.
+5. CRM'да Ctrl+F5.
