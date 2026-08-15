@@ -6,8 +6,10 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
-import { defaultContractHtml } from '../services/contract-template.js';
-import { createSignedFileUrl } from '../services/supabaseStorage.js';
+import {
+  defaultContractHtml,
+  realtorContractHtml,
+} from '../services/contract-template.js';
 
 const router = Router();
 
@@ -22,20 +24,21 @@ const MANAGE_ROLES = [
 const createSchema = z.object({
   borrowerId: z.string().trim().optional().nullable(),
   templateId: z.string().trim().optional().nullable(),
+  serviceFee: z.coerce.number().positive().optional().nullable(),
 });
 
 const qrSchema = z.object({
   expiresInMinutes: z.coerce.number().int().min(2).max(60).default(15),
-  kioskId: z.string().trim().min(1).optional().nullable(),
 });
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-async function generateContractDisplayId(tx) {
+async function generateContractDisplayId(tx, serviceType) {
   const year = new Date().getFullYear();
-  const prefix = `GK-SH-${year}-`;
+  const code = serviceType === 'REALTOR_SERVICE' ? 'GK-RX' : 'GK-SH';
+  const prefix = `${code}-${year}-`;
 
   const latest = await tx.contract.findFirst({
     where: {
@@ -109,6 +112,46 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     return template;
   }
 
+  if (caseItem.serviceType === 'REALTOR_SERVICE') {
+    const marker = 'data-gk-template="realtor-service-v1"';
+
+    const current = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'REALTOR_SERVICE',
+        isActive: true,
+      },
+      orderBy: {
+        version: 'desc',
+      },
+    });
+
+    if (current?.htmlBody?.includes(marker)) {
+      return current;
+    }
+
+    const latest = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'REALTOR_SERVICE',
+      },
+      orderBy: {
+        version: 'desc',
+      },
+      select: {
+        version: true,
+      },
+    });
+
+    return tx.contractTemplate.create({
+      data: {
+        name: 'Риэлторлик хизматларини кўрсатиш шартномаси',
+        serviceType: 'REALTOR_SERVICE',
+        version: (latest?.version || 0) + 1,
+        htmlBody: realtorContractHtml(),
+        isActive: true,
+      },
+    });
+  }
+
   let template = await tx.contractTemplate.findFirst({
     where: {
       serviceType: caseItem.serviceType,
@@ -135,151 +178,6 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 }
 
 router.use(auth);
-
-
-router.get(
-  '/',
-  allowRoles(...MANAGE_ROLES),
-  async (req, res, next) => {
-    try {
-      const page = Math.max(Number(req.query.page) || 1, 1);
-      const limit = Math.min(
-        Math.max(Number(req.query.limit) || 20, 1),
-        100
-      );
-
-      const search =
-        typeof req.query.search === 'string'
-          ? req.query.search.trim()
-          : '';
-
-      const status =
-        typeof req.query.status === 'string'
-          ? req.query.status.trim()
-          : '';
-
-      const where = {};
-
-      if (status) {
-        where.status = status;
-      }
-
-      if (search) {
-        where.OR = [
-          {
-            displayId: {
-              contains: search,
-              mode: 'insensitive',
-            },
-          },
-          {
-            case: {
-              displayId: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          },
-          {
-            case: {
-              applicant: {
-                fullName: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              },
-            },
-          },
-          {
-            case: {
-              applicant: {
-                phone: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              },
-            },
-          },
-        ];
-      }
-
-      if (
-        req.user.role === 'BRANCH_MANAGER' &&
-        req.user.branchId
-      ) {
-        where.case = {
-          ...(where.case || {}),
-          branchId: req.user.branchId,
-        };
-      }
-
-      const [items, total] = await prisma.$transaction([
-        prisma.contract.findMany({
-          where,
-          include: {
-            template: {
-              select: {
-                id: true,
-                name: true,
-                version: true,
-              },
-            },
-            case: {
-              include: {
-                applicant: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    phone: true,
-                  },
-                },
-                branch: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        prisma.contract.count({ where }),
-      ]);
-
-      const itemsWithPdf = await Promise.all(
-        items.map(async (item) => ({
-          ...item,
-          pdfUrl: item.pdfUrl
-            ? await createSignedFileUrl(
-                item.pdfUrl,
-                60 * 60 * 24
-              )
-            : null,
-        }))
-      );
-
-      return res.json({
-        items: itemsWithPdf,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.max(
-            Math.ceil(total / limit),
-            1
-          ),
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 router.get(
   '/case/:caseId',
@@ -316,18 +214,7 @@ router.get(
         },
       });
 
-      const itemsWithPdf = await Promise.all(
-        items.map(async (item) => ({
-          ...item,
-          pdfUrl: item.pdfUrl
-            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
-            : null,
-        }))
-      );
-
-      return res.json({
-        items: itemsWithPdf,
-      });
+      return res.json({ items });
     } catch (error) {
       next(error);
     }
@@ -356,6 +243,15 @@ router.post(
         });
       }
 
+      if (
+        caseItem.serviceType === 'REALTOR_SERVICE' &&
+        !(Number(parsed.data.serviceFee) > 0)
+      ) {
+        return res.status(400).json({
+          error: 'Риэлторлик шартномаси учун хизмат ҳақини киритинг',
+        });
+      }
+
       const borrowerId =
         parsed.data.borrowerId ||
         caseItem.borrowers[0]?.id ||
@@ -368,7 +264,24 @@ router.post(
           parsed.data.templateId
         );
 
-        const displayId = await generateContractDisplayId(tx);
+        if (
+          caseItem.serviceType === 'REALTOR_SERVICE' &&
+          Number(parsed.data.serviceFee) > 0
+        ) {
+          await tx.case.update({
+            where: {
+              id: caseItem.id,
+            },
+            data: {
+              serviceFee: parsed.data.serviceFee,
+            },
+          });
+        }
+
+        const displayId = await generateContractDisplayId(
+          tx,
+          caseItem.serviceType
+        );
 
         const contract = await tx.contract.create({
           data: {
@@ -532,46 +445,6 @@ router.post(
         width: 420,
       });
 
-      let kiosk = null;
-
-      if (parsed.data.kioskId) {
-        kiosk = await prisma.kioskDevice.findUnique({
-          where: {
-            id: parsed.data.kioskId,
-          },
-        });
-
-        if (!kiosk) {
-          return res.status(404).json({
-            error: 'QR экран қурилмаси топилмади',
-          });
-        }
-
-        if (
-          req.user.role !== 'SUPER_ADMIN' &&
-          req.user.role !== 'DIRECTOR' &&
-          req.user.branchId &&
-          kiosk.branchId !== req.user.branchId
-        ) {
-          return res.status(403).json({
-            error: 'Бошқа филиал QR экранига юбориш мумкин эмас',
-          });
-        }
-
-        await prisma.kioskDevice.update({
-          where: {
-            id: kiosk.id,
-          },
-          data: {
-            currentContractId: contract.id,
-            currentQrDataUrl: qrDataUrl,
-            currentSignUrl: signUrl,
-            qrExpiresAt: expiresAt,
-            displayStatus: 'QR_READY',
-          },
-        });
-      }
-
       return res.json({
         message: 'Бир марталик QR-код яратилди',
         contractId: contract.id,
@@ -579,81 +452,6 @@ router.post(
         expiresAt,
         signUrl,
         qrDataUrl,
-        kiosk: kiosk
-          ? {
-              id: kiosk.id,
-              name: kiosk.name,
-              deviceCode: kiosk.deviceCode,
-            }
-          : null,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-
-router.post(
-  '/:contractId/pdf',
-  allowRoles(...MANAGE_ROLES),
-  async (req, res, next) => {
-    try {
-      const { finalizeSignedContract } = await import(
-        '../services/contract-finalize.js'
-      );
-
-      const contract = await prisma.contract.findUnique({
-        where: {
-          id: req.params.contractId,
-        },
-        include: {
-          invitations: {
-            where: {
-              usedAt: {
-                not: null,
-              },
-            },
-            orderBy: {
-              usedAt: 'desc',
-            },
-            take: 1,
-          },
-        },
-      });
-
-      if (!contract) {
-        return res.status(404).json({
-          error: 'Шартнома топилмади',
-        });
-      }
-
-      if (contract.status !== 'SIGNED' || !contract.signedAt) {
-        return res.status(409).json({
-          error: 'PDF фақат тасдиқланган шартнома учун яратилади',
-        });
-      }
-
-      const invitation = contract.invitations[0];
-
-      const result = await finalizeSignedContract({
-        contractId: contract.id,
-        confirmation: {
-          invitationId: invitation?.id || 'manual-regeneration',
-          signedAt: contract.signedAt,
-          ip: null,
-          userAgent: 'Golden Key OS manual PDF generation',
-        },
-      });
-
-      return res.json({
-        message: 'Шартнома PDF тайёр',
-        item: {
-          contractId: contract.id,
-          pdfUrl: result.pdfUrl,
-          telegram: result.telegram,
-          reused: result.reused,
-        },
       });
     } catch (error) {
       next(error);
