@@ -42,8 +42,6 @@ const STATUS_OPTIONS = [
   ['SERVICE_FEE_PAID', 'Хизмат ҳақи тўланган'],
   ['COMPLETED', 'Якунланган'],
   ['REJECTED', 'Рад этилган'],
-  ['CANCELLED', 'Бекор қилинган'],
-  ['ARCHIVED', 'Архивланган'],
 ];
 
 const INITIAL_FORM = {
@@ -273,6 +271,12 @@ function NewCaseModal({ open, onClose, onCreated }) {
           : form.requestedAmount
             ? form.requestedAmount.replace(/\s/g, '')
             : null,
+
+        serviceFee: isRealtorService
+          ? form.realtorServiceFee
+            ? form.realtorServiceFee.replace(/\s/g, '')
+            : null
+          : null,
       };
 
       const data = await apiRequest('/cases', {

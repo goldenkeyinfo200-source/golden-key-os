@@ -110,6 +110,11 @@ const createCaseSchema = z.object({
     .optional()
     .nullable(),
 
+  serviceFee: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
   bankName: z
     .string()
     .trim()
@@ -605,7 +610,19 @@ router.get('/', async (req, res, next) => {
 
     const where = {};
 
-    if (scope === 'execution') {
+    if (scope === 'archive') {
+      // Архив бўлими: архивланган ва бекор қилинган ишлар.
+      where.status = {
+        in: ['ARCHIVED', 'CANCELLED'],
+      };
+
+      if (
+        status &&
+        ['ARCHIVED', 'CANCELLED'].includes(status)
+      ) {
+        where.status = status;
+      }
+    } else if (scope === 'execution') {
       where.status = {
         in: [
           'ASSIGNED_TO_EXECUTOR',
@@ -617,10 +634,28 @@ router.get('/', async (req, res, next) => {
           'SERVICE_FEE_PAID',
         ],
       };
-    }
 
-    if (status && caseStatuses.includes(status)) {
-      where.status = status;
+      if (
+        status &&
+        caseStatuses.includes(status) &&
+        !['ARCHIVED', 'CANCELLED'].includes(status)
+      ) {
+        where.status = status;
+      }
+    } else {
+      // Асосий «Мурожаатлар» рўйхати.
+      // Архивланган ва бекор қилинган ишлар бу ерда чиқмайди.
+      where.status = {
+        notIn: ['ARCHIVED', 'CANCELLED'],
+      };
+
+      if (
+        status &&
+        caseStatuses.includes(status) &&
+        !['ARCHIVED', 'CANCELLED'].includes(status)
+      ) {
+        where.status = status;
+      }
     }
 
     if (
@@ -859,6 +894,23 @@ router.post(
         data.requestedAmount
       );
 
+      const serviceFee =
+        data.serviceType === 'REALTOR_SERVICE'
+          ? parseAmount(data.serviceFee)
+          : null;
+
+      if (
+        data.serviceType === 'REALTOR_SERVICE' &&
+        data.serviceFee !== undefined &&
+        data.serviceFee !== null &&
+        data.serviceFee !== '' &&
+        serviceFee === null
+      ) {
+        return res.status(400).json({
+          error: 'Риэлторлик хизмати ҳақи нотўғри',
+        });
+      }
+
       if (
         data.requestedAmount !== undefined &&
         data.requestedAmount !== null &&
@@ -914,6 +966,10 @@ router.post(
               serviceType: data.serviceType,
               status: 'NEW',
               requestedAmount,
+              serviceFee:
+                data.serviceType === 'REALTOR_SERVICE'
+                  ? serviceFee
+                  : null,
               bankName: normalizeOptional(
                 data.bankName
               ),

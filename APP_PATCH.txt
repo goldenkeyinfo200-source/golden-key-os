@@ -1,0 +1,14 @@
+crm/src/App.jsx га фақат шу 2 ўзгаришни киритинг.
+
+1) import ларга:
+
+import { ArchivePage } from './pages/ArchivePage.jsx';
+
+2) renderContent() ичида `return renderPlaceholder();` дан ОЛДИН:
+
+if (activeMenu === 'Архив') {
+  return <ArchivePage />;
+}
+
+Агар App.jsx да Архив учун аллақачон алоҳида Page уланган бўлса,
+шу Page'ни ArchivePage билан алмаштириш кифоя.
