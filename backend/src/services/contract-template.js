@@ -298,6 +298,41 @@ export function realtorContractHtml() {
   `.trim();
 }
 
+export function salePurchaseContractHtml() {
+  return `
+    <article class="contract-document" data-gk-template="sale-purchase-v1">
+      <header>
+        <h1>КЎЧМАС МУЛК ОЛДИ-СОТДИСИНИ ТАШКИЛ ЭТИШ ВА РИЭЛТОРЛИК ХИЗМАТЛАРИ БЎЙИЧА УЧ ТОМОНЛАМА ШАРТНОМА</h1>
+        <p><strong>Шартнома рақами:</strong> {{contractDisplayId}}</p>
+        <p><strong>Мурожаат рақами:</strong> {{caseDisplayId}}</p>
+        <p><strong>Тузилган жой:</strong> Қўқон шаҳри</p>
+        <p><strong>Сана:</strong> {{contractDate}}</p>
+      </header>
+      <section><h2>1. ТАРАФЛАР</h2>
+        <p><strong>Сотувчи:</strong> {{sellerFullName}}, телефон: {{sellerPhone}}, ЖШШИР: {{sellerPinfl}}, паспорт: {{sellerPassport}}, манзил: {{sellerAddress}}.</p>
+        <p><strong>Олувчи:</strong> {{clientFullName}}, телефон: {{clientPhone}}, ЖШШИР: {{clientPinfl}}, паспорт: {{clientPassport}}, манзил: {{clientAddress}}.</p>
+        <p><strong>Риэлторлик ташкилоти:</strong> «GOLDEN KEY INFO» МЧЖ, кейинги ўринларда «Риэлтор» деб аталади.</p>
+      </section>
+      <section><h2>2. ШАРТНОМА ПРЕДМЕТИ</h2>
+        <p>Риэлтор Сотувчи ва Олувчи ўртасида қуйидаги кўчмас мулк бўйича битимни ташкил этиш, ҳужжатларни тайёрлаш ва битимни расмийлаштириш жараёнига риэлторлик ҳамроҳлигини кўрсатади.</p>
+        <p><strong>Мулк тури:</strong> {{salePropertyType}}</p><p><strong>Манзил:</strong> {{salePropertyAddress}}</p>
+        <p><strong>Кадастр рақами:</strong> {{saleCadastreNumber}}</p><p><strong>Майдони:</strong> {{salePropertyArea}}</p>
+      </section>
+      <section><h2>3. БИТИМ НАРХИ ВА ҲИСОБ-КИТОБ</h2>
+        <p>Тарафлар келишган кўчмас мулк нархи: <strong>{{requestedAmount}}</strong>.</p>
+        <p>Риэлторлик хизмати ҳақи: <strong>{{serviceFee}}</strong>. Хизмат ҳақини тўловчи: <strong>{{saleServiceFeePayer}}</strong>.</p>
+        <p>Кўчмас мулк учун асосий ҳисоб-китоб Сотувчи ва Олувчи ўртасида улар келишган ҳамда қонунчиликка мувофиқ тартибда амалга оширилади.</p>
+      </section>
+      <section><h2>4. СОТУВЧИНИНГ МАЖБУРИЯТЛАРИ</h2><p>Сотувчи объектга бўлган ҳуқуқи, кадастр маълумотлари, тақиқ ва чекловлар ҳақида ҳаққоний маълумот беради, зарур ҳужжатларни тақдим этади ва расмийлаштиришда иштирок этади.</p></section>
+      <section><h2>5. ОЛУВЧИНИНГ МАЖБУРИЯТЛАРИ</h2><p>Олувчи объект ва ҳужжатлар билан танишади, келишилган ҳисоб-китоб шартларини бажаради ва расмийлаштиришда иштирок этади.</p></section>
+      <section><h2>6. РИЭЛТОРНИНГ МАЖБУРИЯТЛАРИ</h2><p>Риэлтор тарафларнинг музокараларини мувофиқлаштиради, объект ва битимга оид маълумотларни йиғишга, ҳужжатларни тайёрлашга ва нотариал/давлат расмийлаштириш жараёнини ташкил этишга кўмаклашади.</p></section>
+      <section><h2>7. ЖАВОБГАРЛИК</h2><p>Ҳар бир тараф ўзи тақдим этган маълумот ва ҳужжатларнинг ҳаққонийлиги учун жавоб беради. Риэлтор тарафлар ўртасидаги асосий пул ҳисоб-китобининг томони ҳисобланмайди, агар алоҳида ёзма келишув бўлмаса.</p></section>
+      <section><h2>8. ЭЛЕКТРОН ТАСДИҚ</h2><p>Сотувчи ва Олувчига алоҳида бир марталик QR ҳаволаси берилади. Шартнома фақат <strong>Сотувчи ҳам, Олувчи ҳам</strong> ўз QR ҳаволаси орқали тасдиқ берганидан кейин электрон тасдиқланган ҳисобланади.</p></section>
+      <section><h2>9. ЯКУНИЙ ҚОИДАЛАР</h2><p>Ушбу ҳужжат риэлторлик ҳамроҳлиги ва тарафларнинг келишувларини қайд этади. Кўчмас мулкка мулк ҳуқуқини ўтказиш қонунчиликда белгиланган тегишли расмийлаштириш тартибида амалга оширилади.</p></section>
+      <section><h2>10. ТАРАФЛАР</h2><p><strong>Сотувчи:</strong> {{sellerFullName}}</p><p><strong>Олувчи:</strong> {{clientFullName}}</p><p><strong>Риэлтор:</strong> «GOLDEN KEY INFO» МЧЖ</p></section>
+    </article>`;
+}
+
 export function defaultContractHtml() {
   return `
     <article class="contract-document">
@@ -614,5 +649,15 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
     ),
     bankName: selectedOffer?.bankName || caseItem.bankName || '—',
     serviceFee: formatMoney(caseItem.serviceFee),
+    sellerFullName: escapeHtml(caseItem.sellerFullName || '—'),
+    sellerPhone: escapeHtml(caseItem.sellerPhone || '—'),
+    sellerPinfl: escapeHtml(caseItem.sellerPinfl || '—'),
+    sellerPassport: escapeHtml([caseItem.sellerPassportSeries, caseItem.sellerPassportNumber].filter(Boolean).join(' ') || '—'),
+    sellerAddress: escapeHtml(caseItem.sellerAddress || '—'),
+    salePropertyType: escapeHtml(caseItem.salePropertyType || '—'),
+    salePropertyAddress: escapeHtml(caseItem.salePropertyAddress || '—'),
+    saleCadastreNumber: escapeHtml(caseItem.saleCadastreNumber || '—'),
+    salePropertyArea: caseItem.salePropertyArea ? `${escapeHtml(caseItem.salePropertyArea)} м²` : '—',
+    saleServiceFeePayer: escapeHtml(({BUYER:'Олувчи', SELLER:'Сотувчи', BOTH:'Сотувчи ва Олувчи'})[caseItem.saleServiceFeePayer] || '—'),
   };
 }

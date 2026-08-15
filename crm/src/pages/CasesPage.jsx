@@ -62,6 +62,8 @@ const INITIAL_FORM = {
   cadastralNumber: '',
   propertyPrice: '',
   realtorServiceFee: '',
+  sellerFullName: '', sellerPhone: '', sellerPinfl: '', sellerPassportSeries: '', sellerPassportNumber: '', sellerAddress: '',
+  salePropertyType: 'APARTMENT', salePropertyAddress: '', saleCadastreNumber: '', salePropertyArea: '', salePrice: '', saleServiceFee: '', saleServiceFeePayer: 'BUYER',
 };
 
 const REALTOR_DIRECTION_OPTIONS = [
@@ -196,7 +198,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
           serviceType: value,
         };
 
-        if (value === 'REALTOR_SERVICE') {
+        if (['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(value)) {
           next.bankName = '';
           next.requestedAmount = '';
           next.nextAction = '';
@@ -228,6 +230,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
 
     try {
       const isRealtorService = form.serviceType === 'REALTOR_SERVICE';
+      const isSalePurchase = form.serviceType === 'SALE_PURCHASE';
 
       const realtorDetails = isRealtorService
         ? [
@@ -261,10 +264,23 @@ function NewCaseModal({ open, onClose, onCreated }) {
         birthDate: form.birthDate || null,
         address: form.address.trim(),
         serviceType: form.serviceType,
-        bankName: isRealtorService ? '' : form.bankName.trim(),
-        nextAction: realtorDetails,
+        bankName: (isRealtorService || isSalePurchase) ? '' : form.bankName.trim(),
+        nextAction: isSalePurchase ? 'Олди-сотди шартномасини тайёрлаш' : realtorDetails,
+        sellerFullName: isSalePurchase ? form.sellerFullName.trim() : '',
+        sellerPhone: isSalePurchase ? form.sellerPhone.trim() : '',
+        sellerPinfl: isSalePurchase ? form.sellerPinfl.trim() : '',
+        sellerPassportSeries: isSalePurchase ? form.sellerPassportSeries.trim() : '',
+        sellerPassportNumber: isSalePurchase ? form.sellerPassportNumber.trim() : '',
+        sellerAddress: isSalePurchase ? form.sellerAddress.trim() : '',
+        salePropertyType: isSalePurchase ? form.salePropertyType : '',
+        salePropertyAddress: isSalePurchase ? form.salePropertyAddress.trim() : '',
+        saleCadastreNumber: isSalePurchase ? form.saleCadastreNumber.trim() : '',
+        salePropertyArea: isSalePurchase && form.salePropertyArea ? form.salePropertyArea : null,
+        saleServiceFeePayer: isSalePurchase ? form.saleServiceFeePayer : null,
 
-        requestedAmount: isRealtorService
+        requestedAmount: isSalePurchase
+          ? (form.salePrice ? form.salePrice.replace(/\s/g, '') : null)
+          : isRealtorService
           ? form.propertyPrice
             ? form.propertyPrice.replace(/\s/g, '')
             : null
@@ -272,7 +288,9 @@ function NewCaseModal({ open, onClose, onCreated }) {
             ? form.requestedAmount.replace(/\s/g, '')
             : null,
 
-        serviceFee: isRealtorService
+        serviceFee: isSalePurchase
+          ? (form.saleServiceFee ? form.saleServiceFee.replace(/\s/g, '') : null)
+          : isRealtorService
           ? form.realtorServiceFee
             ? form.realtorServiceFee.replace(/\s/g, '')
             : null
@@ -490,7 +508,9 @@ function NewCaseModal({ open, onClose, onCreated }) {
               <span>
                 {form.serviceType === 'REALTOR_SERVICE'
                   ? 'Риэлторлик хизмати ва объект маълумотлари'
-                  : 'Мурожаат мақсади ва сўралаётган маблағ'}
+                  : form.serviceType === 'SALE_PURCHASE'
+                    ? 'Олувчи, сотувчи ва кўчмас мулк битими маълумотлари'
+                    : 'Мурожаат мақсади ва сўралаётган маблағ'}
               </span>
             </div>
 
@@ -621,6 +641,24 @@ function NewCaseModal({ open, onClose, onCreated }) {
                       disabled={saving}
                     />
                   </label>
+                </>
+              ) : form.serviceType === 'SALE_PURCHASE' ? (
+                <>
+                  <div className="field field-wide"><strong>Сотувчи маълумотлари</strong></div>
+                  <label className="field"><span>Сотувчи Ф.И.Ш. *</span><input value={form.sellerFullName} onChange={(e)=>updateField('sellerFullName',e.target.value)} disabled={saving}/></label>
+                  <label className="field"><span>Сотувчи телефон *</span><input value={form.sellerPhone} onChange={(e)=>updateField('sellerPhone',e.target.value)} placeholder="+998..." disabled={saving}/></label>
+                  <label className="field"><span>Сотувчи ЖШШИР</span><input value={form.sellerPinfl} onChange={(e)=>updateField('sellerPinfl',e.target.value.replace(/\D/g,'').slice(0,14))} inputMode="numeric" disabled={saving}/></label>
+                  <label className="field"><span>Паспорт серияси</span><input value={form.sellerPassportSeries} onChange={(e)=>updateField('sellerPassportSeries',e.target.value.toUpperCase())} disabled={saving}/></label>
+                  <label className="field"><span>Паспорт рақами</span><input value={form.sellerPassportNumber} onChange={(e)=>updateField('sellerPassportNumber',e.target.value)} disabled={saving}/></label>
+                  <label className="field field-wide"><span>Сотувчи манзили</span><input value={form.sellerAddress} onChange={(e)=>updateField('sellerAddress',e.target.value)} disabled={saving}/></label>
+                  <div className="field field-wide"><strong>Кўчмас мулк ва битим</strong></div>
+                  <label className="field"><span>Мулк тури *</span><select value={form.salePropertyType} onChange={(e)=>updateField('salePropertyType',e.target.value)} disabled={saving}>{PROPERTY_TYPE_OPTIONS.map(([v,l])=><option value={v} key={v}>{l}</option>)}</select></label>
+                  <label className="field"><span>Кадастр рақами *</span><input value={form.saleCadastreNumber} onChange={(e)=>updateField('saleCadastreNumber',e.target.value)} disabled={saving}/></label>
+                  <label className="field field-wide"><span>Объект манзили *</span><input value={form.salePropertyAddress} onChange={(e)=>updateField('salePropertyAddress',e.target.value)} disabled={saving}/></label>
+                  <label className="field"><span>Майдони, м²</span><input value={form.salePropertyArea} onChange={(e)=>updateField('salePropertyArea',e.target.value.replace(/[^\d.]/g,''))} inputMode="decimal" disabled={saving}/></label>
+                  <label className="field"><span>Олди-сотди нархи *</span><input value={form.salePrice} onChange={(e)=>updateField('salePrice',e.target.value.replace(/\D/g,''))} inputMode="numeric" disabled={saving}/></label>
+                  <label className="field"><span>Риэлторлик хизмати ҳақи</span><input value={form.saleServiceFee} onChange={(e)=>updateField('saleServiceFee',e.target.value.replace(/\D/g,''))} inputMode="numeric" disabled={saving}/></label>
+                  <label className="field"><span>Хизмат ҳақини ким тўлайди?</span><select value={form.saleServiceFeePayer} onChange={(e)=>updateField('saleServiceFeePayer',e.target.value)} disabled={saving}><option value="BUYER">Олувчи</option><option value="SELLER">Сотувчи</option><option value="BOTH">Икки томон</option></select></label>
                 </>
               ) : (
                 <>

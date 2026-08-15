@@ -237,6 +237,19 @@ model Case {
   collateralEstimatedValue    Decimal?    @db.Decimal(18, 2)
   collateralNotes             String?
 
+  // SALE_PURCHASE: сотувчи ва олди-сотди объекти
+  sellerFullName              String?
+  sellerPhone                 String?
+  sellerPinfl                  String?
+  sellerPassportSeries        String?
+  sellerPassportNumber        String?
+  sellerAddress               String?
+  salePropertyType            String?
+  salePropertyAddress         String?
+  saleCadastreNumber          String?
+  salePropertyArea            Decimal?    @db.Decimal(12, 2)
+  saleServiceFeePayer         String?
+
   bankName           String?
   nextAction         String?
   nextActionDueAt    DateTime?
@@ -342,6 +355,7 @@ model Contract {
 model Invitation {
   id         String   @id @default(cuid())
   tokenHash  String   @unique
+  signerRole String?  // CLIENT | SELLER | BUYER
   caseId     String
   contractId String?
   expiresAt  DateTime

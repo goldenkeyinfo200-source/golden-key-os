@@ -115,6 +115,18 @@ const createCaseSchema = z.object({
     .optional()
     .nullable(),
 
+  sellerFullName: z.string().trim().max(200).optional().or(z.literal('')),
+  sellerPhone: z.string().trim().max(30).optional().or(z.literal('')),
+  sellerPinfl: z.string().trim().regex(/^\d{14}$/, 'Сотувчи ЖШШИРи 14 та рақам бўлиши керак').optional().or(z.literal('')),
+  sellerPassportSeries: z.string().trim().max(10).optional().or(z.literal('')),
+  sellerPassportNumber: z.string().trim().max(20).optional().or(z.literal('')),
+  sellerAddress: z.string().trim().max(500).optional().or(z.literal('')),
+  salePropertyType: z.string().trim().max(50).optional().or(z.literal('')),
+  salePropertyAddress: z.string().trim().max(500).optional().or(z.literal('')),
+  saleCadastreNumber: z.string().trim().max(100).optional().or(z.literal('')),
+  salePropertyArea: z.union([z.number(), z.string()]).optional().nullable(),
+  saleServiceFeePayer: z.enum(['BUYER', 'SELLER', 'BOTH']).optional().nullable(),
+
   bankName: z
     .string()
     .trim()
@@ -895,19 +907,19 @@ router.post(
       );
 
       const serviceFee =
-        data.serviceType === 'REALTOR_SERVICE'
+        ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType)
           ? parseAmount(data.serviceFee)
           : null;
 
       if (
-        data.serviceType === 'REALTOR_SERVICE' &&
+        ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType) &&
         data.serviceFee !== undefined &&
         data.serviceFee !== null &&
         data.serviceFee !== '' &&
         serviceFee === null
       ) {
         return res.status(400).json({
-          error: 'Риэлторлик хизмати ҳақи нотўғри',
+          error: 'Хизмат ҳақи нотўғри',
         });
       }
 
@@ -920,6 +932,18 @@ router.post(
         return res.status(400).json({
           error: 'Сўралаётган сумма нотўғри',
         });
+      }
+
+      if (data.serviceType === 'SALE_PURCHASE') {
+        if (!data.sellerFullName?.trim() || !data.sellerPhone?.trim()) {
+          return res.status(400).json({ error: 'Олди-сотди учун сотувчи Ф.И.Ш. ва телефони шарт' });
+        }
+        if (!data.salePropertyAddress?.trim() || !data.saleCadastreNumber?.trim()) {
+          return res.status(400).json({ error: 'Объект манзили ва кадастр рақамини киритинг' });
+        }
+        if (!(Number(requestedAmount) > 0)) {
+          return res.status(400).json({ error: 'Олди-сотди нархини киритинг' });
+        }
       }
 
       const birthDate = parseDate(data.birthDate);
@@ -967,9 +991,20 @@ router.post(
               status: 'NEW',
               requestedAmount,
               serviceFee:
-                data.serviceType === 'REALTOR_SERVICE'
+                ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType)
                   ? serviceFee
                   : null,
+              sellerFullName: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerFullName) : null,
+              sellerPhone: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerPhone) : null,
+              sellerPinfl: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerPinfl) : null,
+              sellerPassportSeries: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerPassportSeries) : null,
+              sellerPassportNumber: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerPassportNumber) : null,
+              sellerAddress: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerAddress) : null,
+              salePropertyType: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.salePropertyType) : null,
+              salePropertyAddress: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.salePropertyAddress) : null,
+              saleCadastreNumber: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.saleCadastreNumber) : null,
+              salePropertyArea: data.serviceType === 'SALE_PURCHASE' && data.salePropertyArea ? Number(data.salePropertyArea) : null,
+              saleServiceFeePayer: data.serviceType === 'SALE_PURCHASE' ? (data.saleServiceFeePayer || 'BUYER') : null,
               bankName: normalizeOptional(
                 data.bankName
               ),

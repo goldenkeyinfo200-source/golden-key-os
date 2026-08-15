@@ -12,7 +12,8 @@
     "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma --name init",
     "prisma:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=prisma/schema.prisma",
-    "admin:create": "node scripts/create-admin.js"
+    "admin:create": "node scripts/create-admin.js",
+    "migrate:sale": "prisma migrate deploy --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",

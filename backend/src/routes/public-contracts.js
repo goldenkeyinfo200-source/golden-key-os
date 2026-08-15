@@ -134,6 +134,8 @@ router.get('/contracts/:token', async (req, res, next) => {
         clientFullName: caseItem.applicant.fullName,
         serviceType: caseItem.serviceType,
         expiresAt: invitation.expiresAt,
+        signerRole: invitation.signerRole || 'CLIENT',
+        signerLabel: invitation.signerRole === 'SELLER' ? 'Сотувчи' : invitation.signerRole === 'BUYER' ? 'Олувчи' : 'Мижоз',
         html,
       },
     });
@@ -145,151 +147,61 @@ router.get('/contracts/:token', async (req, res, next) => {
 router.post('/contracts/:token/confirm', async (req, res, next) => {
   try {
     const parsed = confirmSchema.safeParse(req.body);
-
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: 'Шартномани тасдиқлаш учун розилик белгиланиши шарт',
-      });
-    }
+    if (!parsed.success) return res.status(400).json({ error: 'Шартномани тасдиқлаш учун розилик белгиланиши шарт' });
 
     const invitation = await findInvitation(req.params.token);
     const problem = invitationProblem(invitation);
-
-    if (problem) {
-      return res.status(problem.status).json({
-        error: problem.error,
-      });
-    }
+    if (problem) return res.status(problem.status).json({ error: problem.error });
 
     const now = new Date();
     const contract = invitation.contract;
     const caseItem = contract.case;
+    const signerRole = invitation.signerRole || 'CLIENT';
 
     const result = await prisma.$transaction(async (tx) => {
-      const invitationUpdate = await tx.invitation.updateMany({
-        where: {
-          id: invitation.id,
-          usedAt: null,
-          expiresAt: {
-            gt: now,
-          },
-        },
-        data: {
-          usedAt: now,
-        },
+      const used = await tx.invitation.updateMany({
+        where: { id: invitation.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
       });
+      if (used.count !== 1) { const error = new Error('QR-код ишлатилган ёки амал қилиш муддати тугаган'); error.status = 409; throw error; }
 
-      if (invitationUpdate.count !== 1) {
-        const error = new Error(
-          'QR-код ишлатилган ёки амал қилиш муддати тугаган'
-        );
-        error.status = 409;
-        throw error;
+      let shouldSign = true;
+      let waitingFor = null;
+      if (caseItem.serviceType === 'SALE_PURCHASE') {
+        const confirmations = await tx.invitation.findMany({
+          where: { contractId: contract.id, signerRole: { in: ['SELLER', 'BUYER'] }, usedAt: { not: null } },
+          select: { signerRole: true, usedAt: true },
+        });
+        const roles = new Set(confirmations.map((x) => x.signerRole));
+        shouldSign = roles.has('SELLER') && roles.has('BUYER');
+        waitingFor = roles.has('SELLER') ? 'BUYER' : 'SELLER';
       }
 
-      const signedContract = await tx.contract.update({
-        where: {
-          id: contract.id,
-        },
-        data: {
-          status: 'SIGNED',
-          signedAt: now,
-        },
-      });
+      let updatedContract = contract;
+      if (shouldSign) {
+        updatedContract = await tx.contract.update({ where: { id: contract.id }, data: { status: 'SIGNED', signedAt: now } });
+        const oldStatus = caseItem.status;
+        await tx.case.update({ where: { id: caseItem.id }, data: { status: 'CONTRACT_SIGNED' } });
+        await tx.caseHistory.create({ data: { caseId: caseItem.id, fromStatus: oldStatus, toStatus: 'CONTRACT_SIGNED', note: caseItem.serviceType === 'SALE_PURCHASE' ? `${contract.displayId} шартномаси Сотувчи ва Олувчи томонидан QR орқали тасдиқланди` : `${contract.displayId} шартномаси мижоз томонидан QR орқали тасдиқланди` } });
+      }
 
-      const oldStatus = caseItem.status;
-
-      await tx.case.update({
-        where: {
-          id: caseItem.id,
-        },
-        data: {
-          status: 'CONTRACT_SIGNED',
-        },
-      });
-
-      await tx.caseHistory.create({
-        data: {
-          caseId: caseItem.id,
-          fromStatus: oldStatus,
-          toStatus: 'CONTRACT_SIGNED',
-          note: `${contract.displayId} шартномаси мижоз томонидан QR орқали тасдиқланди`,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          userId: null,
-          entityType: 'Contract',
-          entityId: contract.id,
-          action: 'CONTRACT_CONFIRMED_BY_QR',
-          metadata: {
-            invitationId: invitation.id,
-            caseId: caseItem.id,
-            confirmedAt: now.toISOString(),
-            ip: getClientIp(req),
-            userAgent: req.headers['user-agent'] || null,
-            method: 'ONE_TIME_QR',
-            accepted: true,
-          },
-        },
-      });
-
-      return signedContract;
+      await tx.auditLog.create({ data: { userId: null, entityType: 'Contract', entityId: contract.id, action: 'CONTRACT_CONFIRMED_BY_QR', metadata: { invitationId: invitation.id, caseId: caseItem.id, signerRole, confirmedAt: now.toISOString(), ip: getClientIp(req), userAgent: req.headers['user-agent'] || null, method: 'ONE_TIME_QR', accepted: true, fullySigned: shouldSign } } });
+      return { contract: updatedContract, fullySigned: shouldSign, waitingFor };
     });
 
     let finalization = null;
     let pdfError = null;
-
-    try {
-      finalization = await finalizeSignedContract({
-        contractId: result.id,
-        confirmation: {
-          invitationId: invitation.id,
-          signedAt: result.signedAt,
-          ip: getClientIp(req),
-          userAgent: req.headers['user-agent'] || null,
-        },
-      });
-    } catch (error) {
-      pdfError = error.message;
-
-      console.error(
-        'Шартнома тасдиқланди, лекин PDF тайёрлашда хато:',
-        error
-      );
-
-      await prisma.auditLog.create({
-        data: {
-          userId: null,
-          entityType: 'Contract',
-          entityId: result.id,
-          action: 'CONTRACT_PDF_GENERATION_FAILED',
-          metadata: {
-            caseId: caseItem.id,
-            invitationId: invitation.id,
-            error: error.message,
-          },
-        },
-      });
+    if (result.fullySigned) {
+      try {
+        finalization = await finalizeSignedContract({ contractId: result.contract.id, confirmation: { invitationId: invitation.id, signedAt: result.contract.signedAt, ip: getClientIp(req), userAgent: req.headers['user-agent'] || null } });
+      } catch (error) { pdfError = error.message; console.error('Шартнома тасдиқланди, лекин PDF тайёрлашда хато:', error); }
     }
 
     return res.json({
-      message: 'Шартнома муваффақиятли тасдиқланди',
-      item: {
-        id: result.id,
-        displayId: result.displayId,
-        status: result.status,
-        signedAt: result.signedAt,
-        pdfUrl: finalization?.pdfUrl || null,
-        pdfPending: !finalization?.pdfUrl,
-        pdfError,
-        telegram: finalization?.telegram || null,
-      },
+      message: result.fullySigned ? 'Шартнома тўлиқ тасдиқланди' : `${signerRole === 'SELLER' ? 'Сотувчи' : 'Олувчи'} тасдиқлади. Иккинчи томон тасдиғи кутилмоқда.`,
+      fullySigned: result.fullySigned,
+      waitingFor: result.waitingFor,
+      item: { id: result.contract.id, displayId: result.contract.displayId, status: result.contract.status, signedAt: result.contract.signedAt, pdfUrl: finalization?.pdfUrl || result.contract.pdfUrl || null, pdfError },
     });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 });
-
-export default router;

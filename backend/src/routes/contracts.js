@@ -9,6 +9,7 @@ import { allowRoles, auth } from '../middleware/auth.js';
 import {
   defaultContractHtml,
   realtorContractHtml,
+  salePurchaseContractHtml,
 } from '../services/contract-template.js';
 import { createSignedFileUrl } from '../services/supabaseStorage.js';
 
@@ -31,6 +32,7 @@ const createSchema = z.object({
 const qrSchema = z.object({
   expiresInMinutes: z.coerce.number().int().min(2).max(60).default(15),
   kioskId: z.string().trim().min(1).optional().nullable(),
+  signerRole: z.enum(['CLIENT', 'SELLER', 'BUYER']).optional().default('CLIENT'),
 });
 
 function hashToken(token) {
@@ -156,6 +158,14 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     });
   }
 
+  if (caseItem.serviceType === 'SALE_PURCHASE') {
+    const marker = 'data-gk-template="sale-purchase-v1"';
+    const current = await tx.contractTemplate.findFirst({ where: { serviceType: 'SALE_PURCHASE', isActive: true }, orderBy: { version: 'desc' } });
+    if (current?.htmlBody?.includes(marker)) return current;
+    const latest = await tx.contractTemplate.findFirst({ where: { serviceType: 'SALE_PURCHASE' }, orderBy: { version: 'desc' }, select: { version: true } });
+    return tx.contractTemplate.create({ data: { name: 'Кўчмас мулк олди-сотдисини ташкил этиш бўйича уч томонлама шартнома', serviceType: 'SALE_PURCHASE', version: (latest?.version || 0) + 1, htmlBody: salePurchaseContractHtml(), isActive: true } });
+  }
+
   let template = await tx.contractTemplate.findFirst({
     where: {
       serviceType: caseItem.serviceType,
@@ -201,16 +211,8 @@ router.get(
             },
           },
           invitations: {
-            orderBy: {
-              createdAt: 'desc',
-            },
-            take: 1,
-            select: {
-              id: true,
-              expiresAt: true,
-              usedAt: true,
-              createdAt: true,
-            },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, signerRole: true, expiresAt: true, usedAt: true, createdAt: true },
           },
         },
         orderBy: {
@@ -388,6 +390,7 @@ router.post(
             select: {
               id: true,
               displayId: true,
+              serviceType: true,
             },
           },
         },
@@ -397,6 +400,14 @@ router.post(
         return res.status(404).json({
           error: 'Шартнома топилмади',
         });
+      }
+
+      const signerRole = contract.case?.serviceType === 'SALE_PURCHASE'
+        ? parsed.data.signerRole
+        : 'CLIENT';
+
+      if (contract.case?.serviceType === 'SALE_PURCHASE' && !['SELLER', 'BUYER'].includes(signerRole)) {
+        return res.status(400).json({ error: 'Олди-сотди шартномаси учун Сотувчи ёки Олувчи QR турини танланг' });
       }
 
       if (contract.status === 'SIGNED') {
@@ -421,6 +432,7 @@ router.post(
         await tx.invitation.deleteMany({
           where: {
             contractId: contract.id,
+            signerRole,
             usedAt: null,
           },
         });
@@ -428,6 +440,7 @@ router.post(
         await tx.invitation.create({
           data: {
             tokenHash,
+            signerRole,
             caseId: contract.caseId,
             contractId: contract.id,
             expiresAt,
@@ -443,6 +456,7 @@ router.post(
             metadata: {
               caseId: contract.caseId,
               expiresAt: expiresAt.toISOString(),
+              signerRole,
             },
           },
         });
@@ -505,6 +519,8 @@ router.post(
         contractId: contract.id,
         contractDisplayId: contract.displayId,
         expiresAt,
+        signerRole,
+        signerLabel: signerRole === 'SELLER' ? 'Сотувчи' : signerRole === 'BUYER' ? 'Олувчи' : 'Мижоз',
         signUrl,
         qrDataUrl,
         kiosk: kiosk
