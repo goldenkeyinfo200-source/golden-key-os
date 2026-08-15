@@ -58,7 +58,27 @@ const INITIAL_FORM = {
   requestedAmount: '',
   bankName: '',
   nextAction: '',
+  realtorDirection: 'SELL',
+  propertyType: 'APARTMENT',
+  propertyAddress: '',
+  cadastralNumber: '',
+  propertyPrice: '',
+  realtorServiceFee: '',
 };
+
+const REALTOR_DIRECTION_OPTIONS = [
+  ['SELL', 'Уй сотиш'],
+  ['BUY', 'Уй сотиб олиш'],
+  ['RENT_OUT', 'Ижарага бериш'],
+  ['RENT_IN', 'Ижарага олиш'],
+];
+
+const PROPERTY_TYPE_OPTIONS = [
+  ['APARTMENT', 'Квартира'],
+  ['HOUSE', 'Ҳовли'],
+  ['LAND', 'Ер'],
+  ['COMMERCIAL', 'Нотурар жой'],
+];
 
 const serviceNames = Object.fromEntries(SERVICE_OPTIONS);
 const statusNames = Object.fromEntries(STATUS_OPTIONS);
@@ -171,10 +191,27 @@ function NewCaseModal({ open, onClose, onCreated }) {
   }
 
   const updateField = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm((current) => {
+      if (field === 'serviceType') {
+        const next = {
+          ...current,
+          serviceType: value,
+        };
+
+        if (value === 'REALTOR_SERVICE') {
+          next.bankName = '';
+          next.requestedAmount = '';
+          next.nextAction = '';
+        }
+
+        return next;
+      }
+
+      return {
+        ...current,
+        [field]: value,
+      };
+    });
 
     setFieldErrors((current) => ({
       ...current,
@@ -192,21 +229,50 @@ function NewCaseModal({ open, onClose, onCreated }) {
     setFieldErrors({});
 
     try {
-      const payload = {
-        ...form,
+      const isRealtorService = form.serviceType === 'REALTOR_SERVICE';
 
+      const realtorDetails = isRealtorService
+        ? [
+            `Риэлторлик йўналиши: ${
+              Object.fromEntries(REALTOR_DIRECTION_OPTIONS)[form.realtorDirection]
+            }`,
+            `Кўчмас мулк тури: ${
+              Object.fromEntries(PROPERTY_TYPE_OPTIONS)[form.propertyType]
+            }`,
+            `Объект манзили: ${form.propertyAddress.trim() || '—'}`,
+            `Кадастр рақами: ${form.cadastralNumber.trim() || '—'}`,
+            `Объект нархи: ${
+              form.propertyPrice
+                ? `${form.propertyPrice.replace(/\s/g, '')} сўм`
+                : '—'
+            }`,
+            `Риэлторлик хизмати ҳақи: ${
+              form.realtorServiceFee
+                ? `${form.realtorServiceFee.replace(/\s/g, '')} сўм`
+                : '—'
+            }`,
+          ].join('\n')
+        : form.nextAction.trim();
+
+      const payload = {
         fullName: form.fullName.trim(),
         phone: form.phone.trim(),
         pinfl: form.pinfl.trim(),
         passportSeries: form.passportSeries.trim(),
         passportNumber: form.passportNumber.trim(),
+        birthDate: form.birthDate || null,
         address: form.address.trim(),
-        bankName: form.bankName.trim(),
-        nextAction: form.nextAction.trim(),
+        serviceType: form.serviceType,
+        bankName: isRealtorService ? '' : form.bankName.trim(),
+        nextAction: realtorDetails,
 
-        requestedAmount: form.requestedAmount
-          ? form.requestedAmount.replace(/\s/g, '')
-          : null,
+        requestedAmount: isRealtorService
+          ? form.propertyPrice
+            ? form.propertyPrice.replace(/\s/g, '')
+            : null
+          : form.requestedAmount
+            ? form.requestedAmount.replace(/\s/g, '')
+            : null,
       };
 
       const data = await apiRequest('/cases', {
@@ -417,7 +483,11 @@ function NewCaseModal({ open, onClose, onCreated }) {
           <div className="form-section">
             <div className="form-section-title">
               <strong>Хизмат маълумотлари</strong>
-              <span>Мурожаат мақсади ва сўралаётган маблағ</span>
+              <span>
+                {form.serviceType === 'REALTOR_SERVICE'
+                  ? 'Риэлторлик хизмати ва объект маълумотлари'
+                  : 'Мурожаат мақсади ва сўралаётган маблағ'}
+              </span>
             </div>
 
             <div className="form-grid">
@@ -443,61 +513,155 @@ function NewCaseModal({ open, onClose, onCreated }) {
                 ) : null}
               </label>
 
-              <label className="field">
-                <span>Сўралаётган сумма</span>
+              {form.serviceType === 'REALTOR_SERVICE' ? (
+                <>
+                  <label className="field">
+                    <span>Риэлторлик йўналиши *</span>
+                    <select
+                      value={form.realtorDirection}
+                      onChange={(event) =>
+                        updateField('realtorDirection', event.target.value)
+                      }
+                      disabled={saving}
+                    >
+                      {REALTOR_DIRECTION_OPTIONS.map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <input
-                  value={form.requestedAmount}
-                  onChange={(event) =>
-                    updateField(
-                      'requestedAmount',
-                      event.target.value.replace(/[^\d]/g, '')
-                    )
-                  }
-                  placeholder="Масалан: 300000000"
-                  inputMode="numeric"
-                  disabled={saving}
-                />
+                  <label className="field">
+                    <span>Кўчмас мулк тури *</span>
+                    <select
+                      value={form.propertyType}
+                      onChange={(event) =>
+                        updateField('propertyType', event.target.value)
+                      }
+                      disabled={saving}
+                    >
+                      {PROPERTY_TYPE_OPTIONS.map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                {fieldErrors.requestedAmount?.[0] ? (
-                  <small>{fieldErrors.requestedAmount[0]}</small>
-                ) : null}
-              </label>
+                  <label className="field field-wide">
+                    <span>Объект манзили</span>
+                    <input
+                      value={form.propertyAddress}
+                      onChange={(event) =>
+                        updateField('propertyAddress', event.target.value)
+                      }
+                      placeholder="Вилоят, шаҳар, туман, кўча ва уй рақами"
+                      disabled={saving}
+                    />
+                  </label>
 
-              <label className="field">
-                <span>Танланган банк</span>
+                  <label className="field">
+                    <span>Кадастр рақами</span>
+                    <input
+                      value={form.cadastralNumber}
+                      onChange={(event) =>
+                        updateField('cadastralNumber', event.target.value)
+                      }
+                      placeholder="Масалан: 15:16:..."
+                      disabled={saving}
+                    />
+                  </label>
 
-                <input
-                  value={form.bankName}
-                  onChange={(event) =>
-                    updateField('bankName', event.target.value)
-                  }
-                  placeholder="Ҳозирча танланмаган"
-                  disabled={saving}
-                />
+                  <label className="field">
+                    <span>Объект нархи</span>
+                    <input
+                      value={form.propertyPrice}
+                      onChange={(event) =>
+                        updateField(
+                          'propertyPrice',
+                          event.target.value.replace(/[^\d]/g, '')
+                        )
+                      }
+                      placeholder="Масалан: 500000000"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
 
-                {fieldErrors.bankName?.[0] ? (
-                  <small>{fieldErrors.bankName[0]}</small>
-                ) : null}
-              </label>
+                  <label className="field">
+                    <span>Риэлторлик хизмати ҳақи</span>
+                    <input
+                      value={form.realtorServiceFee}
+                      onChange={(event) =>
+                        updateField(
+                          'realtorServiceFee',
+                          event.target.value.replace(/[^\d]/g, '')
+                        )
+                      }
+                      placeholder="Масалан: 5000000"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
 
-              <label className="field field-wide">
-                <span>Кейинги ҳаракат</span>
+                  <label className="field field-wide">
+                    <span>Қўшимча маълумот</span>
+                    <textarea
+                      value={form.nextAction}
+                      onChange={(event) =>
+                        updateField('nextAction', event.target.value)
+                      }
+                      placeholder="Объект ёки мижоз талаби ҳақида қўшимча маълумот"
+                      rows={3}
+                      disabled={saving}
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="field">
+                    <span>Сўралаётган сумма</span>
+                    <input
+                      value={form.requestedAmount}
+                      onChange={(event) =>
+                        updateField(
+                          'requestedAmount',
+                          event.target.value.replace(/[^\d]/g, '')
+                        )
+                      }
+                      placeholder="Масалан: 300000000"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
 
-                <textarea
-                  value={form.nextAction}
-                  onChange={(event) =>
-                    updateField('nextAction', event.target.value)
-                  }
-                  placeholder="Масалан: паспорт маълумотларини текшириш"
-                  rows={3}
-                  disabled={saving}
-                />
+                  <label className="field">
+                    <span>Танланган банк</span>
+                    <input
+                      value={form.bankName}
+                      onChange={(event) =>
+                        updateField('bankName', event.target.value)
+                      }
+                      placeholder="Ҳозирча танланмаган"
+                      disabled={saving}
+                    />
+                  </label>
 
-                {fieldErrors.nextAction?.[0] ? (
-                  <small>{fieldErrors.nextAction[0]}</small>
-                ) : null}
-              </label>
+                  <label className="field field-wide">
+                    <span>Кейинги ҳаракат</span>
+                    <textarea
+                      value={form.nextAction}
+                      onChange={(event) =>
+                        updateField('nextAction', event.target.value)
+                      }
+                      placeholder="Масалан: паспорт маълумотларини текшириш"
+                      rows={3}
+                      disabled={saving}
+                    />
+                  </label>
+                </>
+              )}
             </div>
           </div>
 
