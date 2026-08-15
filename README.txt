@@ -1,27 +1,28 @@
-GK KIOSK IMAGE CAROUSEL v3
+GOLDEN KEY OS — БАНК ТАНЛАШ DROPDOWN
 
-ALMASHTIRILADI:
-crm/src/pages/KioskPage.jsx
+ЎЗГАРГАН ФАЙЛ:
+crm/src/components/bank-offers/BankOffersSection.jsx
 
-RASMLAR:
-crm/public/kiosk-ads/ad-1.png
-crm/public/kiosk-ads/ad-2.png
-crm/public/kiosk-ads/ad-3.png
-crm/public/kiosk-ads/ad-4.png
+НИМА ҚЎШИЛДИ:
+- «Банк номи» қўлда ёзиладиган input эмас, банклар рўйхатидан select.
+- Банклар /api/banks орқали базадан юкланади.
+- Фақат isActive=true банклар янги таклифда чиқади.
+- BANK_EMPLOYEE ролидаги ходимнинг ўз банки автоматик танланади.
+- BANK_EMPLOYEE банк номини ўзгартира олмайди.
+- Агар банк ходими аккаунтига bankId/банк бириктирилмаган бўлса, аниқ хатолик чиқади.
+- Админ/менежерлар рўйхатдан исталган фаол банкни танлай олади.
+- Эски таклиф таҳрирланганда банк рўйхатда бўлмаса ҳам эски номи сақланиб кўринади.
 
-ISHLASHI:
-- Kutish rejimida faqat BITTA rasm ko'rinadi.
-- Har 7 soniyada keyingi rasmga o'tadi.
-- 4-rasmdan keyin yana 1-rasmga qaytadi.
-- Rasm kesilmaydi: objectFit=contain.
-- Scroll yo'q.
-- QR_READY bo'lsa reklama darhol to'xtaydi va QR chiqadi.
-- SIGNED bo'lsa muvaffaqiyatli ekran ko'rinadi, keyin reklama qaytadi.
-- Backend o'zgarmaydi.
+ЎРНАТИШ:
+1. ZIP ни очинг.
+2. Ичидаги crm папкасини golden-key-os устига ташланг.
+3. Replace the files in the destination.
+4. GitHub Desktop:
+   Summary: Add bank selector to offers
+5. Commit to main → Push origin.
+6. CRM Railway deploy тугашини кутинг.
+7. Ctrl + F5 қилинг.
 
-DEPLOY:
-1) KioskPage.jsx ni almashtiring
-2) ad-1.png ... ad-4.png public/kiosk-ads ichida ekanini tekshiring
-3) Commit -> Push
-4) Frontend deploy
-5) Telefon kiosk sahifasini yangilang
+МУҲИМ:
+Банк ходимига банк Admin → Банклар бўлимида бириктирилган бўлиши керак.
+Backend /api/banks маршрути ишлаши керак.

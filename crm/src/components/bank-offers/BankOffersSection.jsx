@@ -201,8 +201,18 @@ function OfferModal({
   error,
   onClose,
   onSubmit,
+  banks,
+  banksLoading,
+  user,
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+
+  const isBankEmployee = user?.role === 'BANK_EMPLOYEE';
+
+  const ownBankName =
+    user?.bank?.name ||
+    banks.find((bank) => bank.id === user?.bankId)?.name ||
+    '';
 
   useEffect(() => {
     if (!open) return;
@@ -231,6 +241,17 @@ function OfferModal({
         : EMPTY_FORM
     );
   }, [open, offer]);
+
+  useEffect(() => {
+    if (!open || !isBankEmployee || !ownBankName) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      bankName: ownBankName,
+    }));
+  }, [open, isBankEmployee, ownBankName]);
 
   if (!open) return null;
 
@@ -268,13 +289,40 @@ function OfferModal({
           <div className="gk-bank-form-grid">
             <label className="gk-bank-span-2">
               <span>Банк номи *</span>
-              <input
+
+              <select
                 value={form.bankName}
                 onChange={(event) => update('bankName', event.target.value)}
-                placeholder="Масалан: Hamkorbank"
                 required
-                disabled={saving}
-              />
+                disabled={saving || banksLoading || isBankEmployee}
+              >
+                <option value="">
+                  {banksLoading
+                    ? 'Банклар юкланмоқда...'
+                    : '— Банкни танланг —'}
+                </option>
+
+                {form.bankName &&
+                !banks.some((bank) => bank.name === form.bankName) ? (
+                  <option value={form.bankName}>{form.bankName}</option>
+                ) : null}
+
+                {banks
+                  .filter((bank) => bank.isActive !== false)
+                  .map((bank) => (
+                    <option key={bank.id} value={bank.name}>
+                      {bank.shortName
+                        ? `${bank.shortName} — ${bank.name}`
+                        : bank.name}
+                    </option>
+                  ))}
+              </select>
+
+              {isBankEmployee ? (
+                <small className="gk-bank-field-note">
+                  Сизнинг банкингиз автоматик танланади.
+                </small>
+              ) : null}
             </label>
 
             <label>
@@ -595,6 +643,10 @@ export function BankOffersSection({
   const [busyId, setBusyId] = useState('');
   const [compareMode, setCompareMode] = useState(false);
 
+  const [banks, setBanks] = useState([]);
+  const [banksLoading, setBanksLoading] = useState(true);
+  const [banksError, setBanksError] = useState('');
+
   const comparison = useMemo(() => bestOfferIds(offers), [offers]);
 
   const comparableOffers = useMemo(
@@ -615,6 +667,33 @@ export function BankOffersSection({
     },
     [onOfferStateChange]
   );
+
+  const loadBanks = useCallback(async () => {
+    setBanksLoading(true);
+    setBanksError('');
+
+    try {
+      const data = await apiRequest('/banks');
+      const items = Array.isArray(data.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+
+      setBanks(items);
+    } catch (error) {
+      setBanks([]);
+      setBanksError(
+        error.message || 'Банклар рўйхатини юклаб бўлмади.'
+      );
+    } finally {
+      setBanksLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBanks();
+  }, [loadBanks]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -647,6 +726,17 @@ export function BankOffersSection({
   }, [load]);
 
   const openCreate = () => {
+    if (
+      role === 'BANK_EMPLOYEE' &&
+      !user?.bank?.name &&
+      !banks.some((bank) => bank.id === user?.bankId)
+    ) {
+      setPageError(
+        'Сизнинг аккаунтингизга банк бириктирилмаган. Администраторга мурожаат қилинг.'
+      );
+      return;
+    }
+
     setEditingOffer(null);
     setModalError('');
     setModalOpen(true);
@@ -759,6 +849,15 @@ export function BankOffersSection({
 
         .gk-bank-head-actions,
         .gk-bank-card-actions,
+
+        .gk-bank-field-note {
+          display: block;
+          margin-top: 6px;
+          color: #7b818a;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
         .gk-bank-modal-actions {
           display: flex;
           align-items: center;
@@ -1440,7 +1539,11 @@ export function BankOffersSection({
           }
         }}
         onSubmit={save}
-      />
+      
+          banks={banks}
+          banksLoading={banksLoading}
+          user={user}
+        />
     </>
   );
 }
