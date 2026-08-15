@@ -10,6 +10,7 @@ import {
   defaultContractHtml,
   realtorContractHtml,
 } from '../services/contract-template.js';
+import { createSignedFileUrl } from '../services/supabaseStorage.js';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ const createSchema = z.object({
 
 const qrSchema = z.object({
   expiresInMinutes: z.coerce.number().int().min(2).max(60).default(15),
+  kioskId: z.string().trim().min(1).optional().nullable(),
 });
 
 function hashToken(token) {
@@ -37,8 +39,10 @@ function hashToken(token) {
 
 async function generateContractDisplayId(tx, serviceType) {
   const year = new Date().getFullYear();
-  const code = serviceType === 'REALTOR_SERVICE' ? 'GK-RX' : 'GK-SH';
-  const prefix = `${code}-${year}-`;
+  const prefix =
+    serviceType === 'REALTOR_SERVICE'
+      ? `GK-RX-${year}-`
+      : `GK-SH-${year}-`;
 
   const latest = await tx.contract.findFirst({
     where: {
@@ -214,7 +218,18 @@ router.get(
         },
       });
 
-      return res.json({ items });
+      const itemsWithPdf = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          pdfUrl: item.pdfUrl
+            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
+            : null,
+        }))
+      );
+
+      return res.json({
+        items: itemsWithPdf,
+      });
     } catch (error) {
       next(error);
     }
@@ -245,7 +260,7 @@ router.post(
 
       if (
         caseItem.serviceType === 'REALTOR_SERVICE' &&
-        !(Number(parsed.data.serviceFee) > 0)
+        !(Number(parsed.data.serviceFee || caseItem.serviceFee) > 0)
       ) {
         return res.status(400).json({
           error: 'Риэлторлик шартномаси учун хизмат ҳақини киритинг',
@@ -445,6 +460,46 @@ router.post(
         width: 420,
       });
 
+      let kiosk = null;
+
+      if (parsed.data.kioskId) {
+        kiosk = await prisma.kioskDevice.findUnique({
+          where: {
+            id: parsed.data.kioskId,
+          },
+        });
+
+        if (!kiosk) {
+          return res.status(404).json({
+            error: 'QR экран қурилмаси топилмади',
+          });
+        }
+
+        if (
+          req.user.role !== 'SUPER_ADMIN' &&
+          req.user.role !== 'DIRECTOR' &&
+          req.user.branchId &&
+          kiosk.branchId !== req.user.branchId
+        ) {
+          return res.status(403).json({
+            error: 'Бошқа филиал QR экранига юбориш мумкин эмас',
+          });
+        }
+
+        await prisma.kioskDevice.update({
+          where: {
+            id: kiosk.id,
+          },
+          data: {
+            currentContractId: contract.id,
+            currentQrDataUrl: qrDataUrl,
+            currentSignUrl: signUrl,
+            qrExpiresAt: expiresAt,
+            displayStatus: 'QR_READY',
+          },
+        });
+      }
+
       return res.json({
         message: 'Бир марталик QR-код яратилди',
         contractId: contract.id,
@@ -452,6 +507,81 @@ router.post(
         expiresAt,
         signUrl,
         qrDataUrl,
+        kiosk: kiosk
+          ? {
+              id: kiosk.id,
+              name: kiosk.name,
+              deviceCode: kiosk.deviceCode,
+            }
+          : null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+router.post(
+  '/:contractId/pdf',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const { finalizeSignedContract } = await import(
+        '../services/contract-finalize.js'
+      );
+
+      const contract = await prisma.contract.findUnique({
+        where: {
+          id: req.params.contractId,
+        },
+        include: {
+          invitations: {
+            where: {
+              usedAt: {
+                not: null,
+              },
+            },
+            orderBy: {
+              usedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      });
+
+      if (!contract) {
+        return res.status(404).json({
+          error: 'Шартнома топилмади',
+        });
+      }
+
+      if (contract.status !== 'SIGNED' || !contract.signedAt) {
+        return res.status(409).json({
+          error: 'PDF фақат тасдиқланган шартнома учун яратилади',
+        });
+      }
+
+      const invitation = contract.invitations[0];
+
+      const result = await finalizeSignedContract({
+        contractId: contract.id,
+        confirmation: {
+          invitationId: invitation?.id || 'manual-regeneration',
+          signedAt: contract.signedAt,
+          ip: null,
+          userAgent: 'Golden Key OS manual PDF generation',
+        },
+      });
+
+      return res.json({
+        message: 'Шартнома PDF тайёр',
+        item: {
+          contractId: contract.id,
+          pdfUrl: result.pdfUrl,
+          telegram: result.telegram,
+          reused: result.reused,
+        },
       });
     } catch (error) {
       next(error);

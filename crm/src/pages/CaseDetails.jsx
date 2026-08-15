@@ -301,20 +301,29 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     loadCase();
   }, [loadCase]);
 
-  const loadExecutors = useCallback(async (branchId = '') => {
+  const loadExecutors = useCallback(async (branchId) => {
+    if (!branchId) {
+      setExecutors([]);
+      return;
+    }
+
     setExecutorsLoading(true);
     setExecutorError('');
 
     try {
-      const query = branchId
-        ? `?${new URLSearchParams({ branchId }).toString()}`
-        : '';
+      const params = new URLSearchParams({
+        branchId,
+      });
 
-      const data = await apiRequest(`/users/executors${query}`);
+      const data = await apiRequest(
+        `/users/executors?${params.toString()}`
+      );
+
       let items = Array.isArray(data.items) ? data.items : [];
 
-      // Агар филиал бўйича ҳеч ким чиқмаса, барча фаол ижрочиларни оламиз.
-      if (items.length === 0 && branchId) {
+      // Эски мурожаатларда branchId ходим филиали билан мос келмай қолган
+      // бўлиши мумкин. Агар рўйхат бўш бўлса, умумий фаол ижрочиларни оламиз.
+      if (items.length === 0) {
         const fallbackData = await apiRequest('/users/executors');
         items = Array.isArray(fallbackData.items)
           ? fallbackData.items
@@ -328,7 +337,6 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         setCanAssignExecutor(false);
         setExecutors([]);
       } else {
-        setExecutors([]);
         setExecutorError(
           error.message || 'Ижрочилар рўйхатини юклаб бўлмади.'
         );
@@ -339,26 +347,14 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   }, []);
 
   useEffect(() => {
-    if (!item) {
+    if (!item?.branchId) {
       return;
     }
 
-    const effectiveBranchId =
-      item.branchId ||
-      item.branch?.id ||
-      item.branch?.branchId ||
-      '';
-
     setExecutorId(item.executor?.id || '');
     setExecutorSuccess('');
-    loadExecutors(effectiveBranchId);
-  }, [
-    item,
-    item?.branchId,
-    item?.branch?.id,
-    item?.executor?.id,
-    loadExecutors,
-  ]);
+    loadExecutors(item.branchId);
+  }, [item?.branchId, item?.executor?.id, loadExecutors]);
 
   const currentTimelineIndex = useMemo(() => {
     if (!item) {
@@ -533,6 +529,21 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
     selectedBankOffer?.approvedAmount ??
     item.approvedAmount ??
     null;
+
+  const isMortgageService = [
+    'PRIMARY_MORTGAGE',
+    'SECONDARY_MORTGAGE',
+    'MICROLOAN',
+  ].includes(item.serviceType);
+
+  const isRealtorService = item.serviceType === 'REALTOR_SERVICE';
+
+  const realtorLines = isRealtorService
+    ? String(item.nextAction || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
 
   return (
     <div className="case-details-page">
@@ -744,7 +755,9 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           </div>
 
           <div className="case-hero-amount">
-            <span>Сўралаётган сумма</span>
+            <span>
+              {isRealtorService ? 'Объект нархи' : 'Сўралаётган сумма'}
+            </span>
             <strong>{formatAmount(item.requestedAmount)}</strong>
           </div>
         </div>
@@ -770,11 +783,13 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             <strong>{item.executor?.fullName || 'Бириктирилмаган'}</strong>
           </div>
 
-          <div>
-            <Landmark size={16} />
-            <span>Банк</span>
-            <strong>{displayedBankName}</strong>
-          </div>
+          {isMortgageService ? (
+            <div>
+              <Landmark size={16} />
+              <span>Банк</span>
+              <strong>{displayedBankName}</strong>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -834,6 +849,50 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               />
             </div>
           </section>
+
+          {isRealtorService ? (
+            <section className="panel details-section">
+              <div className="details-section-head">
+                <div>
+                  <span className="section-kicker">Риэлторлик</span>
+                  <h3>Объект ва хизмат маълумотлари</h3>
+                  <p>Янги мурожаатда киритилган риэлторлик маълумотлари.</p>
+                </div>
+                <BriefcaseBusiness size={22} />
+              </div>
+
+              {realtorLines.length ? (
+                <div className="details-card-list">
+                  {realtorLines.map((line, index) => {
+                    const separatorIndex = line.indexOf(':');
+                    const label =
+                      separatorIndex >= 0
+                        ? line.slice(0, separatorIndex).trim()
+                        : 'Маълумот';
+                    const value =
+                      separatorIndex >= 0
+                        ? line.slice(separatorIndex + 1).trim()
+                        : line;
+
+                    return (
+                      <div className="payment-card" key={`${line}-${index}`}>
+                        <div>
+                          <span>{label}</span>
+                          <strong>{value || '—'}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyBlock
+                  icon={BriefcaseBusiness}
+                  title="Риэлторлик маълумотлари киритилмаган"
+                  text="Мурожаатни таҳрирлаш орқали объект маълумотларини киритиш мумкин."
+                />
+              )}
+            </section>
+          ) : null}
 
           <section className="panel details-section">
             <div className="details-section-head">
@@ -898,16 +957,20 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             )}
           </section>
 
-          <ParticipantsSection
-            caseItem={item}
-            onChanged={async () => {
-              await loadCase();
-              await onChanged?.();
-            }}
-          />
+          {isMortgageService ? (
+            <ParticipantsSection
+              caseItem={item}
+              onChanged={async () => {
+                await loadCase();
+                await onChanged?.();
+              }}
+            />
+          ) : null}
 
+          {isMortgageService ? (
+            <>
           <section className="panel details-section">
-            <div className="details-section-head">
+              <div className="details-section-head">
               <div>
                 <span className="section-kicker">Гаров</span>
                 <h3>Гаровга олинаётган мулк маълумотлари</h3>
@@ -1161,6 +1224,9 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
               />
             )}
           </section>
+
+            </>
+          ) : null}
 
           <DocumentsSection
             caseId={item.id}
