@@ -5,6 +5,17 @@ const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const CRM_API = process.env.CRM_API;
 const BOT_INTERNAL_SECRET = process.env.BOT_INTERNAL_SECRET;
 
+const TELEGRAM_CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
+const PUBLIC_BOT_USERNAME =
+  (process.env.PUBLIC_BOT_USERNAME || 'gkos_bot').replace(/^@/, '');
+
+const POSTING_ADMIN_IDS = new Set(
+  String(process.env.POSTING_ADMIN_IDS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
+
 if (!token) {
   console.log('BOT_TOKEN ҳали киритилмаган.');
   process.exit(0);
@@ -114,77 +125,6 @@ async function callCrm(path, options = {}) {
   return data;
 }
 
-
-async function trackProgress(telegramId, step, extra = {}) {
-  try {
-    await callCrm('/telegram/progress', {
-      method: 'POST',
-      body: JSON.stringify({
-        telegramId,
-        step,
-        serviceType: extra.serviceType || null,
-      }),
-    });
-  } catch (error) {
-    console.error(
-      `Progress track error (${step}):`,
-      error.message
-    );
-  }
-}
-
-const FUNNEL_STEP_LABELS = {
-  STARTED: 'ботга кириш',
-  APPLICATION_STARTED: 'мурожаатни бошлаш',
-  PHONE_SENT: 'телефон рақами',
-  SERVICE_SELECTED: 'хизмат танлаш',
-  AMOUNT_ENTERED: 'суммани киритиш',
-  COMMENT_DONE: 'изоҳ',
-  NAME_ENTERED: 'Ф.И.Ш.',
-  CONFIRMATION_REACHED: 'тасдиқлаш',
-};
-
-async function sendAbandonedReminders() {
-  try {
-    const data = await callCrm(
-      '/telegram/abandoned-due?minutes=30&limit=20'
-    );
-
-    for (const item of data.items || []) {
-      try {
-        const stepLabel =
-          FUNNEL_STEP_LABELS[item.funnelStep] ||
-          'мурожаат';
-
-        await bot.telegram.sendMessage(
-          item.telegramId,
-          `Салом${item.firstName ? `, ${item.firstName}` : ''}! 👋\n\n` +
-            `Сиз Golden Key Info ботида мурожаатни бошлаган эдингиз, лекин ${stepLabel} босқичида тўхтаб қолдингиз.\n\n` +
-            `Давом эттириш учун «🆕 Янги мурожаат» тугмасини босинг. Агар ҳозир керак бўлмаса, хабарни эътиборсиз қолдиришингиз мумкин.`,
-          MAIN_MENU
-        );
-
-        await callCrm('/telegram/reminder-sent', {
-          method: 'POST',
-          body: JSON.stringify({
-            visitId: item.visitId,
-          }),
-        });
-      } catch (error) {
-        console.error(
-          'Abandoned reminder send error:',
-          error.message
-        );
-      }
-    }
-  } catch (error) {
-    console.error(
-      'Abandoned reminder scan error:',
-      error.message
-    );
-  }
-}
-
 /* =========================================================
    /start
 ========================================================= */
@@ -256,8 +196,6 @@ bot.hears('🆕 Янги мурожаат', async (ctx) => {
     },
   });
 
-  await trackProgress(ctx.from.id, 'APPLICATION_STARTED');
-
   await ctx.reply(
     'Мурожаат қолдириш учун аввало телефон рақамингизни тасдиқлаймиз.',
     Markup.keyboard([
@@ -297,8 +235,6 @@ bot.on('contact', async (ctx) => {
         .join(' ') || null;
     session.step = 'service_type';
     setSession(telegramId, session);
-
-    await trackProgress(telegramId, 'PHONE_SENT');
 
     await ctx.reply(
       'Раҳмат! Энди қандай хизмат кераклигини танланг:',
@@ -370,10 +306,6 @@ bot.action(/^svc:(.+)$/, async (ctx) => {
   session.step = 'amount';
   setSession(telegramId, session);
 
-  await trackProgress(telegramId, 'SERVICE_SELECTED', {
-    serviceType: session.data.serviceType,
-  });
-
   await ctx.answerCbQuery();
   await ctx
     .editMessageText(`Танланди: ${serviceTypeLabel(session.data.serviceType)}`)
@@ -400,8 +332,6 @@ bot.action('amount:skip', async (ctx) => {
   session.step = 'comment';
   setSession(telegramId, session);
 
-  await trackProgress(telegramId, 'AMOUNT_ENTERED');
-
   await ctx.answerCbQuery();
   await ctx.editMessageText('Сумма кўрсатилмади.').catch(() => {});
 
@@ -425,8 +355,6 @@ bot.action('comment:skip', async (ctx) => {
   session.data.comment = null;
   session.step = 'fullname';
   setSession(telegramId, session);
-
-  await trackProgress(telegramId, 'COMMENT_DONE');
 
   await ctx.answerCbQuery();
   await ctx.editMessageText('Изоҳ киритилмади.').catch(() => {});
@@ -490,8 +418,6 @@ bot.on('text', async (ctx, next) => {
     session.step = 'comment';
     setSession(telegramId, session);
 
-    await trackProgress(telegramId, 'AMOUNT_ENTERED');
-
     await ctx.reply(
       'Қўшимча изоҳ ёзмоқчимисиз? Бўлмаса, пастдаги тугмани босинг.',
       Markup.inlineKeyboard([
@@ -506,8 +432,6 @@ bot.on('text', async (ctx, next) => {
     session.step = 'fullname';
     setSession(telegramId, session);
 
-    await trackProgress(telegramId, 'COMMENT_DONE');
-
     await askFullName(ctx, session);
     return;
   }
@@ -521,12 +445,6 @@ bot.on('text', async (ctx, next) => {
     session.data.fullName = text.slice(0, 200);
     session.step = 'confirm';
     setSession(telegramId, session);
-
-    await trackProgress(telegramId, 'NAME_ENTERED');
-    await trackProgress(
-      telegramId,
-      'CONFIRMATION_REACHED'
-    );
 
     await sendConfirmation(ctx, session);
     return;
@@ -583,8 +501,6 @@ bot.action('case:confirm', async (ctx) => {
 
 bot.action('case:cancel', async (ctx) => {
   const telegramId = ctx.from.id;
-
-  await trackProgress(telegramId, 'CANCELLED');
   clearSession(telegramId);
 
   await ctx.answerCbQuery();
@@ -622,19 +538,81 @@ bot.hears('📄 Аризам ҳолати', async (ctx) => {
   }
 });
 
+
+/* =========================================================
+   КАНАЛГА TRACKING ТУГМАСИ БИЛАН РЕКЛАМА ПОСТИ
+   Команда: /post_ipoteka
+========================================================= */
+function isPostingAdmin(ctx) {
+  return POSTING_ADMIN_IDS.has(String(ctx.from?.id || ''));
+}
+
+bot.command('post_ipoteka', async (ctx) => {
+  if (!isPostingAdmin(ctx)) {
+    await ctx.reply('Бу команда фақат рухсат берилган администраторлар учун.');
+    return;
+  }
+
+  if (!TELEGRAM_CHANNEL_ID) {
+    await ctx.reply(
+      'TELEGRAM_CHANNEL_ID Railway Variables ичида киритилмаган.'
+    );
+    return;
+  }
+
+  const startParameter = 'telegram_ipoteka_01';
+  const applicationUrl =
+    `https://t.me/${PUBLIC_BOT_USERNAME}?start=${startParameter}`;
+
+  const postText =
+    `🏠 <b>УЙ ОЛМОҚЧИМИСИЗ? СИЗГА ҚАНЧА ИПОТЕКА ЧИҚИШИНИ БИЛМОҚЧИМИСИЗ?</b>\n\n` +
+    `Golden Key Info орқали маълумотларингизни қолдиринг — мутахассисларимиз сизга мос ипотека вариантларини кўриб чиқишда ёрдам беради.\n\n` +
+    `🏢 Бирламчи ипотека — 430 млн сўмгача\n` +
+    `🏡 Иккиламчи ипотека — 100 млндан 1,5 млрд сўмгача\n` +
+    `💰 Микроқарз — 50 млндан 1,5 млрд сўмгача\n\n` +
+    `✅ Ариза қолдириш бепул\n` +
+    `✅ Бир нечта банк вариантларини кўриб чиқиш имконияти\n` +
+    `✅ Мутахассис ёрдами\n` +
+    `✅ Маълумотлар махфий сақланади\n\n` +
+    `📞 Телефон: +998 99 999 79 73`;
+
+  try {
+    const sent = await bot.telegram.sendMessage(
+      TELEGRAM_CHANNEL_ID,
+      postText,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '🔴 БЕПУЛ АРИЗА ҚОЛДИРИШ',
+                url: applicationUrl,
+              },
+            ],
+          ],
+        },
+        disable_web_page_preview: true,
+      }
+    );
+
+    await ctx.reply(
+      `✅ Пост каналга тугма билан жойланди.\n` +
+      `Tracking: ${startParameter}\n` +
+      `Message ID: ${sent.message_id}`
+    );
+  } catch (error) {
+    console.error('Channel post error:', error);
+    await ctx.reply(
+      `Постни каналга юбориб бўлмади: ${error.message}\n\n` +
+      `Бот каналга администратор қилиб қўшилганини текширинг.`
+    );
+  }
+});
+
 bot
   .launch()
-  .then(() => {
-    console.log('Golden Key OS Telegram bot ишга тушди');
-
-    // Ҳар 5 дақиқада 30+ дақиқа тўхтаб қолган
-    // анкеталарни текшириб, бир марта эслатма юборади.
-    setTimeout(sendAbandonedReminders, 60 * 1000);
-    setInterval(
-      sendAbandonedReminders,
-      5 * 60 * 1000
-    );
-  });
+  .then(() => console.log('Golden Key OS Telegram bot ишга тушди'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

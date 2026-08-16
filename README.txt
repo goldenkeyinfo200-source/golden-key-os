@@ -1,52 +1,38 @@
-GOLDEN KEY OS — БОТ ВОРОНКАСИ + ТАШЛАБ КЕТГАНЛАР
+GOLDEN KEY OS — Telegram channel post + inline tracking button
 
 Алмаштиринг:
-1. backend/prisma/schema.prisma
-2. backend/src/routes/telegram.js
-3. backend/src/routes/cases.js
-4. crm/src/pages/MarketingStatsPage.jsx
-5. telegram-bot/src/index.js
+telegram-bot/src/index.js
 
-Янги migration:
-backend/prisma/migrations/20260817_marketing_funnel_steps/migration.sql
+Railway -> telegram-bot -> Variables га қўшинг:
 
-Натижа:
-- /start -> STARTED
-- Янги мурожаат -> APPLICATION_STARTED
-- Телефон -> PHONE_SENT
-- Хизмат -> SERVICE_SELECTED
-- Сумма -> AMOUNT_ENTERED
-- Изоҳ -> COMMENT_DONE
-- Ф.И.Ш. -> NAME_ENTERED
-- Тасдиқлаш -> CONFIRMATION_REACHED
-- CRM Case яратилди -> CASE_CREATED
-- Бекор қилди -> CANCELLED
+TELEGRAM_CHANNEL_ID
+- Канал ID ёки @username.
+- Масалан: @gk_ipoteka
+- Агар private channel бўлса: -100xxxxxxxxxx кўринишидаги ID.
 
-CRM "Реклама статистикаси"да:
-- Ботга кирган
-- Мурожаатни бошлаган
-- Телефон
-- Хизмат танлаган
-- Тасдиқлашга етган
-- Мурожаат юборган
-- Ташлаб кетган
-- Қаерда тўхтагани
-- Telegram username/ID
-- Фаол эмас дақиқаси
-- Эслатма юборилган/йўқ
+PUBLIC_BOT_USERNAME
+- gkos_bot
+- @ белгисиз ҳам бўлади.
 
-Авто эслатма:
-- Фақат "Янги мурожаат"ни бошлаганларга.
-- 30 дақиқа давом эттирмаса.
-- telegram-bot ҳар 5 дақиқада текширади.
-- Бир фойдаланувчига бир марта эслатма юборади.
+POSTING_ADMIN_IDS
+- Пост чиқаришга рухсат берилган Telegram user ID'лар.
+- Бир нечта бўлса вергул билан:
+  123456789,987654321
 
-Қўйгандан кейин:
-Commit -> Push origin
+Муҳим:
+1. gkos_bot каналга ADMIN бўлиши керак.
+2. Bot'га "Post Messages" ҳуқуқи берилиши керак.
+3. Deploy бўлгандан кейин рухсат берилган админ ботга:
+   /post_ipoteka
+   деб ёзади.
+4. Бот каналга постни қуйидаги inline тугма билан чиқаради:
+   🔴 БЕПУЛ АРИЗА ҚОЛДИРИШ
+5. Тугма:
+   https://t.me/gkos_bot?start=telegram_ipoteka_01
+   орқали очилади.
+6. Шу сабаб CRM'да campaign = ipoteka_01 сифатида ҳисобланади.
 
-Railway deploy:
-- backend
-- crm
-- telegram-bot
-
-Мавжуд Case ва шартномалар ўчмайди.
+Кейин янги рекламалар учун алоҳида command / startParameter қўшиш мумкин:
+telegram_ipoteka_02
+telegram_microloan_01
+instagram_ipoteka_01
