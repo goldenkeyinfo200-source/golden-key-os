@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Building2,
+  Crown,
   MapPin,
   Pencil,
   Phone,
   Plus,
   RefreshCw,
+  UserMinus,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -19,6 +22,16 @@ const EMPTY_FORM = {
   phone: '',
 };
 
+const ROLE_LABELS = {
+  SUPER_ADMIN: 'Бош администратор',
+  DIRECTOR: 'Директор',
+  BRANCH_MANAGER: 'Филиал раҳбари',
+  RECEPTION_MANAGER: 'Қабул менежери',
+  EXECUTOR: 'Ижрочи',
+  LAWYER: 'Юрист',
+  ACCOUNTANT: 'Бухгалтер',
+};
+
 export function BranchesPage({ user }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +42,16 @@ export function BranchesPage({ user }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [staffBranch, setStaffBranch] = useState(null);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState('');
+  const [assignedStaff, setAssignedStaff] = useState([]);
+  const [candidates, setCandidates] = useState([]);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [selectedManagerId, setSelectedManagerId] = useState('');
+  const [staffSaving, setStaffSaving] = useState(false);
 
   const canManage = useMemo(
     () => ['SUPER_ADMIN', 'DIRECTOR'].includes(user?.role),
@@ -74,7 +97,6 @@ export function BranchesPage({ user }) {
 
   const closeModal = (force = false) => {
     if (saving && !force) return;
-
     setModalOpen(false);
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -120,6 +142,144 @@ export function BranchesPage({ user }) {
       setSaving(false);
     }
   };
+
+  const loadBranchStaff = useCallback(async (branchId) => {
+    setStaffLoading(true);
+    setStaffError('');
+
+    try {
+      const data = await apiRequest(`/branches/${branchId}/staff`);
+      setAssignedStaff(Array.isArray(data.assigned) ? data.assigned : []);
+      setCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+      setSelectedManagerId(data.manager?.id || '');
+      setSelectedStaffId('');
+    } catch (requestError) {
+      setStaffError(
+        requestError.message || 'Филиал ходимларини юклаб бўлмади.'
+      );
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  const openStaff = async (branch) => {
+    setStaffBranch(branch);
+    setStaffModalOpen(true);
+    setAssignedStaff([]);
+    setCandidates([]);
+    setSelectedStaffId('');
+    setSelectedManagerId('');
+    setStaffError('');
+    await loadBranchStaff(branch.id);
+  };
+
+  const closeStaff = () => {
+    if (staffSaving) return;
+    setStaffModalOpen(false);
+    setStaffBranch(null);
+    setAssignedStaff([]);
+    setCandidates([]);
+    setSelectedStaffId('');
+    setSelectedManagerId('');
+    setStaffError('');
+  };
+
+  const attachStaff = async () => {
+    if (!staffBranch || !selectedStaffId) {
+      setStaffError('Бириктириш учун ходимни танланг.');
+      return;
+    }
+
+    setStaffSaving(true);
+    setStaffError('');
+
+    try {
+      await apiRequest(`/branches/${staffBranch.id}/staff`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: selectedStaffId }),
+      });
+
+      await Promise.all([
+        loadBranchStaff(staffBranch.id),
+        loadBranches(),
+      ]);
+    } catch (requestError) {
+      setStaffError(
+        requestError.message || 'Ходимни филиалга бириктириб бўлмади.'
+      );
+    } finally {
+      setStaffSaving(false);
+    }
+  };
+
+  const setManager = async () => {
+    if (!staffBranch || !selectedManagerId) {
+      setStaffError('Филиал раҳбарини танланг.');
+      return;
+    }
+
+    setStaffSaving(true);
+    setStaffError('');
+
+    try {
+      await apiRequest(`/branches/${staffBranch.id}/manager`, {
+        method: 'PATCH',
+        body: JSON.stringify({ userId: selectedManagerId }),
+      });
+
+      await Promise.all([
+        loadBranchStaff(staffBranch.id),
+        loadBranches(),
+      ]);
+    } catch (requestError) {
+      setStaffError(
+        requestError.message || 'Филиал раҳбарини тайинлаб бўлмади.'
+      );
+    } finally {
+      setStaffSaving(false);
+    }
+  };
+
+  const removeStaff = async (staff) => {
+    if (!staffBranch) return;
+
+    const confirmed = window.confirm(
+      `${staff.fullName}ни ${staffBranch.name} филиалидан чиқарасизми?`
+    );
+
+    if (!confirmed) return;
+
+    setStaffSaving(true);
+    setStaffError('');
+
+    try {
+      await apiRequest(
+        `/branches/${staffBranch.id}/staff/${staff.id}`,
+        { method: 'DELETE' }
+      );
+
+      await Promise.all([
+        loadBranchStaff(staffBranch.id),
+        loadBranches(),
+      ]);
+    } catch (requestError) {
+      setStaffError(
+        requestError.message || 'Ходимни филиалдан чиқариб бўлмади.'
+      );
+    } finally {
+      setStaffSaving(false);
+    }
+  };
+
+  const attachableCandidates = candidates.filter(
+    (candidate) =>
+      !assignedStaff.some((staff) => staff.id === candidate.id) &&
+      candidate.role !== 'SUPER_ADMIN'
+  );
+
+  const managerCandidates = assignedStaff.filter(
+    (staff) => staff.isActive && staff.role !== 'SUPER_ADMIN'
+  );
 
   return (
     <section className="panel">
@@ -224,41 +384,17 @@ export function BranchesPage({ user }) {
               </div>
 
               <div style={{ display: 'grid', gap: 11, marginTop: 18 }}>
-                <span
-                  style={{
-                    display: 'flex',
-                    gap: 9,
-                    alignItems: 'center',
-                    fontSize: 12,
-                    color: '#535963',
-                  }}
-                >
+                <span style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 12, color: '#535963' }}>
                   <MapPin size={16} />
                   {branch.address || 'Манзил киритилмаган'}
                 </span>
 
-                <span
-                  style={{
-                    display: 'flex',
-                    gap: 9,
-                    alignItems: 'center',
-                    fontSize: 12,
-                    color: '#535963',
-                  }}
-                >
+                <span style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 12, color: '#535963' }}>
                   <Phone size={16} />
                   {branch.phone || 'Телефон киритилмаган'}
                 </span>
 
-                <span
-                  style={{
-                    display: 'flex',
-                    gap: 9,
-                    alignItems: 'center',
-                    fontSize: 12,
-                    color: '#535963',
-                  }}
-                >
+                <span style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 12, color: '#535963' }}>
                   <Users size={16} />
                   {branch.employeesCount ?? branch._count?.users ?? 0} нафар ходим
                 </span>
@@ -280,6 +416,18 @@ export function BranchesPage({ user }) {
                   {branch.manager?.fullName || 'Тайинланмаган'}
                 </strong>
               </div>
+
+              {canManage ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{ width: '100%', marginTop: 14, justifyContent: 'center' }}
+                  onClick={() => openStaff(branch)}
+                >
+                  <Users size={16} />
+                  Ходимларни бошқариш
+                </button>
+              ) : null}
             </article>
           ))}
         </div>
@@ -289,9 +437,7 @@ export function BranchesPage({ user }) {
         <div
           className="modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeModal();
-            }
+            if (event.target === event.currentTarget) closeModal();
           }}
         >
           <div className="case-modal" style={{ width: 'min(720px, 100%)' }}>
@@ -393,24 +539,133 @@ export function BranchesPage({ user }) {
               {formError ? <div className="form-error">{formError}</div> : null}
 
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => closeModal()}
-                  disabled={saving}
-                >
+                <button type="button" className="secondary-button" onClick={() => closeModal()} disabled={saving}>
                   Бекор қилиш
                 </button>
-
-                <button
-                  type="submit"
-                  className="primary modal-save"
-                  disabled={saving}
-                >
+                <button type="submit" className="primary modal-save" disabled={saving}>
                   {saving ? 'Сақланмоқда...' : editing ? 'Ўзгаришни сақлаш' : 'Сақлаш'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {staffModalOpen && staffBranch ? (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeStaff();
+          }}
+        >
+          <div className="case-modal" style={{ width: 'min(860px, 100%)' }}>
+            <div className="modal-header">
+              <div>
+                <span className="section-kicker">ФИЛИАЛ ХОДИМЛАРИ</span>
+                <h2>{staffBranch.name}</h2>
+                <p>Ходимларни филиалга бириктиринг ва филиал раҳбарини тайинланг.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={closeStaff} disabled={staffSaving} aria-label="Ойнани ёпиш">
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="case-form">
+              {staffError ? <div className="form-error">{staffError}</div> : null}
+
+              <section className="form-section">
+                <div className="form-section-title">
+                  <strong>Ходим бириктириш</strong>
+                  <span>Филиалга бириктирилмаган фаол ходимлардан танланг.</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                  <label className="field">
+                    <span>Ходим</span>
+                    <select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} disabled={staffLoading || staffSaving}>
+                      <option value="">Ходимни танланг</option>
+                      {attachableCandidates.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.fullName} — {ROLE_LABELS[staff.role] || staff.role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button type="button" className="primary" onClick={attachStaff} disabled={staffLoading || staffSaving || !selectedStaffId}>
+                    <UserPlus size={16} />
+                    Бириктириш
+                  </button>
+                </div>
+              </section>
+
+              <section className="form-section">
+                <div className="form-section-title">
+                  <strong>Филиал раҳбари</strong>
+                  <span>Янги раҳбар тайинланса, аввалги раҳбар қабул менежери ролига ўтказилади.</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                  <label className="field">
+                    <span>Раҳбар</span>
+                    <select value={selectedManagerId} onChange={(event) => setSelectedManagerId(event.target.value)} disabled={staffLoading || staffSaving}>
+                      <option value="">Раҳбарни танланг</option>
+                      {managerCandidates.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.fullName} — {ROLE_LABELS[staff.role] || staff.role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button type="button" className="primary" onClick={setManager} disabled={staffLoading || staffSaving || !selectedManagerId}>
+                    <Crown size={16} />
+                    Раҳбар тайинлаш
+                  </button>
+                </div>
+              </section>
+
+              <section className="form-section">
+                <div className="form-section-title">
+                  <strong>Филиалдаги ходимлар</strong>
+                  <span>{assignedStaff.length} нафар ходим</span>
+                </div>
+
+                {staffLoading ? (
+                  <div className="empty"><strong>Ходимлар юкланмоқда...</strong></div>
+                ) : assignedStaff.length === 0 ? (
+                  <div className="empty">
+                    <Users size={34} />
+                    <strong>Филиалга ҳали ходим бириктирилмаган</strong>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {assignedStaff.map((staff) => (
+                      <div key={staff.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', border: '1px solid #ececec', borderRadius: 10 }}>
+                        <div style={{ display: 'grid', gap: 3 }}>
+                          <strong style={{ fontSize: 13 }}>{staff.fullName}</strong>
+                          <span style={{ fontSize: 11, color: '#858b94' }}>
+                            {ROLE_LABELS[staff.role] || staff.role}
+                            {staff.phone ? ` · ${staff.phone}` : ''}
+                          </span>
+                        </div>
+
+                        <button type="button" className="secondary-button" onClick={() => removeStaff(staff)} disabled={staffSaving} title="Филиалдан чиқариш">
+                          <UserMinus size={15} />
+                          Чиқариш
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={closeStaff} disabled={staffSaving}>
+                  Ёпиш
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

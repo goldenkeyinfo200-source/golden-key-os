@@ -52,14 +52,11 @@ function dateRangeWhere(from, to) {
 }
 
 function branchScope(req) {
-  if (
-    req.user.role === 'BRANCH_MANAGER' &&
-    req.user.branchId
-  ) {
-    return req.user.branchId;
+  if (req.user.role === 'SUPER_ADMIN') {
+    return null;
   }
 
-  return null;
+  return req.user.branchId || '__NO_BRANCH__';
 }
 
 router.use(auth);
@@ -111,7 +108,18 @@ router.get('/', async (req, res, next) => {
         : '';
 
     const fixedBranchId = branchScope(req);
-    const branchId = fixedBranchId || requestedBranchId || '';
+
+    if (fixedBranchId === '__NO_BRANCH__') {
+      return res.status(403).json({
+        error:
+          'Сизга филиал бириктирилмаган. Молиявий ҳисоботларни кўриш учун администратор филиал бириктириши керак.',
+      });
+    }
+
+    const branchId =
+      req.user.role === 'SUPER_ADMIN'
+        ? requestedBranchId || ''
+        : fixedBranchId;
 
     const caseWhere = {
       serviceFee: {
@@ -274,11 +282,12 @@ router.get('/', async (req, res, next) => {
     const items = filteredRows.slice(start, start + limit);
 
     const branches = await prisma.branch.findMany({
-      where: fixedBranchId
-        ? {
-            id: fixedBranchId,
-          }
-        : undefined,
+      where:
+        req.user.role === 'SUPER_ADMIN'
+          ? undefined
+          : {
+              id: fixedBranchId,
+            },
       select: {
         id: true,
         name: true,
@@ -364,14 +373,19 @@ router.post('/payments', async (req, res, next) => {
       });
     }
 
-    if (
-      req.user.role === 'BRANCH_MANAGER' &&
-      req.user.branchId &&
-      caseItem.branchId !== req.user.branchId
-    ) {
-      return res.status(403).json({
-        error: 'Бошқа филиал мурожаатига тўлов кирита олмайсиз',
-      });
+    if (req.user.role !== 'SUPER_ADMIN') {
+      if (!req.user.branchId) {
+        return res.status(403).json({
+          error:
+            'Сизга филиал бириктирилмаган. Тўлов киритиш учун администратор филиал бириктириши керак.',
+        });
+      }
+
+      if (caseItem.branchId !== req.user.branchId) {
+        return res.status(403).json({
+          error: 'Бошқа филиал мурожаатига тўлов кирита олмайсиз',
+        });
+      }
     }
 
     const serviceFee = toNumber(caseItem.serviceFee);

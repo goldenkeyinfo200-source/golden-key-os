@@ -38,6 +38,25 @@ const branchSchema = z.object({
     .or(z.literal('')),
 });
 
+
+const STAFF_ROLES = [
+  'SUPER_ADMIN',
+  'DIRECTOR',
+  'BRANCH_MANAGER',
+  'RECEPTION_MANAGER',
+  'EXECUTOR',
+  'LAWYER',
+  'ACCOUNTANT',
+];
+
+const assignStaffSchema = z.object({
+  userId: z.string().trim().min(1, 'Ходим танланмаган'),
+});
+
+const setManagerSchema = z.object({
+  userId: z.string().trim().min(1, 'Раҳбар танланмаган'),
+});
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -585,6 +604,285 @@ router.patch(
         message:
           'Филиал маълумотлари янгиланди',
 
+        item,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   GET /api/branches/:id/staff
+========================================================= */
+
+router.get(
+  '/:id/staff',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const branch = await prisma.branch.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, city: true, companyId: true },
+      });
+
+      if (!branch) {
+        return res.status(404).json({ error: 'Филиал топилмади' });
+      }
+
+      const [assigned, candidates] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            branchId: branch.id,
+            role: { in: STAFF_ROLES },
+          },
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true,
+            login: true,
+            role: true,
+            isActive: true,
+            branchId: true,
+          },
+          orderBy: { fullName: 'asc' },
+        }),
+        prisma.user.findMany({
+          where: {
+            role: { in: STAFF_ROLES },
+            isActive: true,
+            OR: [{ branchId: null }, { branchId: branch.id }],
+          },
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true,
+            login: true,
+            role: true,
+            isActive: true,
+            branchId: true,
+          },
+          orderBy: { fullName: 'asc' },
+        }),
+      ]);
+
+      const manager =
+        assigned.find(
+          (item) => item.role === 'BRANCH_MANAGER' && item.isActive
+        ) || null;
+
+      return res.json({ branch, manager, assigned, candidates });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/* =========================================================
+   POST /api/branches/:id/staff
+========================================================= */
+
+router.post(
+  '/:id/staff',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const parsed = assignStaffSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Ходим маълумоти нотўғри',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const [branch, user] = await Promise.all([
+        prisma.branch.findUnique({ where: { id: req.params.id } }),
+        prisma.user.findUnique({ where: { id: parsed.data.userId } }),
+      ]);
+
+      if (!branch) {
+        return res.status(404).json({ error: 'Филиал топилмади' });
+      }
+
+      if (!user || !STAFF_ROLES.includes(user.role)) {
+        return res.status(404).json({ error: 'Ходим топилмади' });
+      }
+
+      if (user.role === 'SUPER_ADMIN') {
+        return res.status(400).json({
+          error: 'SUPER_ADMIN филиалга оддий ходим сифатида бириктирилмайди',
+        });
+      }
+
+      if (user.branchId && user.branchId !== branch.id) {
+        return res.status(409).json({
+          error:
+            'Ходим бошқа филиалга бириктирилган. Аввал ўша филиалдан чиқаринг.',
+        });
+      }
+
+      const item = await prisma.user.update({
+        where: { id: user.id },
+        data: { branchId: branch.id },
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          email: true,
+          login: true,
+          role: true,
+          isActive: true,
+          branchId: true,
+        },
+      });
+
+      return res.json({
+        message: 'Ходим филиалга бириктирилди',
+        item,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/* =========================================================
+   PATCH /api/branches/:id/manager
+========================================================= */
+
+router.patch(
+  '/:id/manager',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const parsed = setManagerSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Раҳбар маълумоти нотўғри',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const [branch, user] = await Promise.all([
+        prisma.branch.findUnique({ where: { id: req.params.id } }),
+        prisma.user.findUnique({ where: { id: parsed.data.userId } }),
+      ]);
+
+      if (!branch) {
+        return res.status(404).json({ error: 'Филиал топилмади' });
+      }
+
+      if (!user || !STAFF_ROLES.includes(user.role) || !user.isActive) {
+        return res.status(404).json({ error: 'Фаол ходим топилмади' });
+      }
+
+      if (user.role === 'SUPER_ADMIN') {
+        return res.status(400).json({
+          error: 'SUPER_ADMIN филиал раҳбари қилиб тайинланмайди',
+        });
+      }
+
+      if (user.branchId && user.branchId !== branch.id) {
+        return res.status(409).json({
+          error:
+            'Ходим бошқа филиалга бириктирилган. Аввал ўша филиалдан чиқаринг.',
+        });
+      }
+
+      const item = await prisma.$transaction(async (tx) => {
+        await tx.user.updateMany({
+          where: {
+            branchId: branch.id,
+            role: 'BRANCH_MANAGER',
+            id: { not: user.id },
+          },
+          data: { role: 'RECEPTION_MANAGER' },
+        });
+
+        return tx.user.update({
+          where: { id: user.id },
+          data: {
+            branchId: branch.id,
+            role: 'BRANCH_MANAGER',
+            isActive: true,
+          },
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true,
+            login: true,
+            role: true,
+            isActive: true,
+            branchId: true,
+          },
+        });
+      });
+
+      return res.json({
+        message: 'Филиал раҳбари тайинланди',
+        item,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/* =========================================================
+   DELETE /api/branches/:id/staff/:userId
+========================================================= */
+
+router.delete(
+  '/:id/staff/:userId',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.params.userId },
+      });
+
+      if (
+        !user ||
+        !STAFF_ROLES.includes(user.role) ||
+        user.branchId !== req.params.id
+      ) {
+        return res.status(404).json({
+          error: 'Ушбу филиалда бундай ходим топилмади',
+        });
+      }
+
+      if (user.id === req.user.id) {
+        return res.status(400).json({
+          error: 'Ўзингизни филиалдан чиқара олмайсиз',
+        });
+      }
+
+      const item = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          branchId: null,
+          role:
+            user.role === 'BRANCH_MANAGER'
+              ? 'RECEPTION_MANAGER'
+              : user.role,
+        },
+        select: {
+          id: true,
+          fullName: true,
+          role: true,
+          branchId: true,
+          isActive: true,
+        },
+      });
+
+      return res.json({
+        message: 'Ходим филиалдан чиқарилди',
         item,
       });
     } catch (error) {
