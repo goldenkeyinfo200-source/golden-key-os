@@ -831,137 +831,101 @@ router.get('/', async (req, res, next) => {
 
 
 /**
- * GET /api/cases/marketing-stats
+ * GET /api/cases/marketing-funnel
  *
- * Реклама манбалари ва кампаниялар кесимида статистика.
- * Фақат SUPER_ADMIN ва DIRECTOR учун.
+ * CRM учун Telegram/реклама воронкаси:
+ * Start -> телефон -> мурожаат -> якунланган.
+ * JWT орқали ҳимояланган.
  */
 router.get(
-  '/marketing-stats',
+  '/marketing-funnel',
   allowRoles('SUPER_ADMIN', 'DIRECTOR'),
   async (req, res, next) => {
     try {
-      const rows = await prisma.case.findMany({
-        where: {
-          source: {
-            not: null,
-          },
-        },
-        select: {
-          id: true,
-          source: true,
-          campaign: true,
-          startParameter: true,
-          status: true,
-          serviceType: true,
-          createdAt: true,
-          contracts: {
-            select: {
-              status: true,
-            },
-          },
-        },
+      const visits = await prisma.marketingVisit.findMany({
         orderBy: {
           createdAt: 'desc',
         },
       });
 
+      const caseIds = visits.map((item) => item.caseId).filter(Boolean);
+
+      const completedCases = caseIds.length
+        ? await prisma.case.findMany({
+            where: {
+              id: {
+                in: caseIds,
+              },
+              status: 'COMPLETED',
+            },
+            select: {
+              id: true,
+            },
+          })
+        : [];
+
+      const completedSet = new Set(
+        completedCases.map((item) => item.id)
+      );
+
       const grouped = new Map();
 
-      for (const item of rows) {
-        const source = item.source || 'CRM';
-        const campaign =
-          item.campaign && item.campaign !== 'direct'
-            ? item.campaign
-            : 'direct';
-
+      for (const visit of visits) {
+        const source = visit.source || 'DIRECT';
+        const campaign = visit.campaign || 'direct';
         const key = `${source}::${campaign}`;
 
         if (!grouped.has(key)) {
           grouped.set(key, {
             source,
             campaign,
-            startParameter: item.startParameter || null,
-            total: 0,
-            signedContracts: 0,
+            startParameter: visit.startParam || null,
+            botStarts: 0,
+            phoneLinked: 0,
+            casesCreated: 0,
             completed: 0,
-            rejected: 0,
-            services: {},
           });
         }
 
         const row = grouped.get(key);
+        row.botStarts += 1;
 
-        row.total += 1;
-
-        if (item.contracts?.some((contract) => contract.status === 'SIGNED')) {
-          row.signedContracts += 1;
+        if (visit.phoneLinkedAt) {
+          row.phoneLinked += 1;
         }
 
-        if (item.status === 'COMPLETED') {
+        if (visit.caseId || visit.convertedAt) {
+          row.casesCreated += 1;
+        }
+
+        if (
+          visit.caseId &&
+          completedSet.has(visit.caseId)
+        ) {
           row.completed += 1;
         }
-
-        if (item.status === 'REJECTED') {
-          row.rejected += 1;
-        }
-
-        row.services[item.serviceType] =
-          (row.services[item.serviceType] || 0) + 1;
       }
 
-      const campaigns = Array.from(grouped.values())
+      const items = Array.from(grouped.values())
         .map((row) => ({
           ...row,
-          contractConversion:
-            row.total > 0
-              ? Math.round((row.signedContracts / row.total) * 1000) / 10
+          phoneConversion:
+            row.botStarts > 0
+              ? Math.round(
+                  (row.phoneLinked / row.botStarts) * 1000
+                ) / 10
               : 0,
-          completedConversion:
-            row.total > 0
-              ? Math.round((row.completed / row.total) * 1000) / 10
+          caseConversion:
+            row.botStarts > 0
+              ? Math.round(
+                  (row.casesCreated / row.botStarts) * 1000
+                ) / 10
               : 0,
         }))
-        .sort((a, b) => b.total - a.total);
-
-      const summary = campaigns.reduce(
-        (acc, row) => {
-          acc.total += row.total;
-          acc.signedContracts += row.signedContracts;
-          acc.completed += row.completed;
-          acc.rejected += row.rejected;
-
-          acc.bySource[row.source] =
-            (acc.bySource[row.source] || 0) + row.total;
-
-          return acc;
-        },
-        {
-          total: 0,
-          signedContracts: 0,
-          completed: 0,
-          rejected: 0,
-          bySource: {},
-        }
-      );
-
-      summary.contractConversion =
-        summary.total > 0
-          ? Math.round(
-              (summary.signedContracts / summary.total) * 1000
-            ) / 10
-          : 0;
-
-      summary.completedConversion =
-        summary.total > 0
-          ? Math.round(
-              (summary.completed / summary.total) * 1000
-            ) / 10
-          : 0;
+        .sort((a, b) => b.botStarts - a.botStarts);
 
       return res.json({
-        summary,
-        campaigns,
+        items,
       });
     } catch (error) {
       next(error);
