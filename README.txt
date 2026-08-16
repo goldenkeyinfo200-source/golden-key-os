@@ -1,14 +1,24 @@
-RAILWAY SETTINGS
+MARKETING TRACKING — FINAL CONNECTION
 
-Service: telegram-bot
-Root Directory: /telegram-bot
+1) backend/src/routes/telegram.js ни алмаштиринг
+2) telegram-bot/src/index.js ни алмаштиринг
+3) Commit + Push
 
-Start command package.json орқали:
-npm start
-=> node src/index.js
+Railway:
+- backend автомат deploy бўлиши керак
+- telegram-bot Root Directory = /telegram-bot
+- telegram-bot ҳам deploy бўлиши керак
 
-Tracking test link:
+TEST:
 https://t.me/gkos_bot?start=telegram_ipoteka_01
 
-Муҳим:
-backend'да /api/telegram/track endpoint ва MarketingVisit migration deploy қилинган бўлиши керак.
+Янги мурожаат яратилганда Case'да:
+source = TELEGRAM
+campaign = ipoteka_01
+startParameter = telegram_ipoteka_01
+
+сақланади.
+
+Статистика API:
+GET /api/telegram/marketing-stats
+(X-Bot-Secret талаб қилади)

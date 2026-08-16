@@ -43,31 +43,44 @@ const trackSchema = z.object({
   lastName: z.string().trim().max(120).optional().nullable(),
 });
 
-function parseStartParam(startParam) {
-  const raw = String(startParam || '').trim();
+function parseStartParam(value) {
+  const startParam = String(value || '').trim() || 'direct';
 
-  if (!raw) {
+  if (startParam === 'direct') {
     return {
-      source: 'direct',
+      startParam,
+      source: 'DIRECT',
       campaign: 'direct',
-      startParam: 'direct',
     };
   }
 
-  const [source, ...rest] = raw.split('_');
+  const parts = startParam.split('_').filter(Boolean);
+  const sourceRaw = parts.shift() || 'unknown';
 
   return {
-    source: source || 'unknown',
-    campaign: rest.join('_') || raw,
-    startParam: raw,
+    startParam,
+    source: sourceRaw.toUpperCase(),
+    campaign: parts.join('_') || startParam,
   };
+}
+
+async function getLatestOpenMarketingVisit(telegramId) {
+  return prisma.marketingVisit.findFirst({
+    where: {
+      telegramId: String(telegramId),
+      convertedAt: null,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
 }
 
 
 /**
  * POST /api/telegram/track
  *
- * Telegram реклама ҳаволасидан киришни сақлайди.
+ * Telegram deep-link орқали киришни MarketingVisit жадвалига сақлайди.
  * Масалан: /start telegram_ipoteka_01
  */
 router.post('/track', async (req, res, next) => {
@@ -84,12 +97,12 @@ router.post('/track', async (req, res, next) => {
 
     const data = parsed.data;
     const telegramId = String(data.telegramId);
-    const parsedParam = parseStartParam(data.startParam);
+    const attribution = parseStartParam(data.startParam);
 
-    let visit = await prisma.marketingVisit.findFirst({
+    const recentSameVisit = await prisma.marketingVisit.findFirst({
       where: {
         telegramId,
-        startParam: parsedParam.startParam,
+        startParam: attribution.startParam,
         convertedAt: null,
       },
       orderBy: {
@@ -97,22 +110,26 @@ router.post('/track', async (req, res, next) => {
       },
     });
 
-    if (visit) {
+    let visit;
+
+    if (recentSameVisit) {
       visit = await prisma.marketingVisit.update({
-        where: { id: visit.id },
+        where: {
+          id: recentSameVisit.id,
+        },
         data: {
-          username: data.username || visit.username,
-          firstName: data.firstName || visit.firstName,
-          lastName: data.lastName || visit.lastName,
+          username: data.username || recentSameVisit.username,
+          firstName: data.firstName || recentSameVisit.firstName,
+          lastName: data.lastName || recentSameVisit.lastName,
         },
       });
     } else {
       visit = await prisma.marketingVisit.create({
         data: {
           telegramId,
-          source: parsedParam.source,
-          campaign: parsedParam.campaign,
-          startParam: parsedParam.startParam,
+          source: attribution.source,
+          campaign: attribution.campaign,
+          startParam: attribution.startParam,
           username: data.username || null,
           firstName: data.firstName || null,
           lastName: data.lastName || null,
@@ -125,6 +142,7 @@ router.post('/track', async (req, res, next) => {
       visitId: visit.id,
       source: visit.source,
       campaign: visit.campaign,
+      startParam: visit.startParam,
     });
   } catch (error) {
     next(error);
@@ -283,6 +301,9 @@ const caseSchema = z.object({
   serviceType: z.enum(SERVICE_TYPES),
   requestedAmount: z.union([z.number(), z.string()]).optional().nullable(),
   comment: z.string().trim().max(500).optional().nullable(),
+  source: z.string().trim().max(50).optional().nullable(),
+  campaign: z.string().trim().max(150).optional().nullable(),
+  startParameter: z.string().trim().max(150).optional().nullable(),
 });
 
 function parseAmount(value) {
@@ -333,8 +354,16 @@ router.post('/case', async (req, res, next) => {
       });
     }
 
-    const { phone, telegramId, fullName, serviceType, comment } =
-      parsed.data;
+    const {
+      phone,
+      telegramId,
+      fullName,
+      serviceType,
+      comment,
+      source: explicitSource,
+      campaign: explicitCampaign,
+      startParameter: explicitStartParameter,
+    } = parsed.data;
     const requestedAmount = parseAmount(parsed.data.requestedAmount);
     const variants = phoneVariants(phone);
     const telegramIdStr = String(telegramId);
@@ -364,6 +393,23 @@ router.post('/case', async (req, res, next) => {
       });
     }
 
+    const marketingVisit = await getLatestOpenMarketingVisit(telegramIdStr);
+
+    const source =
+      explicitSource ||
+      marketingVisit?.source ||
+      'TELEGRAM';
+
+    const campaign =
+      explicitCampaign ||
+      marketingVisit?.campaign ||
+      null;
+
+    const startParameter =
+      explicitStartParameter ||
+      marketingVisit?.startParam ||
+      null;
+
     const branch = await prisma.branch.findFirst({
       orderBy: { createdAt: 'asc' },
     });
@@ -380,6 +426,9 @@ router.post('/case', async (req, res, next) => {
           serviceType,
           status: 'NEW',
           requestedAmount,
+          source,
+          campaign,
+          startParameter,
           nextAction: comment
             ? `Мижоз изоҳи: ${comment}`
             : 'Bot орқали тушган мурожаат — менежерга бириктириш керак',
@@ -398,25 +447,15 @@ router.post('/case', async (req, res, next) => {
       return item;
     });
 
-
-    const openVisit = await prisma.marketingVisit.findFirst({
-      where: {
-        telegramId: telegramIdStr,
-        convertedAt: null,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    if (openVisit) {
+    if (marketingVisit) {
       await prisma.marketingVisit.update({
         where: {
-          id: openVisit.id,
+          id: marketingVisit.id,
         },
         data: {
           caseId: result.id,
           caseDisplayId: result.displayId,
+          phoneLinkedAt: marketingVisit.phoneLinkedAt || new Date(),
           convertedAt: new Date(),
         },
       });
@@ -442,26 +481,43 @@ router.post('/case', async (req, res, next) => {
 /**
  * GET /api/telegram/marketing-stats
  *
- * Кампаниялар кесимида воронка статистикаси.
+ * Реклама воронкаси: ботга кириш → телефон → мурожаат → якунланган.
  */
 router.get('/marketing-stats', async (req, res, next) => {
   try {
-    const items = await prisma.marketingVisit.findMany({
+    const visits = await prisma.marketingVisit.findMany({
       orderBy: {
         createdAt: 'desc',
       },
     });
 
+    const caseIds = visits.map((item) => item.caseId).filter(Boolean);
+
+    const completedCases = caseIds.length
+      ? await prisma.case.findMany({
+          where: {
+            id: {
+              in: caseIds,
+            },
+            status: 'COMPLETED',
+          },
+          select: {
+            id: true,
+          },
+        })
+      : [];
+
+    const completedSet = new Set(completedCases.map((item) => item.id));
     const grouped = new Map();
 
-    for (const item of items) {
-      const key = `${item.source}::${item.campaign}`;
+    for (const visit of visits) {
+      const key = `${visit.source}::${visit.campaign}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
-          source: item.source,
-          campaign: item.campaign,
-          startParam: item.startParam,
+          source: visit.source,
+          campaign: visit.campaign,
+          startParameter: visit.startParam,
           botStarts: 0,
           phoneLinked: 0,
           casesCreated: 0,
@@ -470,20 +526,28 @@ router.get('/marketing-stats', async (req, res, next) => {
       }
 
       const row = grouped.get(key);
-
       row.botStarts += 1;
-      if (item.phoneLinkedAt) row.phoneLinked += 1;
-      if (item.convertedAt || item.caseId) row.casesCreated += 1;
-      if (item.completedAt) row.completed += 1;
+
+      if (visit.phoneLinkedAt) {
+        row.phoneLinked += 1;
+      }
+
+      if (visit.caseId || visit.convertedAt) {
+        row.casesCreated += 1;
+      }
+
+      if (visit.caseId && completedSet.has(visit.caseId)) {
+        row.completed += 1;
+      }
     }
 
-    const result = Array.from(grouped.values()).map((row) => ({
+    const items = Array.from(grouped.values()).map((row) => ({
       ...row,
-      phoneRate:
+      phoneConversion:
         row.botStarts > 0
           ? Math.round((row.phoneLinked / row.botStarts) * 1000) / 10
           : 0,
-      caseRate:
+      caseConversion:
         row.botStarts > 0
           ? Math.round((row.casesCreated / row.botStarts) * 1000) / 10
           : 0,
@@ -491,7 +555,7 @@ router.get('/marketing-stats', async (req, res, next) => {
 
     return res.json({
       ok: true,
-      items: result,
+      items,
     });
   } catch (error) {
     next(error);

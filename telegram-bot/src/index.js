@@ -59,6 +59,12 @@ const MAIN_MENU = Markup.keyboard([
  */
 const sessions = new Map();
 
+/**
+ * Telegram deep-link манбаси шу ерда сақланади.
+ * /start telegram_ipoteka_01 -> source/campaign мурожаатгача сақланади.
+ */
+const attributions = new Map();
+
 function getSession(id) {
   return sessions.get(id);
 }
@@ -114,25 +120,44 @@ async function callCrm(path, options = {}) {
 bot.start(async (ctx) => {
   clearSession(ctx.from.id);
 
-  const startParam =
+  const startParameter =
     typeof ctx.startPayload === 'string' && ctx.startPayload.trim()
       ? ctx.startPayload.trim()
       : 'direct';
 
+  let attribution = {
+    source: startParameter === 'direct'
+      ? 'DIRECT'
+      : String(startParameter.split('_')[0] || 'telegram').toUpperCase(),
+    campaign:
+      startParameter === 'direct'
+        ? 'direct'
+        : startParameter.split('_').slice(1).join('_') || startParameter,
+    startParameter,
+  };
+
   try {
-    await callCrm('/telegram/track', {
+    const tracked = await callCrm('/telegram/track', {
       method: 'POST',
       body: JSON.stringify({
         telegramId: ctx.from.id,
-        startParam,
+        startParam: startParameter,
         username: ctx.from.username || null,
         firstName: ctx.from.first_name || null,
         lastName: ctx.from.last_name || null,
       }),
     });
+
+    attribution = {
+      source: tracked.source || attribution.source,
+      campaign: tracked.campaign || attribution.campaign,
+      startParameter: tracked.startParam || startParameter,
+    };
   } catch (error) {
     console.error('Marketing track error:', error.message);
   }
+
+  attributions.set(ctx.from.id, attribution);
 
   await ctx.reply(
     `Ассалому алайкум, ${ctx.from.first_name}!\n\nGolden Key Info рақамли хизматлар ботига хуш келибсиз.\n\n` +
@@ -147,7 +172,18 @@ bot.start(async (ctx) => {
    ЯНГИ МУРОЖААТ — оқим бошланиши
 ========================================================= */
 bot.hears('🆕 Янги мурожаат', async (ctx) => {
-  setSession(ctx.from.id, { step: 'contact', data: {} });
+  const attribution = attributions.get(ctx.from.id) || {
+    source: 'DIRECT',
+    campaign: 'direct',
+    startParameter: 'direct',
+  };
+
+  setSession(ctx.from.id, {
+    step: 'contact',
+    data: {
+      ...attribution,
+    },
+  });
 
   await ctx.reply(
     'Мурожаат қолдириш учун аввало телефон рақамингизни тасдиқлаймиз.',
@@ -431,6 +467,9 @@ bot.action('case:confirm', async (ctx) => {
         serviceType: session.data.serviceType,
         requestedAmount: session.data.requestedAmount,
         comment: session.data.comment,
+        source: session.data.source || null,
+        campaign: session.data.campaign || null,
+        startParameter: session.data.startParameter || null,
       }),
     });
 
