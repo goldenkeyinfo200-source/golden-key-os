@@ -1,0 +1,32 @@
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleDepositAmount" DECIMAL(18,2);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleDepositPaidAt" TIMESTAMP(3);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleDepositDeadline" TIMESTAMP(3);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleDepositTermsAccepted" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsuranceCompany" TEXT;
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsurancePolicySeries" TEXT;
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsurancePolicyNumber" TEXT;
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsuranceAmount" DECIMAL(18,2);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsuranceStartDate" TIMESTAMP(3);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsuranceEndDate" TIMESTAMP(3);
+
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "saleInsurancePolicyFileUrl" TEXT;

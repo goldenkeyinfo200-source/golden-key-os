@@ -115,11 +115,15 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(
+    fields: [companyId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  users   User[]
-  cases   Case[]
-  kiosks  KioskDevice[]
+  users  User[]
+  cases  Case[]
+  kiosks KioskDevice[]
 
   @@index([companyId])
 }
@@ -147,35 +151,45 @@ model Bank {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  companyId    String?
-  branchId     String?
-  bankId       String?
-  bankPosition String?
-  fullName     String
-  phone        String?
-  email        String?  @unique
-  login        String?  @unique
-  passwordHash String?
-  telegramId   String?  @unique
-  role         UserRole
-  isActive     Boolean  @default(true)
+  id                 String   @id @default(cuid())
+  companyId          String?
+  branchId           String?
+  bankId             String?
+  bankPosition       String?
+  fullName           String
+  phone              String?
+  email              String?  @unique
+  login              String?  @unique
+  passwordHash       String?
+  telegramId         String?  @unique
+  role               UserRole
+  isActive           Boolean  @default(true)
   resetCodeHash      String?
   resetCodeExpiresAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  company Company? @relation(fields: [companyId], references: [id])
+  company Company? @relation(
+    fields: [companyId],
+    references: [id]
+  )
 
-  branch Branch? @relation(fields: [branchId], references: [id])
+  branch Branch? @relation(
+    fields: [branchId],
+    references: [id]
+  )
 
-  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+  bank Bank? @relation(
+    fields: [bankId],
+    references: [id],
+    onDelete: SetNull
+  )
 
-  managedCases  Case[]        @relation("ReceptionManagerCases")
-  executedCases Case[]        @relation("ExecutorCases")
-  auditLogs     AuditLog[]
-  kiosks        KioskDevice[]
-  bankOffers    BankOffer[]
+  managedCases    Case[]               @relation("ReceptionManagerCases")
+  executedCases   Case[]               @relation("ExecutorCases")
+  auditLogs       AuditLog[]
+  kiosks          KioskDevice[]
+  bankOffers      BankOffer[]
   bankAssignments CaseBankAssignment[] @relation("AssignedBankEmployee")
 
   @@index([companyId])
@@ -218,62 +232,145 @@ model Case {
   executorId         String?
   serviceType        ServiceType
   status             CaseStatus  @default(NEW)
-  requestedAmount    Decimal?    @db.Decimal(18, 2)
-  approvedAmount             Decimal?    @db.Decimal(18, 2)
-  serviceFeePercent           Decimal     @default(4.5) @db.Decimal(6, 3)
-  serviceFeeAutoAmount        Decimal?    @db.Decimal(18, 2)
-  serviceFee                  Decimal?    @db.Decimal(18, 2)
 
-  collateralType              String?
-  collateralAddress           String?
-  collateralCadastreNumber    String?
-  collateralOwnerFullName     String?
-  collateralOwnerPinfl        String?
+  requestedAmount       Decimal? @db.Decimal(18, 2)
+  approvedAmount        Decimal? @db.Decimal(18, 2)
+  serviceFeePercent     Decimal  @default(4.5) @db.Decimal(6, 3)
+  serviceFeeAutoAmount  Decimal? @db.Decimal(18, 2)
+  serviceFee            Decimal? @db.Decimal(18, 2)
+
+  // ==========================================
+  // ГАРОВ МАЪЛУМОТЛАРИ
+  // ==========================================
+
+  collateralType                String?
+  collateralAddress             String?
+  collateralCadastreNumber      String?
+  collateralOwnerFullName       String?
+  collateralOwnerPinfl          String?
   collateralOwnerPassportSeries String?
   collateralOwnerPassportNumber String?
-  collateralOwnerPhone        String?
-  collateralOwnerAddress      String?
-  collateralArea              Decimal?    @db.Decimal(12, 2)
-  collateralEstimatedValue    Decimal?    @db.Decimal(18, 2)
-  collateralNotes             String?
+  collateralOwnerPhone          String?
+  collateralOwnerAddress        String?
+  collateralArea                Decimal? @db.Decimal(12, 2)
+  collateralEstimatedValue      Decimal? @db.Decimal(18, 2)
+  collateralNotes               String?
 
-  // SALE_PURCHASE: сотувчи ва олди-сотди объекти
-  sellerFullName              String?
-  sellerPhone                 String?
-  sellerPinfl                  String?
-  sellerPassportSeries        String?
-  sellerPassportNumber        String?
-  sellerAddress               String?
-  salePropertyType            String?
-  salePropertyAddress         String?
-  saleCadastreNumber          String?
-  salePropertyArea            Decimal?    @db.Decimal(12, 2)
-  saleServiceFeePayer         String?
+  // ==========================================
+  // SALE_PURCHASE — СОТУВЧИ
+  // ==========================================
 
-  bankName           String?
-  nextAction         String?
-  nextActionDueAt    DateTime?
-  creditIssuedAt     DateTime?
-  clientReceivedAt   DateTime?
-  completedAt        DateTime?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  sellerFullName       String?
+  sellerPhone          String?
+  sellerPinfl          String?
+  sellerPassportSeries String?
+  sellerPassportNumber String?
+  sellerAddress        String?
 
-  branch Branch? @relation(fields: [branchId], references: [id])
+  // ==========================================
+  // SALE_PURCHASE — КЎЧМАС МУЛК
+  // ==========================================
 
-  applicant Client @relation("ApplicantCases", fields: [applicantClientId], references: [id])
+  salePropertyType    String?
+  salePropertyAddress String?
+  saleCadastreNumber  String?
+  salePropertyArea    Decimal? @db.Decimal(12, 2)
 
-  receptionManager User? @relation("ReceptionManagerCases", fields: [receptionManagerId], references: [id])
+  // Риэлторлик хизмат ҳақини ким тўлайди:
+  // BUYER | SELLER | BOTH
+  saleServiceFeePayer String?
 
-  executor User? @relation("ExecutorCases", fields: [executorId], references: [id])
+  // ==========================================
+  // SALE_PURCHASE — ЗАКАЛАТ
+  // ==========================================
 
-  borrowers   Borrower[]
-  contracts   Contract[]
-  documents   Document[]
-  payments    Payment[]
-  invitations Invitation[]
-  history     CaseHistory[]
-  bankOffers  BankOffer[]
+  // Берилган закалат суммаси
+  saleDepositAmount Decimal? @db.Decimal(18, 2)
+
+  // Закалат берилган сана
+  saleDepositPaidAt DateTime?
+
+  // Асосий олди-сотди битимини тузишнинг
+  // охирги санаси / закалат амал қилиш муддати
+  saleDepositDeadline DateTime?
+
+  // Шартлар билан танишилган ва қабул қилинган:
+  // - харидор айниса закалат қайтарилмайди;
+  // - сотувчи айниса олган закалатни
+  //   икки баравар миқдорда қайтаради;
+  // - айниган тараф риэлторлик хизмати
+  //   бўйича белгиланган харажатларни қоплайди.
+  saleDepositTermsAccepted Boolean @default(false)
+
+  // ==========================================
+  // SALE_PURCHASE — СУҒУРТА ПОЛИСИ
+  // ==========================================
+
+  // Суғурта ташкилоти
+  saleInsuranceCompany String?
+
+  // Полис серияси
+  saleInsurancePolicySeries String?
+
+  // Полис рақами
+  saleInsurancePolicyNumber String?
+
+  // Суғурта суммаси
+  saleInsuranceAmount Decimal? @db.Decimal(18, 2)
+
+  // Полис амал қилиш бошланган сана
+  saleInsuranceStartDate DateTime?
+
+  // Полис амал қилиш тугайдиган сана
+  saleInsuranceEndDate DateTime?
+
+  // Агар кейин полис PDF/расм қилиб юкланса,
+  // файл манзили шу ерда сақланади.
+  saleInsurancePolicyFileUrl String?
+
+  // ==========================================
+  // УМУМИЙ ИШ ЖАРАЁНИ
+  // ==========================================
+
+  bankName         String?
+  nextAction       String?
+  nextActionDueAt  DateTime?
+  creditIssuedAt   DateTime?
+  clientReceivedAt DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  branch Branch? @relation(
+    fields: [branchId],
+    references: [id]
+  )
+
+  applicant Client @relation(
+    "ApplicantCases",
+    fields: [applicantClientId],
+    references: [id]
+  )
+
+  receptionManager User? @relation(
+    "ReceptionManagerCases",
+    fields: [receptionManagerId],
+    references: [id]
+  )
+
+  executor User? @relation(
+    "ExecutorCases",
+    fields: [executorId],
+    references: [id]
+  )
+
+  borrowers       Borrower[]
+  contracts       Contract[]
+  documents       Document[]
+  payments        Payment[]
+  invitations     Invitation[]
+  history         CaseHistory[]
+  bankOffers      BankOffer[]
   bankAssignments CaseBankAssignment[]
 
   @@index([branchId])
@@ -296,9 +393,16 @@ model Borrower {
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  client Client @relation(fields: [clientId], references: [id])
+  client Client @relation(
+    fields: [clientId],
+    references: [id]
+  )
 
   contracts Contract[]
 
@@ -338,11 +442,21 @@ model Contract {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  borrower Borrower? @relation(fields: [borrowerId], references: [id])
+  borrower Borrower? @relation(
+    fields: [borrowerId],
+    references: [id]
+  )
 
-  template ContractTemplate @relation(fields: [templateId], references: [id])
+  template ContractTemplate @relation(
+    fields: [templateId],
+    references: [id]
+  )
 
   invitations Invitation[]
 
@@ -355,16 +469,26 @@ model Contract {
 model Invitation {
   id         String   @id @default(cuid())
   tokenHash  String   @unique
-  signerRole String?  // CLIENT | SELLER | BUYER
+
+  // CLIENT | SELLER | BUYER
+  signerRole String?
+
   caseId     String
   contractId String?
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime @default(now())
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  contract Contract? @relation(fields: [contractId], references: [id])
+  contract Contract? @relation(
+    fields: [contractId],
+    references: [id]
+  )
 
   @@index([caseId])
   @@index([contractId])
@@ -381,9 +505,17 @@ model Document {
   mimeType  String?
   createdAt DateTime @default(now())
 
-  case Case? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case? @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client? @relation(
+    fields: [clientId],
+    references: [id],
+    onDelete: Cascade
+  )
 
   @@index([caseId])
   @@index([clientId])
@@ -401,7 +533,11 @@ model Payment {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
   @@index([caseId])
   @@index([status])
@@ -416,7 +552,11 @@ model CaseHistory {
   note       String?
   createdAt  DateTime    @default(now())
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
   @@index([caseId])
   @@index([toStatus])
@@ -439,9 +579,25 @@ model CaseBankAssignment {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  bank Bank @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  assignedBankEmployee User? @relation("AssignedBankEmployee", fields: [assignedBankEmployeeId], references: [id], onDelete: SetNull)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  bank Bank @relation(
+    fields: [bankId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  assignedBankEmployee User? @relation(
+    "AssignedBankEmployee",
+    fields: [assignedBankEmployeeId],
+    references: [id],
+    onDelete: SetNull
+  )
+
   offers BankOffer[]
 
   @@unique([caseId, bankId])
@@ -474,13 +630,28 @@ model BankOffer {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case Case @relation(
+    fields: [caseId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
+  bank Bank? @relation(
+    fields: [bankId],
+    references: [id],
+    onDelete: SetNull
+  )
 
-  assignment CaseBankAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  assignment CaseBankAssignment? @relation(
+    fields: [assignmentId],
+    references: [id],
+    onDelete: SetNull
+  )
 
-  bankEmployee User? @relation(fields: [bankEmployeeId], references: [id])
+  bankEmployee User? @relation(
+    fields: [bankEmployeeId],
+    references: [id]
+  )
 
   @@index([caseId])
   @@index([bankId])
@@ -508,8 +679,16 @@ model KioskDevice {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  branch  Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  manager User?  @relation(fields: [managerId], references: [id])
+  branch Branch @relation(
+    fields: [branchId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  manager User? @relation(
+    fields: [managerId],
+    references: [id]
+  )
 
   @@index([branchId])
   @@index([managerId])
@@ -522,15 +701,20 @@ model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
   entityType String
-  entityId   String
+  entityId   String?
   action     String
   metadata   Json?
   createdAt  DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: SetNull
+  )
 
   @@index([userId])
-  @@index([entityType, entityId])
+  @@index([entityType])
+  @@index([entityId])
   @@index([action])
   @@index([createdAt])
 }
