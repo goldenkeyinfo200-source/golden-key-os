@@ -549,3 +549,28 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+model MarketingVisit {
+  id             String   @id @default(cuid())
+  telegramId     String
+  source         String
+  campaign       String
+  startParam     String
+  username       String?
+  firstName      String?
+  lastName       String?
+  phoneLinkedAt  DateTime?
+  caseId         String?
+  caseDisplayId  String?
+  convertedAt    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([telegramId])
+  @@index([source])
+  @@index([campaign])
+  @@index([startParam])
+  @@index([caseId])
+  @@index([createdAt])
+}

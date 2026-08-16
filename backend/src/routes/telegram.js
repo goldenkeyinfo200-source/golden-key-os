@@ -34,6 +34,103 @@ const linkSchema = z.object({
   telegramId: z.union([z.string(), z.number()]),
 });
 
+
+const trackSchema = z.object({
+  telegramId: z.union([z.string(), z.number()]),
+  startParam: z.string().trim().min(1).max(150),
+  username: z.string().trim().max(100).optional().nullable(),
+  firstName: z.string().trim().max(120).optional().nullable(),
+  lastName: z.string().trim().max(120).optional().nullable(),
+});
+
+function parseStartParam(startParam) {
+  const raw = String(startParam || '').trim();
+
+  if (!raw) {
+    return {
+      source: 'direct',
+      campaign: 'direct',
+      startParam: 'direct',
+    };
+  }
+
+  const [source, ...rest] = raw.split('_');
+
+  return {
+    source: source || 'unknown',
+    campaign: rest.join('_') || raw,
+    startParam: raw,
+  };
+}
+
+
+/**
+ * POST /api/telegram/track
+ *
+ * Telegram реклама ҳаволасидан киришни сақлайди.
+ * Масалан: /start telegram_ipoteka_01
+ */
+router.post('/track', async (req, res, next) => {
+  try {
+    const parsed = trackSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Tracking маълумоти нотўғри',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const data = parsed.data;
+    const telegramId = String(data.telegramId);
+    const parsedParam = parseStartParam(data.startParam);
+
+    let visit = await prisma.marketingVisit.findFirst({
+      where: {
+        telegramId,
+        startParam: parsedParam.startParam,
+        convertedAt: null,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (visit) {
+      visit = await prisma.marketingVisit.update({
+        where: { id: visit.id },
+        data: {
+          username: data.username || visit.username,
+          firstName: data.firstName || visit.firstName,
+          lastName: data.lastName || visit.lastName,
+        },
+      });
+    } else {
+      visit = await prisma.marketingVisit.create({
+        data: {
+          telegramId,
+          source: parsedParam.source,
+          campaign: parsedParam.campaign,
+          startParam: parsedParam.startParam,
+          username: data.username || null,
+          firstName: data.firstName || null,
+          lastName: data.lastName || null,
+        },
+      });
+    }
+
+    return res.json({
+      ok: true,
+      visitId: visit.id,
+      source: visit.source,
+      campaign: visit.campaign,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /**
  * POST /api/telegram/link
  *
@@ -67,6 +164,16 @@ router.post('/link', async (req, res, next) => {
         data: { telegramId: telegramIdStr },
       });
 
+      await prisma.marketingVisit.updateMany({
+        where: {
+          telegramId: telegramIdStr,
+          phoneLinkedAt: null,
+        },
+        data: {
+          phoneLinkedAt: new Date(),
+        },
+      });
+
       return res.json({
         ok: true,
         type: user.role === 'BANK_EMPLOYEE' ? 'bank_employee' : 'staff',
@@ -86,6 +193,16 @@ router.post('/link', async (req, res, next) => {
       await prisma.client.update({
         where: { id: client.id },
         data: { telegramId: telegramIdStr },
+      });
+
+      await prisma.marketingVisit.updateMany({
+        where: {
+          telegramId: telegramIdStr,
+          phoneLinkedAt: null,
+        },
+        data: {
+          phoneLinkedAt: new Date(),
+        },
       });
 
       return res.json({
@@ -281,6 +398,30 @@ router.post('/case', async (req, res, next) => {
       return item;
     });
 
+
+    const openVisit = await prisma.marketingVisit.findFirst({
+      where: {
+        telegramId: telegramIdStr,
+        convertedAt: null,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (openVisit) {
+      await prisma.marketingVisit.update({
+        where: {
+          id: openVisit.id,
+        },
+        data: {
+          caseId: result.id,
+          caseDisplayId: result.displayId,
+          convertedAt: new Date(),
+        },
+      });
+    }
+
     notifyNewCase(result.id).catch((error) => {
       console.error(
         'Telegram: янги мурожаат хабари юборилмади',
@@ -291,6 +432,66 @@ router.post('/case', async (req, res, next) => {
     return res.status(201).json({
       ok: true,
       displayId: result.displayId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+/**
+ * GET /api/telegram/marketing-stats
+ *
+ * Кампаниялар кесимида воронка статистикаси.
+ */
+router.get('/marketing-stats', async (req, res, next) => {
+  try {
+    const items = await prisma.marketingVisit.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const grouped = new Map();
+
+    for (const item of items) {
+      const key = `${item.source}::${item.campaign}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          source: item.source,
+          campaign: item.campaign,
+          startParam: item.startParam,
+          botStarts: 0,
+          phoneLinked: 0,
+          casesCreated: 0,
+          completed: 0,
+        });
+      }
+
+      const row = grouped.get(key);
+
+      row.botStarts += 1;
+      if (item.phoneLinkedAt) row.phoneLinked += 1;
+      if (item.convertedAt || item.caseId) row.casesCreated += 1;
+      if (item.completedAt) row.completed += 1;
+    }
+
+    const result = Array.from(grouped.values()).map((row) => ({
+      ...row,
+      phoneRate:
+        row.botStarts > 0
+          ? Math.round((row.phoneLinked / row.botStarts) * 1000) / 10
+          : 0,
+      caseRate:
+        row.botStarts > 0
+          ? Math.round((row.casesCreated / row.botStarts) * 1000) / 10
+          : 0,
+    }));
+
+    return res.json({
+      ok: true,
+      items: result,
     });
   } catch (error) {
     next(error);
