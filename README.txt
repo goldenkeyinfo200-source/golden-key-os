@@ -1,34 +1,21 @@
-GOLDEN KEY OS — BANK EMPLOYEE TELEGRAM WORKFLOW
+FIX: Bank offer confirm callback collision
 
-Алмаштиринг:
-1) backend/src/routes/telegram.js
-2) backend/src/routes/bank-offers.js
-3) telegram-bot/src/index.js
+Сабаб:
+"✅ Юбориш" callback = bank:offer:confirm эди.
+Лекин ундан олдин /^bank:offer:(.+)$/ handler тургани учун
+"confirm" caseId деб қабул қилиниб, таклиф жараёни қайта бошланар эди.
+Шу сабаб CRM'га POST умуман кетмаган.
 
-Натижа:
-- Банк ходими телефон орқали Telegram аккаунтини боғлайди.
-- Банк ходими менюсида "🏦 Банк мурожаатлари" чиқади.
-- Фақат ўз банкига юборилган CaseBankAssignment'лар кўринади.
-- "📋 Мурожаатни кўриш" — мижоз, телефон, сумма, гаров маълумотлари.
-- "✅ Таклиф бериш" — тасдиқланган сумма, фоиз, муддат,
-  бошланғич тўлов, ойлик тўлов, шартлар.
-- Таклиф CRM BankOffer'га SUBMITTED бўлиб тушади.
-- CaseBankAssignment OFFER_SUBMITTED бўлади.
-- Қабул менежери notifyBankOfferSubmitted орқали Telegram хабар олади.
-- "❌ Рад этиш" — сабаб CRMга сақланади ва assignment REJECTED бўлади.
-- Банк ходими бошқа банкка юборилган мурожаатга жавоб бера олмайди.
+Тузатилди:
+- case offer start callback: bank:offercase:<caseId>
+- handler: /^bank:offercase:(.+)$/
+- bank:offer:confirm ва bank:offer:cancel ўз ҳолича қолди.
 
-Deploy:
-- backend
-- telegram-bot
+Алмаштирилади:
+telegram-bot/src/index.js
 
-Migration керак эмас.
-CRM frontend файли ўзгармайди.
+Кейин:
+Commit -> Push origin
+Railway -> telegram-bot deploy
 
-Тест:
-1. Банк ходими ботда телефонни боғлайди.
-2. CRMда мурожаатни Trastbank'ка юборинг.
-3. Банк ходими ботда "🏦 Банк мурожаатлари"ни босади.
-4. "📋 Мурожаатни кўриш".
-5. "✅ Таклиф бериш" ёки "❌ Рад этиш".
-6. CRMда BankOffer натижасини текширинг.
+Backend ёки CRM frontend'ни ўзгартириш шарт эмас.

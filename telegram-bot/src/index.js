@@ -81,7 +81,7 @@ function bankCaseButtons(caseId) {
     [
       Markup.button.callback(
         '✅ Таклиф бериш',
-        `bank:offer:${caseId}`
+        `bank:offercase:${caseId}`
       ),
       Markup.button.callback(
         '❌ Рад этиш',
@@ -826,7 +826,7 @@ bot.action(/^bank:view:(.+)$/, async (ctx) => {
   }
 });
 
-bot.action(/^bank:offer:(.+)$/, async (ctx) => {
+bot.action(/^bank:offercase:(.+)$/, async (ctx) => {
   const caseId = ctx.match[1];
 
   setSession(ctx.from.id, {
