@@ -1,0 +1,13 @@
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerFullName" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerPhone" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerPinfl" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerPassportSeries" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerPassportNumber" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "sellerAddress" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "salePropertyType" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "salePropertyAddress" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "saleCadastreNumber" TEXT;
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "salePropertyArea" DECIMAL(12,2);
+ALTER TABLE "Case" ADD COLUMN IF NOT EXISTS "saleServiceFeePayer" TEXT;
+ALTER TABLE "Invitation" ADD COLUMN IF NOT EXISTS "signerRole" TEXT;
+CREATE INDEX IF NOT EXISTS "Invitation_contractId_signerRole_idx" ON "Invitation"("contractId", "signerRole");
