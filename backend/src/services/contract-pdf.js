@@ -447,6 +447,26 @@ function drawFooter(
   pageNumber,
   pageCount
 ) {
+  /*
+    MUHIM:
+    PDFKit odatda matn pastki margin chegarasidan tashqariga yozilsa
+    avtomatik yangi sahifa qo'shishi mumkin.
+
+    Footer 790/798 nuqtalarda turadi, body bottom esa taxminan 770.
+    Shu sabab eski variant ayrim PDF'larda oxirida bo'sh sahifalar
+    yaratardi.
+
+    Footer chizilayotgan paytda bottom margin'ni vaqtincha 0 qilamiz
+    va matn uchun lineBreak'ni o'chiramiz. Shunda footer hech qachon
+    yangi sahifa yaratmaydi.
+  */
+
+  const originalBottomMargin = doc.page.margins.bottom;
+
+  doc.page.margins.bottom = 0;
+
+  doc.save();
+
   doc
     .strokeColor('#E6E6E6')
     .lineWidth(0.6)
@@ -464,9 +484,15 @@ function drawFooter(
       798,
       {
         width: 495,
+        height: 10,
         align: 'center',
+        lineBreak: false,
       }
     );
+
+  doc.restore();
+
+  doc.page.margins.bottom = originalBottomMargin;
 }
 
 /* =========================================================
