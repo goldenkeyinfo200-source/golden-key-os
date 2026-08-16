@@ -1002,11 +1002,15 @@ function Dashboard({ user, onLogout }) {
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                border: '1px solid rgba(0,0,0,.08)',
-                background: '#fff',
+                border: '1px solid #dc2626',
+                background: '#dc2626',
+                color: '#fff',
                 display: 'grid',
                 placeItems: 'center',
                 cursor: 'pointer',
+                boxShadow: unreadCases > 0
+                  ? '0 0 0 4px rgba(220,38,38,.12)'
+                  : 'none',
               }}
             >
               <Bell size={20} />
@@ -1021,9 +1025,9 @@ function Dashboard({ user, onLogout }) {
                     height: 20,
                     padding: '0 5px',
                     borderRadius: 999,
-                    background: '#dc2626',
+                    background: '#991b1b',
                     color: '#fff',
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 800,
                     display: 'grid',
                     placeItems: 'center',
