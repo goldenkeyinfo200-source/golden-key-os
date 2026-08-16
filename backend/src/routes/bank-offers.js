@@ -908,6 +908,15 @@ router.post(
         }
       );
 
+      if (result.status === 'SUBMITTED' || result.status === 'REJECTED') {
+        notifyBankOfferSubmitted(result.id).catch((error) => {
+          console.error(
+            'Telegram: янги банк таклифи хабари юборилмади',
+            error.message
+          );
+        });
+      }
+
       return res.status(201).json({
         ok: true,
         message:

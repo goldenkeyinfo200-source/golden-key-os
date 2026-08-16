@@ -1,38 +1,34 @@
-GOLDEN KEY OS — Telegram channel post + inline tracking button
+GOLDEN KEY OS — BANK EMPLOYEE TELEGRAM WORKFLOW
 
 Алмаштиринг:
-telegram-bot/src/index.js
+1) backend/src/routes/telegram.js
+2) backend/src/routes/bank-offers.js
+3) telegram-bot/src/index.js
 
-Railway -> telegram-bot -> Variables га қўшинг:
+Натижа:
+- Банк ходими телефон орқали Telegram аккаунтини боғлайди.
+- Банк ходими менюсида "🏦 Банк мурожаатлари" чиқади.
+- Фақат ўз банкига юборилган CaseBankAssignment'лар кўринади.
+- "📋 Мурожаатни кўриш" — мижоз, телефон, сумма, гаров маълумотлари.
+- "✅ Таклиф бериш" — тасдиқланган сумма, фоиз, муддат,
+  бошланғич тўлов, ойлик тўлов, шартлар.
+- Таклиф CRM BankOffer'га SUBMITTED бўлиб тушади.
+- CaseBankAssignment OFFER_SUBMITTED бўлади.
+- Қабул менежери notifyBankOfferSubmitted орқали Telegram хабар олади.
+- "❌ Рад этиш" — сабаб CRMга сақланади ва assignment REJECTED бўлади.
+- Банк ходими бошқа банкка юборилган мурожаатга жавоб бера олмайди.
 
-TELEGRAM_CHANNEL_ID
-- Канал ID ёки @username.
-- Масалан: @gk_ipoteka
-- Агар private channel бўлса: -100xxxxxxxxxx кўринишидаги ID.
+Deploy:
+- backend
+- telegram-bot
 
-PUBLIC_BOT_USERNAME
-- gkos_bot
-- @ белгисиз ҳам бўлади.
+Migration керак эмас.
+CRM frontend файли ўзгармайди.
 
-POSTING_ADMIN_IDS
-- Пост чиқаришга рухсат берилган Telegram user ID'лар.
-- Бир нечта бўлса вергул билан:
-  123456789,987654321
-
-Муҳим:
-1. gkos_bot каналга ADMIN бўлиши керак.
-2. Bot'га "Post Messages" ҳуқуқи берилиши керак.
-3. Deploy бўлгандан кейин рухсат берилган админ ботга:
-   /post_ipoteka
-   деб ёзади.
-4. Бот каналга постни қуйидаги inline тугма билан чиқаради:
-   🔴 БЕПУЛ АРИЗА ҚОЛДИРИШ
-5. Тугма:
-   https://t.me/gkos_bot?start=telegram_ipoteka_01
-   орқали очилади.
-6. Шу сабаб CRM'да campaign = ipoteka_01 сифатида ҳисобланади.
-
-Кейин янги рекламалар учун алоҳида command / startParameter қўшиш мумкин:
-telegram_ipoteka_02
-telegram_microloan_01
-instagram_ipoteka_01
+Тест:
+1. Банк ходими ботда телефонни боғлайди.
+2. CRMда мурожаатни Trastbank'ка юборинг.
+3. Банк ходими ботда "🏦 Банк мурожаатлари"ни босади.
+4. "📋 Мурожаатни кўриш".
+5. "✅ Таклиф бериш" ёки "❌ Рад этиш".
+6. CRMда BankOffer натижасини текширинг.

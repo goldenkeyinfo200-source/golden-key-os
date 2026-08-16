@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { phoneVariants, normalizePhoneDigits } from '../utils/phone.js';
-import { notifyNewCase } from '../services/notify.js';
+import { notifyNewCase, notifyBankOfferSubmitted } from '../services/notify.js';
 
 const router = Router();
 
@@ -54,6 +54,24 @@ const reminderSentSchema = z.object({
   visitId: z.string().trim().min(1),
 });
 
+
+const bankOfferTelegramSchema = z.object({
+  telegramId: z.union([z.string(), z.number()]),
+  caseId: z.string().trim().min(1),
+  approvedAmount: z.union([z.string(), z.number()]),
+  interestRate: z.union([z.string(), z.number()]),
+  termMonths: z.union([z.string(), z.number()]),
+  initialPayment: z.union([z.string(), z.number()]).optional().nullable(),
+  monthlyPayment: z.union([z.string(), z.number()]).optional().nullable(),
+  conditions: z.string().trim().max(3000).optional().nullable(),
+});
+
+const bankRejectTelegramSchema = z.object({
+  telegramId: z.union([z.string(), z.number()]),
+  caseId: z.string().trim().min(1),
+  reason: z.string().trim().min(2).max(2000),
+});
+
 function parseStartParam(value) {
   const startParam = String(value || '').trim() || 'direct';
 
@@ -73,6 +91,88 @@ function parseStartParam(value) {
     source: sourceRaw.toUpperCase(),
     campaign: parts.join('_') || startParam,
   };
+}
+
+
+async function getBankEmployeeByTelegramId(telegramId) {
+  return prisma.user.findFirst({
+    where: {
+      telegramId: String(telegramId),
+      role: 'BANK_EMPLOYEE',
+      isActive: true,
+      bankId: { not: null },
+    },
+    select: {
+      id: true,
+      fullName: true,
+      bankId: true,
+      bank: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+}
+
+async function getAccessibleAssignmentForBankEmployee({
+  caseId,
+  employee,
+}) {
+  return prisma.caseBankAssignment.findFirst({
+    where: {
+      caseId,
+      bankId: employee.bankId,
+      status: {
+        notIn: ['CLOSED'],
+      },
+    },
+    include: {
+      case: {
+        select: {
+          id: true,
+          displayId: true,
+          serviceType: true,
+          requestedAmount: true,
+          status: true,
+          applicant: {
+            select: {
+              fullName: true,
+              phone: true,
+            },
+          },
+          collateralType: true,
+          collateralAddress: true,
+          collateralCadastreNumber: true,
+          collateralEstimatedValue: true,
+        },
+      },
+      bank: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+}
+
+function parseTelegramNumber(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const normalized =
+    typeof value === 'string'
+      ? value.replace(/\s/g, '').replace(/,/g, '.')
+      : value;
+
+  const number = Number(normalized);
+
+  return Number.isFinite(number) && number >= 0
+    ? number
+    : null;
 }
 
 async function getLatestOpenMarketingVisit(telegramId) {
@@ -671,6 +771,427 @@ router.post('/case', async (req, res, next) => {
   }
 });
 
+
+
+/**
+ * GET /api/telegram/bank/assignments?telegramId=...
+ *
+ * Банк ходимига фақат ўз банкига юборилган очиқ мурожаатларни қайтаради.
+ */
+router.get('/bank/assignments', async (req, res, next) => {
+  try {
+    const telegramId = req.query.telegramId;
+
+    if (!telegramId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'telegramId талаб қилинади',
+      });
+    }
+
+    const employee = await getBankEmployeeByTelegramId(telegramId);
+
+    if (!employee) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Банк ходими топилмади ёки Telegram боғланмаган',
+      });
+    }
+
+    const items = await prisma.caseBankAssignment.findMany({
+      where: {
+        bankId: employee.bankId,
+        status: {
+          notIn: ['CLOSED'],
+        },
+      },
+      include: {
+        case: {
+          select: {
+            id: true,
+            displayId: true,
+            serviceType: true,
+            requestedAmount: true,
+            status: true,
+            applicant: {
+              select: {
+                fullName: true,
+                phone: true,
+              },
+            },
+            collateralType: true,
+            collateralAddress: true,
+            collateralCadastreNumber: true,
+            collateralEstimatedValue: true,
+          },
+        },
+        offers: {
+          where: {
+            bankEmployeeId: employee.id,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        sentAt: 'desc',
+      },
+      take: 20,
+    });
+
+    return res.json({
+      ok: true,
+      employee: {
+        id: employee.id,
+        fullName: employee.fullName,
+        bankId: employee.bankId,
+        bankName: employee.bank?.name || null,
+      },
+      items: items.map((item) => ({
+        assignmentId: item.id,
+        assignmentStatus: item.status,
+        sentAt: item.sentAt,
+        case: item.case,
+        latestOwnOffer: item.offers?.[0] || null,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/telegram/bank/case/:caseId?telegramId=...
+ */
+router.get('/bank/case/:caseId', async (req, res, next) => {
+  try {
+    const telegramId = req.query.telegramId;
+
+    if (!telegramId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'telegramId талаб қилинади',
+      });
+    }
+
+    const employee = await getBankEmployeeByTelegramId(telegramId);
+
+    if (!employee) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Банк ходими топилмади',
+      });
+    }
+
+    const assignment = await getAccessibleAssignmentForBankEmployee({
+      caseId: req.params.caseId,
+      employee,
+    });
+
+    if (!assignment) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Бу мурожаат сизнинг банкингизга юборилмаган',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      employee: {
+        id: employee.id,
+        fullName: employee.fullName,
+        bankName: employee.bank?.name || null,
+      },
+      assignmentId: assignment.id,
+      assignmentStatus: assignment.status,
+      case: assignment.case,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/telegram/bank/case/:caseId/offer
+ *
+ * Банк ходими Telegram орқали таклиф киритади.
+ */
+router.post('/bank/case/:caseId/offer', async (req, res, next) => {
+  try {
+    const parsed = bankOfferTelegramSchema.safeParse({
+      ...(req.body || {}),
+      caseId: req.params.caseId,
+    });
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Банк таклифи маълумотлари нотўғри',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const employee = await getBankEmployeeByTelegramId(
+      parsed.data.telegramId
+    );
+
+    if (!employee) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Банк ходими топилмади',
+      });
+    }
+
+    const assignment = await getAccessibleAssignmentForBankEmployee({
+      caseId: parsed.data.caseId,
+      employee,
+    });
+
+    if (!assignment) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Бу мурожаат сизнинг банкингизга юборилмаган',
+      });
+    }
+
+    const approvedAmount = parseTelegramNumber(
+      parsed.data.approvedAmount
+    );
+    const interestRate = parseTelegramNumber(
+      parsed.data.interestRate
+    );
+    const termMonths = Number(parsed.data.termMonths);
+    const initialPayment = parseTelegramNumber(
+      parsed.data.initialPayment
+    );
+    const monthlyPayment = parseTelegramNumber(
+      parsed.data.monthlyPayment
+    );
+
+    if (!(approvedAmount > 0)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Тасдиқланган сумма нотўғри',
+      });
+    }
+
+    if (
+      interestRate === null ||
+      interestRate < 0 ||
+      interestRate > 100
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Фоиз ставкаси нотўғри',
+      });
+    }
+
+    if (
+      !Number.isInteger(termMonths) ||
+      termMonths < 1 ||
+      termMonths > 600
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Муддат ойларда нотўғри',
+      });
+    }
+
+    const offer = await prisma.$transaction(async (tx) => {
+      const item = await tx.bankOffer.create({
+        data: {
+          caseId: assignment.caseId,
+          bankId: employee.bankId,
+          assignmentId: assignment.id,
+          bankEmployeeId: employee.id,
+          bankName: employee.bank?.name || 'Банк',
+          status: 'SUBMITTED',
+          approvedAmount,
+          interestRate,
+          termMonths,
+          initialPayment,
+          monthlyPayment,
+          conditions: parsed.data.conditions || null,
+          submittedAt: new Date(),
+        },
+      });
+
+      await tx.caseBankAssignment.update({
+        where: {
+          id: assignment.id,
+        },
+        data: {
+          status: 'OFFER_SUBMITTED',
+          assignedBankEmployeeId: employee.id,
+          respondedAt: new Date(),
+        },
+      });
+
+      if (
+        ['NEW', 'DATA_COLLECTION'].includes(
+          assignment.case.status
+        )
+      ) {
+        await tx.case.update({
+          where: {
+            id: assignment.caseId,
+          },
+          data: {
+            status: 'BANK_REVIEW',
+            nextAction: 'Банк таклифларини кўриб чиқиш',
+          },
+        });
+
+        await tx.caseHistory.create({
+          data: {
+            caseId: assignment.caseId,
+            fromStatus: assignment.case.status,
+            toStatus: 'BANK_REVIEW',
+            note: `${employee.bank?.name || 'Банк'} Telegram орқали таклиф киритди`,
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: employee.id,
+          entityType: 'BankOffer',
+          entityId: item.id,
+          action: 'BANK_OFFER_CREATED_TELEGRAM',
+          metadata: {
+            caseId: assignment.caseId,
+            caseDisplayId: assignment.case.displayId,
+            bankId: employee.bankId,
+            bankName: employee.bank?.name || null,
+            approvedAmount: String(approvedAmount),
+            interestRate: String(interestRate),
+            termMonths,
+          },
+        },
+      });
+
+      return item;
+    });
+
+    notifyBankOfferSubmitted(offer.id).catch((error) => {
+      console.error(
+        'Telegram: банк таклифи раҳбарга юборилмади',
+        error.message
+      );
+    });
+
+    return res.status(201).json({
+      ok: true,
+      message: 'Банк таклифи қабул қилинди',
+      offerId: offer.id,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/telegram/bank/case/:caseId/reject
+ */
+router.post('/bank/case/:caseId/reject', async (req, res, next) => {
+  try {
+    const parsed = bankRejectTelegramSchema.safeParse({
+      ...(req.body || {}),
+      caseId: req.params.caseId,
+    });
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Рад этиш маълумотлари нотўғри',
+      });
+    }
+
+    const employee = await getBankEmployeeByTelegramId(
+      parsed.data.telegramId
+    );
+
+    if (!employee) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Банк ходими топилмади',
+      });
+    }
+
+    const assignment = await getAccessibleAssignmentForBankEmployee({
+      caseId: parsed.data.caseId,
+      employee,
+    });
+
+    if (!assignment) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Бу мурожаат сизнинг банкингизга юборилмаган',
+      });
+    }
+
+    const offer = await prisma.$transaction(async (tx) => {
+      const item = await tx.bankOffer.create({
+        data: {
+          caseId: assignment.caseId,
+          bankId: employee.bankId,
+          assignmentId: assignment.id,
+          bankEmployeeId: employee.id,
+          bankName: employee.bank?.name || 'Банк',
+          status: 'REJECTED',
+          rejectionReason: parsed.data.reason,
+          submittedAt: new Date(),
+        },
+      });
+
+      await tx.caseBankAssignment.update({
+        where: {
+          id: assignment.id,
+        },
+        data: {
+          status: 'REJECTED',
+          assignedBankEmployeeId: employee.id,
+          respondedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: employee.id,
+          entityType: 'BankOffer',
+          entityId: item.id,
+          action: 'BANK_OFFER_REJECTED_TELEGRAM',
+          metadata: {
+            caseId: assignment.caseId,
+            caseDisplayId: assignment.case.displayId,
+            bankId: employee.bankId,
+            bankName: employee.bank?.name || null,
+            reason: parsed.data.reason,
+          },
+        },
+      });
+
+      return item;
+    });
+
+    notifyBankOfferSubmitted(offer.id).catch((error) => {
+      console.error(
+        'Telegram: банк рад жавоби раҳбарга юборилмади',
+        error.message
+      );
+    });
+
+    return res.status(201).json({
+      ok: true,
+      message: 'Рад жавоби қабул қилинди',
+      offerId: offer.id,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * GET /api/telegram/marketing-stats

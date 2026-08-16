@@ -64,6 +64,33 @@ const MAIN_MENU = Markup.keyboard([
   ['📱 Телефонни юбориш'],
 ]).resize();
 
+
+const BANK_MENU = Markup.keyboard([
+  ['🏦 Банк мурожаатлари'],
+  ['📱 Телефонни юбориш'],
+]).resize();
+
+function bankCaseButtons(caseId) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback(
+        '📋 Мурожаатни кўриш',
+        `bank:view:${caseId}`
+      ),
+    ],
+    [
+      Markup.button.callback(
+        '✅ Таклиф бериш',
+        `bank:offer:${caseId}`
+      ),
+      Markup.button.callback(
+        '❌ Рад этиш',
+        `bank:reject:${caseId}`
+      ),
+    ],
+  ]);
+}
+
 /**
  * Ҳар бир фойдаланувчининг жараёндаги ҳолати шу ерда сақланади
  * (хотирада). Бот бир нечта instance'да ишламаса, бу етарли.
@@ -273,7 +300,7 @@ bot.on('contact', async (ctx) => {
     await ctx.reply(
       `✅ Телефон рақамингиз тасдиқланди, ${data.fullName}!\n\n` +
         `Сиз ${roleText} сифатида тизимга боғландингиз. Энди мурожаатингиз ҳолати ўзгарганда сизга шу бот орқали хабар келади.${extra}`,
-      MAIN_MENU
+      data.type === 'bank_employee' ? BANK_MENU : MAIN_MENU
     );
   } catch (error) {
     if (error.status === 404) {
@@ -403,6 +430,164 @@ bot.on('text', async (ctx, next) => {
   if (!session) return next();
 
   const text = ctx.message.text.trim();
+
+  if (session.step === 'bank_offer_amount') {
+    const amount = Number(
+      text.replace(/\s/g, '').replace(',', '.')
+    );
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      await ctx.reply(
+        'Тасдиқланган суммани фақат рақам билан киритинг.'
+      );
+      return;
+    }
+
+    session.data.approvedAmount = amount;
+    session.step = 'bank_offer_interest';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Фоиз ставкасини киритинг.\nМисол: 26.5'
+    );
+    return;
+  }
+
+  if (session.step === 'bank_offer_interest') {
+    const rate = Number(text.replace(',', '.'));
+
+    if (
+      !Number.isFinite(rate) ||
+      rate < 0 ||
+      rate > 100
+    ) {
+      await ctx.reply(
+        'Фоиз ставкасини тўғри киритинг. Масалан: 26.5'
+      );
+      return;
+    }
+
+    session.data.interestRate = rate;
+    session.step = 'bank_offer_term';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Кредит муддатини ойларда киритинг.\nМисол: 240'
+    );
+    return;
+  }
+
+  if (session.step === 'bank_offer_term') {
+    const months = Number(text);
+
+    if (
+      !Number.isInteger(months) ||
+      months < 1 ||
+      months > 600
+    ) {
+      await ctx.reply(
+        'Муддатни бутун сонда, ойларда киритинг.'
+      );
+      return;
+    }
+
+    session.data.termMonths = months;
+    session.step = 'bank_offer_initial';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Бошланғич тўлов суммасини киритинг.\nАгар бўлмаса 0 ёзинг.'
+    );
+    return;
+  }
+
+  if (session.step === 'bank_offer_initial') {
+    const amount = Number(
+      text.replace(/\s/g, '').replace(',', '.')
+    );
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      await ctx.reply('Суммани тўғри киритинг.');
+      return;
+    }
+
+    session.data.initialPayment = amount || null;
+    session.step = 'bank_offer_monthly';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Ойлик тўловни киритинг.\nАгар ҳозир аниқ бўлмаса 0 ёзинг.'
+    );
+    return;
+  }
+
+  if (session.step === 'bank_offer_monthly') {
+    const amount = Number(
+      text.replace(/\s/g, '').replace(',', '.')
+    );
+
+    if (!Number.isFinite(amount) || amount < 0) {
+      await ctx.reply('Ойлик тўловни тўғри киритинг.');
+      return;
+    }
+
+    session.data.monthlyPayment = amount || null;
+    session.step = 'bank_offer_conditions';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Қўшимча шартларни ёзинг.\nАгар шарт бўлмаса «йўқ» деб ёзинг.'
+    );
+    return;
+  }
+
+  if (session.step === 'bank_offer_conditions') {
+    session.data.conditions =
+      text.toLowerCase() === 'йўқ'
+        ? null
+        : text.slice(0, 3000);
+
+    session.step = 'bank_offer_confirm';
+    setSession(telegramId, session);
+
+    await sendBankOfferConfirmation(ctx, session);
+    return;
+  }
+
+  if (session.step === 'bank_reject_reason') {
+    if (text.length < 2) {
+      await ctx.reply('Рад этиш сабабини ёзинг.');
+      return;
+    }
+
+    try {
+      await callCrm(
+        `/telegram/bank/case/${session.data.caseId}/reject`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            telegramId,
+            reason: text.slice(0, 2000),
+          }),
+        }
+      );
+
+      clearSession(telegramId);
+
+      await ctx.reply(
+        '❌ Рад жавоби CRMга юборилди.',
+        BANK_MENU
+      );
+    } catch (error) {
+      console.error('Bank rejection error:', error.message);
+      await ctx.reply(
+        `Рад жавобини юбориб бўлмади: ${error.message}`,
+        BANK_MENU
+      );
+    }
+
+    return;
+  }
 
   if (session.step === 'amount') {
     const amount = Number(text.replace(/\s/g, '').replace(',', '.'));
@@ -538,6 +723,228 @@ bot.hears('📄 Аризам ҳолати', async (ctx) => {
   }
 });
 
+
+
+/* =========================================================
+   БАНК ХОДИМИ — МУРОЖААТЛАР / ТАКЛИФ / РАД
+========================================================= */
+
+function formatMoney(value) {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) {
+    return '—';
+  }
+
+  return `${new Intl.NumberFormat('uz-UZ').format(amount)} сўм`;
+}
+
+async function sendBankAssignments(ctx) {
+  try {
+    const data = await callCrm(
+      `/telegram/bank/assignments?telegramId=${ctx.from.id}`
+    );
+
+    if (!data.items?.length) {
+      await ctx.reply(
+        'Ҳозирча сизнинг банкингизга янги мурожаат юборилмаган.',
+        BANK_MENU
+      );
+      return;
+    }
+
+    await ctx.reply(
+      `🏦 ${data.employee?.bankName || 'Банк'} — актив мурожаатлар: ${data.items.length}`,
+      BANK_MENU
+    );
+
+    for (const item of data.items) {
+      const c = item.case;
+
+      const text =
+        `🏦 <b>Банк текширувидаги мурожаат</b>\n` +
+        `№ ${c.displayId}\n` +
+        `Хизмат: ${serviceTypeLabel(c.serviceType)}\n` +
+        `Сўралган сумма: ${formatMoney(c.requestedAmount)}\n` +
+        `Ҳолат: ${STATUS_LABELS[c.status] || c.status}`;
+
+      await ctx.replyWithHTML(
+        text,
+        bankCaseButtons(c.id)
+      );
+    }
+  } catch (error) {
+    console.error('Bank assignments error:', error.message);
+
+    await ctx.reply(
+      error.status === 403
+        ? 'Аввал «📱 Телефонни юбориш» орқали банк ходими аккаунтингизни боғланг.'
+        : 'Банк мурожаатларини олишда хатолик юз берди.',
+      MAIN_MENU
+    );
+  }
+}
+
+bot.hears('🏦 Банк мурожаатлари', async (ctx) => {
+  clearSession(ctx.from.id);
+  await sendBankAssignments(ctx);
+});
+
+bot.action(/^bank:view:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+
+  try {
+    const caseId = ctx.match[1];
+    const data = await callCrm(
+      `/telegram/bank/case/${caseId}?telegramId=${ctx.from.id}`
+    );
+
+    const c = data.case;
+
+    const text =
+      `📋 <b>Мурожаат маълумотлари</b>\n\n` +
+      `№ ${c.displayId}\n` +
+      `👤 Мижоз: ${c.applicant?.fullName || '—'}\n` +
+      `📞 Телефон: ${c.applicant?.phone || '—'}\n` +
+      `🏦 Хизмат: ${serviceTypeLabel(c.serviceType)}\n` +
+      `💰 Сўралган сумма: ${formatMoney(c.requestedAmount)}\n\n` +
+      `🏠 Гаров тури: ${c.collateralType || '—'}\n` +
+      `📍 Гаров манзили: ${c.collateralAddress || '—'}\n` +
+      `📐 Кадастр: ${c.collateralCadastreNumber || '—'}\n` +
+      `💵 Баҳоланган қиймат: ${formatMoney(c.collateralEstimatedValue)}`;
+
+    await ctx.replyWithHTML(
+      text,
+      bankCaseButtons(c.id)
+    );
+  } catch (error) {
+    console.error('Bank case view error:', error.message);
+    await ctx.reply(
+      error.message || 'Мурожаатни очиб бўлмади.',
+      BANK_MENU
+    );
+  }
+});
+
+bot.action(/^bank:offer:(.+)$/, async (ctx) => {
+  const caseId = ctx.match[1];
+
+  setSession(ctx.from.id, {
+    step: 'bank_offer_amount',
+    data: {
+      caseId,
+    },
+  });
+
+  await ctx.answerCbQuery();
+  await ctx.reply(
+    '✅ Таклиф бериш бошланди.\n\nТасдиқланган кредит суммасини сўмда киритинг.\nМисол: 300000000'
+  );
+});
+
+bot.action(/^bank:reject:(.+)$/, async (ctx) => {
+  const caseId = ctx.match[1];
+
+  setSession(ctx.from.id, {
+    step: 'bank_reject_reason',
+    data: {
+      caseId,
+    },
+  });
+
+  await ctx.answerCbQuery();
+
+  await ctx.reply(
+    '❌ Рад этиш сабабини ёзинг.\nМасалан: КАТМ бўйича талабга жавоб бермади.'
+  );
+});
+
+async function sendBankOfferConfirmation(ctx, session) {
+  const d = session.data;
+
+  await ctx.reply(
+    `Банк таклифини текширинг:\n\n` +
+      `💰 Тасдиқланган сумма: ${formatMoney(d.approvedAmount)}\n` +
+      `📊 Фоиз: ${d.interestRate}%\n` +
+      `📅 Муддат: ${d.termMonths} ой\n` +
+      `💵 Бошланғич тўлов: ${
+        d.initialPayment === null
+          ? 'кўрсатилмаган'
+          : formatMoney(d.initialPayment)
+      }\n` +
+      `💳 Ойлик тўлов: ${
+        d.monthlyPayment === null
+          ? 'кўрсатилмаган'
+          : formatMoney(d.monthlyPayment)
+      }\n` +
+      `📝 Шартлар: ${d.conditions || 'йўқ'}\n\n` +
+      `CRMга юборамизми?`,
+    Markup.inlineKeyboard([
+      [
+        Markup.button.callback(
+          '✅ Юбориш',
+          'bank:offer:confirm'
+        ),
+      ],
+      [
+        Markup.button.callback(
+          '❌ Бекор қилиш',
+          'bank:offer:cancel'
+        ),
+      ],
+    ])
+  );
+}
+
+bot.action('bank:offer:confirm', async (ctx) => {
+  const session = getSession(ctx.from.id);
+
+  if (!session || session.step !== 'bank_offer_confirm') {
+    await ctx.answerCbQuery();
+    return;
+  }
+
+  await ctx.answerCbQuery();
+  await ctx.editMessageText('⏳ Таклиф CRMга юборилмоқда...').catch(() => {});
+
+  try {
+    await callCrm(
+      `/telegram/bank/case/${session.data.caseId}/offer`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          telegramId: ctx.from.id,
+          approvedAmount: session.data.approvedAmount,
+          interestRate: session.data.interestRate,
+          termMonths: session.data.termMonths,
+          initialPayment: session.data.initialPayment,
+          monthlyPayment: session.data.monthlyPayment,
+          conditions: session.data.conditions,
+        }),
+      }
+    );
+
+    clearSession(ctx.from.id);
+
+    await ctx.reply(
+      '✅ Банк таклифи CRMга муваффақиятли юборилди.',
+      BANK_MENU
+    );
+  } catch (error) {
+    console.error('Bank offer submit error:', error.message);
+    await ctx.reply(
+      `Таклифни юбориб бўлмади: ${error.message}`,
+      BANK_MENU
+    );
+  }
+});
+
+bot.action('bank:offer:cancel', async (ctx) => {
+  clearSession(ctx.from.id);
+  await ctx.answerCbQuery();
+  await ctx.editMessageText('Банк таклифи бекор қилинди.').catch(() => {});
+  await ctx.reply('Банк менюсига қайтдингиз.', BANK_MENU);
+});
 
 /* =========================================================
    КАНАЛГА TRACKING ТУГМАСИ БИЛАН РЕКЛАМА ПОСТИ
