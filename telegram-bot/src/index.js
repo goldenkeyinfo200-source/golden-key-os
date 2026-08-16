@@ -114,6 +114,26 @@ async function callCrm(path, options = {}) {
 bot.start(async (ctx) => {
   clearSession(ctx.from.id);
 
+  const startParam =
+    typeof ctx.startPayload === 'string' && ctx.startPayload.trim()
+      ? ctx.startPayload.trim()
+      : 'direct';
+
+  try {
+    await callCrm('/telegram/track', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegramId: ctx.from.id,
+        startParam,
+        username: ctx.from.username || null,
+        firstName: ctx.from.first_name || null,
+        lastName: ctx.from.last_name || null,
+      }),
+    });
+  } catch (error) {
+    console.error('Marketing track error:', error.message);
+  }
+
   await ctx.reply(
     `Ассалому алайкум, ${ctx.from.first_name}!\n\nGolden Key Info рақамли хизматлар ботига хуш келибсиз.\n\n` +
       `🆕 — янги мурожаат (ипотека/микрокредит) қолдириш\n` +

@@ -1,18 +1,14 @@
-# Golden Key marketing tracking update
+RAILWAY SETTINGS
 
-Биринчи реклама ҳаволаси:
+Service: telegram-bot
+Root Directory: /telegram-bot
 
+Start command package.json орқали:
+npm start
+=> node src/index.js
+
+Tracking test link:
 https://t.me/gkos_bot?start=telegram_ipoteka_01
 
-Код талқини:
-- source: telegram
-- campaign: ipoteka_01
-
-Instagram учун:
-https://t.me/gkos_bot?start=instagram_ipoteka_01
-
-Backend endpoint:
-GET /api/telegram/marketing-stats
-
-Эслатма:
-BOT_INTERNAL_SECRET bot ва backend Railway environment variables'да бир хил бўлиши шарт.
+Муҳим:
+backend'да /api/telegram/track endpoint ва MarketingVisit migration deploy қилинган бўлиши керак.
