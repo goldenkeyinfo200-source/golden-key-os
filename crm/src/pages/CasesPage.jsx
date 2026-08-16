@@ -84,6 +84,30 @@ const PROPERTY_TYPE_OPTIONS = [
 const serviceNames = Object.fromEntries(SERVICE_OPTIONS);
 const statusNames = Object.fromEntries(STATUS_OPTIONS);
 
+const SOURCE_LABELS = {
+  TELEGRAM: 'Telegram',
+  INSTAGRAM: 'Instagram',
+  FACEBOOK: 'Facebook',
+  DIRECT: 'Тўғридан-тўғри',
+  CRM: 'CRM',
+};
+
+function getSourceLabel(source) {
+  if (!source) {
+    return 'CRM';
+  }
+
+  return SOURCE_LABELS[source] || source;
+}
+
+function getCampaignLabel(item) {
+  if (!item?.campaign || item.campaign === 'direct') {
+    return '';
+  }
+
+  return item.campaign;
+}
+
 function formatAmount(value) {
   if (value === null || value === undefined || value === '') {
     return '—';
@@ -1090,6 +1114,7 @@ export function CasesPage({
                     <th>Мижоз</th>
                     <th>Хизмат тури</th>
                     <th>Сумма</th>
+                    <th>Манба</th>
                     <th>Ҳолати</th>
                     <th>Масъул ходим</th>
                     <th>Сана</th>
@@ -1141,6 +1166,20 @@ export function CasesPage({
 
                       <td>
                         {formatAmount(item.requestedAmount)}
+                      </td>
+
+                      <td>
+                        <div className="client-cell">
+                          <strong>{getSourceLabel(item.source)}</strong>
+                          <span>
+                            {getCampaignLabel(item) ||
+                              (item.startParameter
+                                ? item.startParameter
+                                : item.source
+                                  ? '—'
+                                  : 'Қўлда киритилган')}
+                          </span>
+                        </div>
                       </td>
 
                       <td>
