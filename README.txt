@@ -1,23 +1,18 @@
-GOLDEN KEY OS — РЕКЛАМА СТАТИСТИКАСИ
+GK OS — CRM янги мурожаат notification
 
-Алмаштирилади:
-1. backend/src/routes/cases.js
-2. crm/src/App.jsx
+Алмаштиринг:
+crm/src/App.jsx
 
-Янги файл:
-3. crm/src/pages/MarketingStatsPage.jsx
+Функциялар:
+- CRM ҳар 10 секундда энг янги мурожаатни текширади.
+- Янги мурожаат аниқланса экраннинг паст-ўнг қисмида popup чиқади.
+- Қўнғироқча (Bell) устида қизил badge пайдо бўлади.
+- Қисқа овозли сигнал берилади (браузер рухсат берса).
+- Қўнғироқчани биринчи босганда браузер notification рухсатини сўраши мумкин.
+- Browser Notification рухсати берилса, системали notification ҳам чиқади.
+- Popup босилса Мурожаатлар бўлими очилади.
 
-Қандай ишлайди:
-- чап менюда "Реклама статистикаси" чиқади;
-- фақат SUPER_ADMIN ва DIRECTOR кўради;
-- backend GET /api/cases/marketing-stats статистика қайтаради;
-- source/campaign/startParameter бўйича гуруҳлайди;
-- мурожаатлар, SIGNED шартномалар, COMPLETED ва REJECTED сонини ҳисоблайди;
-- шартнома ва якунланган иш конверсиясини % кўрсатади.
-
-Қўйгандан кейин:
-Commit -> Push origin
-
-Railway:
-- backend deploy бўлиши керак
-- crm deploy бўлиши керак
+Эслатма:
+Браузерлар овозни user interaction бўлмагунча блоклаши мумкин. CRM билан бир марта
+ишлаш/босишдан кейин овоз одатда ишлайди. Telegram раҳбар notification механизми
+backend notify.js орқали алоҳида ишлайди.

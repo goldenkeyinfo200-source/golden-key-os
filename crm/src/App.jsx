@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
   BarChart3,
+  Bell,
   BriefcaseBusiness,
   Building2,
   CircleDollarSign,
@@ -539,6 +540,9 @@ function Dashboard({ user, onLogout }) {
   const [recentCases, setRecentCases] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [dashboardError, setDashboardError] = useState('');
+  const [caseNotification, setCaseNotification] = useState(null);
+  const [unreadCases, setUnreadCases] = useState(0);
+  const [lastSeenCaseId, setLastSeenCaseId] = useState(null);
 
   const roleLabel = useMemo(
     () => roleNames[user?.role] || user?.role || 'Фойдаланувчи',
@@ -579,6 +583,106 @@ function Dashboard({ user, onLogout }) {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!AudioContextClass) return;
+
+      const audioContext = new AudioContextClass();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.18,
+        audioContext.currentTime + 0.02
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audioContext.currentTime + 0.45
+      );
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+
+      oscillator.onended = () => {
+        audioContext.close().catch(() => {});
+      };
+    } catch {
+      // Браузер овозни блокласа, визуал notification ишлашда давом этади.
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timerId;
+
+    const checkNewCases = async () => {
+      try {
+        const data = await apiRequest('/cases?page=1&limit=1');
+        const latest = data.items?.[0];
+
+        if (!latest || cancelled) return;
+
+        setLastSeenCaseId((currentId) => {
+          if (!currentId) {
+            return latest.id;
+          }
+
+          if (currentId !== latest.id) {
+            setUnreadCases((current) => current + 1);
+            setCaseNotification(latest);
+            playNotificationSound();
+
+            if (
+              'Notification' in window &&
+              Notification.permission === 'granted'
+            ) {
+              new Notification('Golden Key OS — Янги мурожаат', {
+                body: `${latest.displayId || ''} ${
+                  latest.applicant?.fullName || 'Янги мижоз'
+                }`,
+                icon: '/golden-key-logo.png',
+              });
+            }
+
+            loadDashboard();
+            return latest.id;
+          }
+
+          return currentId;
+        });
+      } catch {
+        // Polling хатоси CRM ишлашини тўхтатмайди.
+      } finally {
+        if (!cancelled) {
+          timerId = window.setTimeout(checkNewCases, 10000);
+        }
+      }
+    };
+
+    checkNewCases();
+
+    return () => {
+      cancelled = true;
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [loadDashboard, playNotificationSound]);
+
+  const enableBrowserNotifications = async () => {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  };
 
   const logout = async () => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -863,6 +967,55 @@ function Dashboard({ user, onLogout }) {
           </div>
 
           <div className="header-actions">
+            <button
+              type="button"
+              className="notification-button"
+              title="Уведомления"
+              onClick={async () => {
+                await enableBrowserNotifications();
+                setUnreadCases(0);
+
+                if (caseNotification) {
+                  setActiveMenu('Мурожаатлар');
+                  setCaseNotification(null);
+                }
+              }}
+              style={{
+                position: 'relative',
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                border: '1px solid rgba(0,0,0,.08)',
+                background: '#fff',
+                display: 'grid',
+                placeItems: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <Bell size={20} />
+              {unreadCases > 0 ? (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -5,
+                    minWidth: 20,
+                    height: 20,
+                    padding: '0 5px',
+                    borderRadius: 999,
+                    background: '#dc2626',
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  {unreadCases > 99 ? '99+' : unreadCases}
+                </span>
+              ) : null}
+            </button>
+
             <div className="header-user">
               <strong>{user?.fullName || 'Администратор'}</strong>
               <span>{roleLabel}</span>
@@ -877,6 +1030,45 @@ function Dashboard({ user, onLogout }) {
             </button>
           </div>
         </header>
+
+        {caseNotification ? (
+          <button
+            type="button"
+            onClick={() => {
+              setUnreadCases(0);
+              setCaseNotification(null);
+              setActiveMenu('Мурожаатлар');
+            }}
+            style={{
+              position: 'fixed',
+              right: 24,
+              bottom: 24,
+              zIndex: 9999,
+              width: 'min(380px, calc(100vw - 32px))',
+              padding: 18,
+              border: 0,
+              borderRadius: 16,
+              background: '#111827',
+              color: '#fff',
+              textAlign: 'left',
+              boxShadow: '0 18px 50px rgba(0,0,0,.25)',
+              cursor: 'pointer',
+            }}
+          >
+            <strong style={{ display: 'block', fontSize: 16 }}>
+              🆕 Янги мурожаат келди
+            </strong>
+            <span style={{ display: 'block', marginTop: 8, opacity: 0.86 }}>
+              {caseNotification.displayId || '—'} ·{' '}
+              {caseNotification.applicant?.fullName || 'Мижоз'}
+            </span>
+            <span style={{ display: 'block', marginTop: 5, opacity: 0.68 }}>
+              {serviceNames[caseNotification.serviceType] ||
+                caseNotification.serviceType ||
+                'Хизмат тури кўрсатилмаган'}
+            </span>
+          </button>
+        ) : null}
 
         {renderContent()}
       </main>
