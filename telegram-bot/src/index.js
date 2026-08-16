@@ -114,6 +114,77 @@ async function callCrm(path, options = {}) {
   return data;
 }
 
+
+async function trackProgress(telegramId, step, extra = {}) {
+  try {
+    await callCrm('/telegram/progress', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegramId,
+        step,
+        serviceType: extra.serviceType || null,
+      }),
+    });
+  } catch (error) {
+    console.error(
+      `Progress track error (${step}):`,
+      error.message
+    );
+  }
+}
+
+const FUNNEL_STEP_LABELS = {
+  STARTED: 'ботга кириш',
+  APPLICATION_STARTED: 'мурожаатни бошлаш',
+  PHONE_SENT: 'телефон рақами',
+  SERVICE_SELECTED: 'хизмат танлаш',
+  AMOUNT_ENTERED: 'суммани киритиш',
+  COMMENT_DONE: 'изоҳ',
+  NAME_ENTERED: 'Ф.И.Ш.',
+  CONFIRMATION_REACHED: 'тасдиқлаш',
+};
+
+async function sendAbandonedReminders() {
+  try {
+    const data = await callCrm(
+      '/telegram/abandoned-due?minutes=30&limit=20'
+    );
+
+    for (const item of data.items || []) {
+      try {
+        const stepLabel =
+          FUNNEL_STEP_LABELS[item.funnelStep] ||
+          'мурожаат';
+
+        await bot.telegram.sendMessage(
+          item.telegramId,
+          `Салом${item.firstName ? `, ${item.firstName}` : ''}! 👋\n\n` +
+            `Сиз Golden Key Info ботида мурожаатни бошлаган эдингиз, лекин ${stepLabel} босқичида тўхтаб қолдингиз.\n\n` +
+            `Давом эттириш учун «🆕 Янги мурожаат» тугмасини босинг. Агар ҳозир керак бўлмаса, хабарни эътиборсиз қолдиришингиз мумкин.`,
+          MAIN_MENU
+        );
+
+        await callCrm('/telegram/reminder-sent', {
+          method: 'POST',
+          body: JSON.stringify({
+            visitId: item.visitId,
+          }),
+        });
+      } catch (error) {
+        console.error(
+          'Abandoned reminder send error:',
+          error.message
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      'Abandoned reminder scan error:',
+      error.message
+    );
+  }
+}
+
 /* =========================================================
    /start
 ========================================================= */
@@ -185,6 +256,8 @@ bot.hears('🆕 Янги мурожаат', async (ctx) => {
     },
   });
 
+  await trackProgress(ctx.from.id, 'APPLICATION_STARTED');
+
   await ctx.reply(
     'Мурожаат қолдириш учун аввало телефон рақамингизни тасдиқлаймиз.',
     Markup.keyboard([
@@ -224,6 +297,8 @@ bot.on('contact', async (ctx) => {
         .join(' ') || null;
     session.step = 'service_type';
     setSession(telegramId, session);
+
+    await trackProgress(telegramId, 'PHONE_SENT');
 
     await ctx.reply(
       'Раҳмат! Энди қандай хизмат кераклигини танланг:',
@@ -295,6 +370,10 @@ bot.action(/^svc:(.+)$/, async (ctx) => {
   session.step = 'amount';
   setSession(telegramId, session);
 
+  await trackProgress(telegramId, 'SERVICE_SELECTED', {
+    serviceType: session.data.serviceType,
+  });
+
   await ctx.answerCbQuery();
   await ctx
     .editMessageText(`Танланди: ${serviceTypeLabel(session.data.serviceType)}`)
@@ -321,6 +400,8 @@ bot.action('amount:skip', async (ctx) => {
   session.step = 'comment';
   setSession(telegramId, session);
 
+  await trackProgress(telegramId, 'AMOUNT_ENTERED');
+
   await ctx.answerCbQuery();
   await ctx.editMessageText('Сумма кўрсатилмади.').catch(() => {});
 
@@ -344,6 +425,8 @@ bot.action('comment:skip', async (ctx) => {
   session.data.comment = null;
   session.step = 'fullname';
   setSession(telegramId, session);
+
+  await trackProgress(telegramId, 'COMMENT_DONE');
 
   await ctx.answerCbQuery();
   await ctx.editMessageText('Изоҳ киритилмади.').catch(() => {});
@@ -407,6 +490,8 @@ bot.on('text', async (ctx, next) => {
     session.step = 'comment';
     setSession(telegramId, session);
 
+    await trackProgress(telegramId, 'AMOUNT_ENTERED');
+
     await ctx.reply(
       'Қўшимча изоҳ ёзмоқчимисиз? Бўлмаса, пастдаги тугмани босинг.',
       Markup.inlineKeyboard([
@@ -421,6 +506,8 @@ bot.on('text', async (ctx, next) => {
     session.step = 'fullname';
     setSession(telegramId, session);
 
+    await trackProgress(telegramId, 'COMMENT_DONE');
+
     await askFullName(ctx, session);
     return;
   }
@@ -434,6 +521,12 @@ bot.on('text', async (ctx, next) => {
     session.data.fullName = text.slice(0, 200);
     session.step = 'confirm';
     setSession(telegramId, session);
+
+    await trackProgress(telegramId, 'NAME_ENTERED');
+    await trackProgress(
+      telegramId,
+      'CONFIRMATION_REACHED'
+    );
 
     await sendConfirmation(ctx, session);
     return;
@@ -490,6 +583,8 @@ bot.action('case:confirm', async (ctx) => {
 
 bot.action('case:cancel', async (ctx) => {
   const telegramId = ctx.from.id;
+
+  await trackProgress(telegramId, 'CANCELLED');
   clearSession(telegramId);
 
   await ctx.answerCbQuery();
@@ -529,7 +624,17 @@ bot.hears('📄 Аризам ҳолати', async (ctx) => {
 
 bot
   .launch()
-  .then(() => console.log('Golden Key OS Telegram bot ишга тушди'));
+  .then(() => {
+    console.log('Golden Key OS Telegram bot ишга тушди');
+
+    // Ҳар 5 дақиқада 30+ дақиқа тўхтаб қолган
+    // анкеталарни текшириб, бир марта эслатма юборади.
+    setTimeout(sendAbandonedReminders, 60 * 1000);
+    setInterval(
+      sendAbandonedReminders,
+      5 * 60 * 1000
+    );
+  });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

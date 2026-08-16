@@ -565,12 +565,18 @@ model MarketingVisit {
   username       String?
   firstName      String?
   lastName       String?
-  phoneLinkedAt  DateTime?
-  caseId         String?
-  caseDisplayId  String?
-  convertedAt    DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime @default(now())
+  phoneLinkedAt        DateTime?
+  applicationStartedAt DateTime?
+  lastStepAt           DateTime?
+  funnelStep           String?
+  serviceTypeSelected  String?
+  abandonedAt          DateTime?
+  reminderSentAt       DateTime?
+  caseId               String?
+  caseDisplayId        String?
+  convertedAt          DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([telegramId])
@@ -578,5 +584,8 @@ model MarketingVisit {
   @@index([campaign])
   @@index([startParam])
   @@index([caseId])
+  @@index([lastStepAt])
+  @@index([funnelStep])
+  @@index([abandonedAt])
   @@index([createdAt])
 }

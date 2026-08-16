@@ -43,6 +43,17 @@ const trackSchema = z.object({
   lastName: z.string().trim().max(120).optional().nullable(),
 });
 
+
+const progressSchema = z.object({
+  telegramId: z.union([z.string(), z.number()]),
+  step: z.string().trim().min(1).max(80),
+  serviceType: z.string().trim().max(80).optional().nullable(),
+});
+
+const reminderSentSchema = z.object({
+  visitId: z.string().trim().min(1),
+});
+
 function parseStartParam(value) {
   const startParam = String(value || '').trim() || 'direct';
 
@@ -121,6 +132,9 @@ router.post('/track', async (req, res, next) => {
           username: data.username || recentSameVisit.username,
           firstName: data.firstName || recentSameVisit.firstName,
           lastName: data.lastName || recentSameVisit.lastName,
+          funnelStep: recentSameVisit.funnelStep || 'STARTED',
+          lastStepAt: new Date(),
+          abandonedAt: null,
         },
       });
     } else {
@@ -133,6 +147,8 @@ router.post('/track', async (req, res, next) => {
           username: data.username || null,
           firstName: data.firstName || null,
           lastName: data.lastName || null,
+          funnelStep: 'STARTED',
+          lastStepAt: new Date(),
         },
       });
     }
@@ -144,6 +160,174 @@ router.post('/track', async (req, res, next) => {
       campaign: visit.campaign,
       startParam: visit.startParam,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+/**
+ * POST /api/telegram/progress
+ *
+ * Бот анкета босқичини PostgreSQL'да сақлайди.
+ */
+router.post('/progress', async (req, res, next) => {
+  try {
+    const parsed = progressSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Progress маълумоти нотўғри',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const telegramId = String(parsed.data.telegramId);
+    const step = parsed.data.step;
+    const now = new Date();
+
+    let visit = await getLatestOpenMarketingVisit(telegramId);
+
+    if (!visit) {
+      visit = await prisma.marketingVisit.create({
+        data: {
+          telegramId,
+          source: 'DIRECT',
+          campaign: 'direct',
+          startParam: 'direct',
+          funnelStep: 'STARTED',
+          lastStepAt: now,
+        },
+      });
+    }
+
+    const updateData = {
+      funnelStep: step,
+      lastStepAt: now,
+      abandonedAt: null,
+    };
+
+    if (
+      step === 'APPLICATION_STARTED' &&
+      !visit.applicationStartedAt
+    ) {
+      updateData.applicationStartedAt = now;
+    }
+
+    if (parsed.data.serviceType) {
+      updateData.serviceTypeSelected = parsed.data.serviceType;
+    }
+
+    const updated = await prisma.marketingVisit.update({
+      where: { id: visit.id },
+      data: updateData,
+    });
+
+    return res.json({
+      ok: true,
+      visitId: updated.id,
+      step: updated.funnelStep,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/telegram/abandoned-due
+ *
+ * 30+ дақиқа давом эттирмаган, лекин мурожаатни якунламаган
+ * фойдаланувчиларни reminder учун қайтаради.
+ */
+router.get('/abandoned-due', async (req, res, next) => {
+  try {
+    const minutesRaw = Number(req.query.minutes || 30);
+    const limitRaw = Number(req.query.limit || 20);
+
+    const minutes = Number.isFinite(minutesRaw)
+      ? Math.min(Math.max(Math.trunc(minutesRaw), 10), 1440)
+      : 30;
+
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 100)
+      : 20;
+
+    const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+
+    const items = await prisma.marketingVisit.findMany({
+      where: {
+        convertedAt: null,
+        applicationStartedAt: { not: null },
+        lastStepAt: { lte: cutoff },
+        reminderSentAt: null,
+        funnelStep: {
+          notIn: ['CASE_CREATED', 'CANCELLED'],
+        },
+      },
+      orderBy: {
+        lastStepAt: 'asc',
+      },
+      take: limit,
+    });
+
+    if (items.length) {
+      await prisma.marketingVisit.updateMany({
+        where: {
+          id: { in: items.map((item) => item.id) },
+          abandonedAt: null,
+        },
+        data: {
+          abandonedAt: new Date(),
+        },
+      });
+    }
+
+    return res.json({
+      ok: true,
+      items: items.map((item) => ({
+        visitId: item.id,
+        telegramId: item.telegramId,
+        username: item.username,
+        firstName: item.firstName,
+        lastName: item.lastName,
+        source: item.source,
+        campaign: item.campaign,
+        startParam: item.startParam,
+        funnelStep: item.funnelStep,
+        serviceType: item.serviceTypeSelected,
+        lastStepAt: item.lastStepAt,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/telegram/reminder-sent
+ */
+router.post('/reminder-sent', async (req, res, next) => {
+  try {
+    const parsed = reminderSentSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        error: 'visitId нотўғри',
+      });
+    }
+
+    await prisma.marketingVisit.update({
+      where: {
+        id: parsed.data.visitId,
+      },
+      data: {
+        reminderSentAt: new Date(),
+      },
+    });
+
+    return res.json({ ok: true });
   } catch (error) {
     next(error);
   }
@@ -189,6 +373,9 @@ router.post('/link', async (req, res, next) => {
         },
         data: {
           phoneLinkedAt: new Date(),
+          funnelStep: 'PHONE_LINKED',
+          lastStepAt: new Date(),
+          abandonedAt: null,
         },
       });
 
@@ -220,6 +407,9 @@ router.post('/link', async (req, res, next) => {
         },
         data: {
           phoneLinkedAt: new Date(),
+          funnelStep: 'PHONE_LINKED',
+          lastStepAt: new Date(),
+          abandonedAt: null,
         },
       });
 
@@ -457,6 +647,10 @@ router.post('/case', async (req, res, next) => {
           caseDisplayId: result.displayId,
           phoneLinkedAt: marketingVisit.phoneLinkedAt || new Date(),
           convertedAt: new Date(),
+          completedAt: new Date(),
+          funnelStep: 'CASE_CREATED',
+          lastStepAt: new Date(),
+          abandonedAt: null,
         },
       });
     }

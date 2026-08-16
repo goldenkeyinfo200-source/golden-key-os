@@ -974,9 +974,7 @@ router.get(
 /**
  * GET /api/cases/marketing-funnel
  *
- * CRM учун Telegram/реклама воронкаси:
- * Start -> телефон -> мурожаат -> якунланган.
- * JWT орқали ҳимояланган.
+ * CRM учун бот/реклама воронкаси ва ташлаб кетганлар рўйхати.
  */
 router.get(
   '/marketing-funnel',
@@ -989,19 +987,20 @@ router.get(
         },
       });
 
-      const caseIds = visits.map((item) => item.caseId).filter(Boolean);
+      const now = Date.now();
+      const abandonedCutoff = now - 30 * 60 * 1000;
+
+      const caseIds = visits
+        .map((item) => item.caseId)
+        .filter(Boolean);
 
       const completedCases = caseIds.length
         ? await prisma.case.findMany({
             where: {
-              id: {
-                in: caseIds,
-              },
+              id: { in: caseIds },
               status: 'COMPLETED',
             },
-            select: {
-              id: true,
-            },
+            select: { id: true },
           })
         : [];
 
@@ -1010,6 +1009,7 @@ router.get(
       );
 
       const grouped = new Map();
+      const abandonedPeople = [];
 
       for (const visit of visits) {
         const source = visit.source || 'DIRECT';
@@ -1022,8 +1022,12 @@ router.get(
             campaign,
             startParameter: visit.startParam || null,
             botStarts: 0,
+            applicationStarted: 0,
             phoneLinked: 0,
+            serviceSelected: 0,
+            confirmationReached: 0,
             casesCreated: 0,
+            abandoned: 0,
             completed: 0,
           });
         }
@@ -1031,12 +1035,65 @@ router.get(
         const row = grouped.get(key);
         row.botStarts += 1;
 
+        if (visit.applicationStartedAt) {
+          row.applicationStarted += 1;
+        }
+
         if (visit.phoneLinkedAt) {
           row.phoneLinked += 1;
         }
 
+        if (visit.serviceTypeSelected) {
+          row.serviceSelected += 1;
+        }
+
+        if (
+          ['CONFIRMATION_REACHED', 'CASE_CREATED'].includes(
+            visit.funnelStep
+          )
+        ) {
+          row.confirmationReached += 1;
+        }
+
         if (visit.caseId || visit.convertedAt) {
           row.casesCreated += 1;
+        }
+
+        const lastActivity =
+          visit.lastStepAt?.getTime?.() ||
+          visit.updatedAt?.getTime?.() ||
+          visit.createdAt?.getTime?.() ||
+          now;
+
+        const isAbandoned =
+          !visit.convertedAt &&
+          visit.funnelStep !== 'CANCELLED' &&
+          lastActivity <= abandonedCutoff;
+
+        if (isAbandoned) {
+          row.abandoned += 1;
+
+          abandonedPeople.push({
+            id: visit.id,
+            telegramId: visit.telegramId,
+            username: visit.username,
+            fullName:
+              [visit.firstName, visit.lastName]
+                .filter(Boolean)
+                .join(' ') || null,
+            source,
+            campaign,
+            startParameter: visit.startParam,
+            funnelStep: visit.funnelStep || 'STARTED',
+            serviceType: visit.serviceTypeSelected,
+            createdAt: visit.createdAt,
+            lastStepAt: visit.lastStepAt || visit.updatedAt,
+            minutesIdle: Math.max(
+              0,
+              Math.floor((now - lastActivity) / 60000)
+            ),
+            reminderSentAt: visit.reminderSentAt,
+          });
         }
 
         if (
@@ -1062,11 +1119,24 @@ router.get(
                   (row.casesCreated / row.botStarts) * 1000
                 ) / 10
               : 0,
+          abandonmentRate:
+            row.botStarts > 0
+              ? Math.round(
+                  (row.abandoned / row.botStarts) * 1000
+                ) / 10
+              : 0,
         }))
         .sort((a, b) => b.botStarts - a.botStarts);
 
       return res.json({
         items,
+        abandoned: abandonedPeople
+          .sort(
+            (a, b) =>
+              new Date(b.lastStepAt) -
+              new Date(a.lastStepAt)
+          )
+          .slice(0, 100),
       });
     } catch (error) {
       next(error);
