@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
+  BarChart3,
   BriefcaseBusiness,
   Building2,
   CircleDollarSign,
@@ -32,6 +33,7 @@ import { ContractsPage } from './pages/ContractsPage.jsx';
 import { FinancePage } from './pages/FinancePage.jsx';
 import { DebtorsPage } from './pages/DebtorsPage.jsx';
 import { ArchivePage } from './pages/ArchivePage.jsx';
+import { MarketingStatsPage } from './pages/MarketingStatsPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -50,6 +52,7 @@ const menu = [
   ['Шартномалар', FileText],
   ['Молия', WalletCards],
   ['Қарздорлар', CircleDollarSign],
+  ['Реклама статистикаси', BarChart3],
   ['Архив', Archive],
 ];
 
@@ -758,6 +761,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Қарздорлар') {
       return <DebtorsPage />;
+    }
+
+    if (activeMenu === 'Реклама статистикаси') {
+      return <MarketingStatsPage />;
     }
 
     if (activeMenu === 'Архив') {

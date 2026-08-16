@@ -1,24 +1,23 @@
-MARKETING TRACKING — FINAL CONNECTION
+GOLDEN KEY OS — РЕКЛАМА СТАТИСТИКАСИ
 
-1) backend/src/routes/telegram.js ни алмаштиринг
-2) telegram-bot/src/index.js ни алмаштиринг
-3) Commit + Push
+Алмаштирилади:
+1. backend/src/routes/cases.js
+2. crm/src/App.jsx
+
+Янги файл:
+3. crm/src/pages/MarketingStatsPage.jsx
+
+Қандай ишлайди:
+- чап менюда "Реклама статистикаси" чиқади;
+- фақат SUPER_ADMIN ва DIRECTOR кўради;
+- backend GET /api/cases/marketing-stats статистика қайтаради;
+- source/campaign/startParameter бўйича гуруҳлайди;
+- мурожаатлар, SIGNED шартномалар, COMPLETED ва REJECTED сонини ҳисоблайди;
+- шартнома ва якунланган иш конверсиясини % кўрсатади.
+
+Қўйгандан кейин:
+Commit -> Push origin
 
 Railway:
-- backend автомат deploy бўлиши керак
-- telegram-bot Root Directory = /telegram-bot
-- telegram-bot ҳам deploy бўлиши керак
-
-TEST:
-https://t.me/gkos_bot?start=telegram_ipoteka_01
-
-Янги мурожаат яратилганда Case'да:
-source = TELEGRAM
-campaign = ipoteka_01
-startParameter = telegram_ipoteka_01
-
-сақланади.
-
-Статистика API:
-GET /api/telegram/marketing-stats
-(X-Bot-Secret талаб қилади)
+- backend deploy бўлиши керак
+- crm deploy бўлиши керак
