@@ -126,6 +126,9 @@ const createCaseSchema = z.object({
   saleCadastreNumber: z.string().trim().max(100).optional().or(z.literal('')),
   salePropertyArea: z.union([z.number(), z.string()]).optional().nullable(),
   saleServiceFeePayer: z.enum(['BUYER', 'SELLER', 'BOTH']).optional().nullable(),
+  saleDepositAmount: z.union([z.number(), z.string()]).optional().nullable(),
+  saleDepositPaidAt: z.string().trim().optional().or(z.literal('')),
+  saleDepositDeadline: z.string().trim().optional().or(z.literal('')),
 
   bankName: z
     .string()
@@ -911,6 +914,21 @@ router.post(
           ? parseAmount(data.serviceFee)
           : null;
 
+      const saleDepositAmount =
+        data.serviceType === 'SALE_PURCHASE'
+          ? parseAmount(data.saleDepositAmount)
+          : null;
+
+      const saleDepositPaidAt =
+        data.serviceType === 'SALE_PURCHASE'
+          ? parseDate(data.saleDepositPaidAt)
+          : null;
+
+      const saleDepositDeadline =
+        data.serviceType === 'SALE_PURCHASE'
+          ? parseDate(data.saleDepositDeadline)
+          : null;
+
       if (
         ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType) &&
         data.serviceFee !== undefined &&
@@ -943,6 +961,18 @@ router.post(
         }
         if (!(Number(requestedAmount) > 0)) {
           return res.status(400).json({ error: 'Олди-сотди нархини киритинг' });
+        }
+        if (!(Number(saleDepositAmount) > 0)) {
+          return res.status(400).json({ error: 'Закалат суммасини киритинг' });
+        }
+        if (!saleDepositPaidAt) {
+          return res.status(400).json({ error: 'Закалат берилган санани киритинг' });
+        }
+        if (!saleDepositDeadline) {
+          return res.status(400).json({ error: 'Закалат муддатини киритинг' });
+        }
+        if (saleDepositDeadline < saleDepositPaidAt) {
+          return res.status(400).json({ error: 'Закалат муддати берилган санадан олдин бўлиши мумкин эмас' });
         }
       }
 
@@ -1005,6 +1035,10 @@ router.post(
               saleCadastreNumber: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.saleCadastreNumber) : null,
               salePropertyArea: data.serviceType === 'SALE_PURCHASE' && data.salePropertyArea ? Number(data.salePropertyArea) : null,
               saleServiceFeePayer: data.serviceType === 'SALE_PURCHASE' ? (data.saleServiceFeePayer || 'BUYER') : null,
+              saleDepositAmount: data.serviceType === 'SALE_PURCHASE' ? saleDepositAmount : null,
+              saleDepositPaidAt: data.serviceType === 'SALE_PURCHASE' ? saleDepositPaidAt : null,
+              saleDepositDeadline: data.serviceType === 'SALE_PURCHASE' ? saleDepositDeadline : null,
+              saleDepositTermsAccepted: data.serviceType === 'SALE_PURCHASE',
               bankName: normalizeOptional(
                 data.bankName
               ),

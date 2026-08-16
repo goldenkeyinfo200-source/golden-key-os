@@ -64,6 +64,7 @@ const INITIAL_FORM = {
   realtorServiceFee: '',
   sellerFullName: '', sellerPhone: '', sellerPinfl: '', sellerPassportSeries: '', sellerPassportNumber: '', sellerAddress: '',
   salePropertyType: 'APARTMENT', salePropertyAddress: '', saleCadastreNumber: '', salePropertyArea: '', salePrice: '', saleServiceFee: '', saleServiceFeePayer: 'BUYER',
+  saleDepositAmount: '', saleDepositPaidAt: '', saleDepositDeadline: '',
 };
 
 const REALTOR_DIRECTION_OPTIONS = [
@@ -277,6 +278,11 @@ function NewCaseModal({ open, onClose, onCreated }) {
         saleCadastreNumber: isSalePurchase ? form.saleCadastreNumber.trim() : '',
         salePropertyArea: isSalePurchase && form.salePropertyArea ? form.salePropertyArea : null,
         saleServiceFeePayer: isSalePurchase ? form.saleServiceFeePayer : null,
+        saleDepositAmount: isSalePurchase && form.saleDepositAmount
+          ? form.saleDepositAmount.replace(/\s/g, '')
+          : null,
+        saleDepositPaidAt: isSalePurchase ? (form.saleDepositPaidAt || '') : '',
+        saleDepositDeadline: isSalePurchase ? (form.saleDepositDeadline || '') : '',
 
         requestedAmount: isSalePurchase
           ? (form.salePrice ? form.salePrice.replace(/\s/g, '') : null)
@@ -358,8 +364,16 @@ function NewCaseModal({ open, onClose, onCreated }) {
         <form className="case-form" onSubmit={submit}>
           <div className="form-section">
             <div className="form-section-title">
-              <strong>Мижоз маълумотлари</strong>
-              <span>Асосий шахсий маълумотлар</span>
+              <strong>
+                {form.serviceType === 'SALE_PURCHASE'
+                  ? 'Харидор маълумотлари'
+                  : 'Мижоз маълумотлари'}
+              </strong>
+              <span>
+                {form.serviceType === 'SALE_PURCHASE'
+                  ? 'Олди-сотди битими бўйича харидорнинг шахсий маълумотлари'
+                  : 'Асосий шахсий маълумотлар'}
+              </span>
             </div>
 
             <div className="form-grid">
@@ -509,7 +523,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
                 {form.serviceType === 'REALTOR_SERVICE'
                   ? 'Риэлторлик хизмати ва объект маълумотлари'
                   : form.serviceType === 'SALE_PURCHASE'
-                    ? 'Олувчи, сотувчи ва кўчмас мулк битими маълумотлари'
+                    ? 'Харидор, сотувчи ва кўчмас мулк битими маълумотлари'
                     : 'Мурожаат мақсади ва сўралаётган маблағ'}
               </span>
             </div>
@@ -657,8 +671,47 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   <label className="field field-wide"><span>Объект манзили *</span><input value={form.salePropertyAddress} onChange={(e)=>updateField('salePropertyAddress',e.target.value)} disabled={saving}/></label>
                   <label className="field"><span>Майдони, м²</span><input value={form.salePropertyArea} onChange={(e)=>updateField('salePropertyArea',e.target.value.replace(/[^\d.]/g,''))} inputMode="decimal" disabled={saving}/></label>
                   <label className="field"><span>Олди-сотди нархи *</span><input value={form.salePrice} onChange={(e)=>updateField('salePrice',e.target.value.replace(/\D/g,''))} inputMode="numeric" disabled={saving}/></label>
+
+                  <div className="field field-wide"><strong>Закалат маълумотлари</strong></div>
+                  <label className="field">
+                    <span>Закалат суммаси *</span>
+                    <input
+                      value={form.saleDepositAmount}
+                      onChange={(e) => updateField('saleDepositAmount', e.target.value.replace(/\D/g, ''))}
+                      placeholder="Масалан: 10000000"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                    {fieldErrors.saleDepositAmount?.[0] ? <small>{fieldErrors.saleDepositAmount[0]}</small> : null}
+                  </label>
+                  <label className="field">
+                    <span>Закалат берилган сана *</span>
+                    <input
+                      type="date"
+                      value={form.saleDepositPaidAt}
+                      onChange={(e) => updateField('saleDepositPaidAt', e.target.value)}
+                      disabled={saving}
+                    />
+                    {fieldErrors.saleDepositPaidAt?.[0] ? <small>{fieldErrors.saleDepositPaidAt[0]}</small> : null}
+                  </label>
+                  <label className="field">
+                    <span>Битимни расмийлаштиришнинг охирги санаси *</span>
+                    <input
+                      type="date"
+                      value={form.saleDepositDeadline}
+                      min={form.saleDepositPaidAt || undefined}
+                      onChange={(e) => updateField('saleDepositDeadline', e.target.value)}
+                      disabled={saving}
+                    />
+                    {fieldErrors.saleDepositDeadline?.[0] ? <small>{fieldErrors.saleDepositDeadline[0]}</small> : null}
+                  </label>
+
                   <label className="field"><span>Риэлторлик хизмати ҳақи</span><input value={form.saleServiceFee} onChange={(e)=>updateField('saleServiceFee',e.target.value.replace(/\D/g,''))} inputMode="numeric" disabled={saving}/></label>
-                  <label className="field"><span>Хизмат ҳақини ким тўлайди?</span><select value={form.saleServiceFeePayer} onChange={(e)=>updateField('saleServiceFeePayer',e.target.value)} disabled={saving}><option value="BUYER">Олувчи</option><option value="SELLER">Сотувчи</option><option value="BOTH">Икки томон</option></select></label>
+                  <label className="field"><span>Хизмат ҳақини ким тўлайди?</span><select value={form.saleServiceFeePayer} onChange={(e)=>updateField('saleServiceFeePayer',e.target.value)} disabled={saving}><option value="BUYER">Харидор</option><option value="SELLER">Сотувчи</option><option value="BOTH">Икки томон</option></select></label>
+
+                  <div className="field field-wide" style={{ fontSize: '13px', lineHeight: 1.6 }}>
+                    <strong>Шартномага автоматик киритиладиган шартлар:</strong> харидор битимдан қайтса берилган закалат қайтарилмайди; сотувчи битимдан қайтса олган закалатни икки баравар миқдорда қайтаради; битимдан қайтган тараф риэлторлик хизмати бўйича белгиланган харажатларни қоплайди. Суғуртага оид стандарт шартлар ҳам шартнома шаблонида автоматик кўрсатилади.
+                  </div>
                 </>
               ) : (
                 <>

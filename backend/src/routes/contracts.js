@@ -41,10 +41,13 @@ function hashToken(token) {
 
 async function generateContractDisplayId(tx, serviceType) {
   const year = new Date().getFullYear();
+
   const prefix =
     serviceType === 'REALTOR_SERVICE'
       ? `GK-RX-${year}-`
-      : `GK-SH-${year}-`;
+      : serviceType === 'SALE_PURCHASE'
+        ? `GK-OS-${year}-`
+        : `GK-SH-${year}-`;
 
   const latest = await tx.contract.findFirst({
     where: {
@@ -92,6 +95,9 @@ async function getCaseForContract(caseId) {
           status: {
             in: ['APPROVED', 'ACTIVE'],
           },
+        },
+        include: {
+          client: true,
         },
         orderBy: {
           sequence: 'asc',
@@ -159,11 +165,43 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
   }
 
   if (caseItem.serviceType === 'SALE_PURCHASE') {
-    const marker = 'data-gk-template="sale-purchase-v1"';
-    const current = await tx.contractTemplate.findFirst({ where: { serviceType: 'SALE_PURCHASE', isActive: true }, orderBy: { version: 'desc' } });
-    if (current?.htmlBody?.includes(marker)) return current;
-    const latest = await tx.contractTemplate.findFirst({ where: { serviceType: 'SALE_PURCHASE' }, orderBy: { version: 'desc' }, select: { version: true } });
-    return tx.contractTemplate.create({ data: { name: 'Кўчмас мулк олди-сотдисини ташкил этиш бўйича уч томонлама шартнома', serviceType: 'SALE_PURCHASE', version: (latest?.version || 0) + 1, htmlBody: salePurchaseContractHtml(), isActive: true } });
+    const marker = 'data-gk-template="sale-purchase-v2"';
+
+    const current = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'SALE_PURCHASE',
+        isActive: true,
+      },
+      orderBy: {
+        version: 'desc',
+      },
+    });
+
+    if (current?.htmlBody?.includes(marker)) {
+      return current;
+    }
+
+    const latest = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'SALE_PURCHASE',
+      },
+      orderBy: {
+        version: 'desc',
+      },
+      select: {
+        version: true,
+      },
+    });
+
+    return tx.contractTemplate.create({
+      data: {
+        name: 'Кўчмас мулк олди-сотдисини ташкил этиш бўйича уч томонлама шартнома',
+        serviceType: 'SALE_PURCHASE',
+        version: (latest?.version || 0) + 1,
+        htmlBody: salePurchaseContractHtml(),
+        isActive: true,
+      },
+    });
   }
 
   let template = await tx.contractTemplate.findFirst({
@@ -211,8 +249,16 @@ router.get(
             },
           },
           invitations: {
-            orderBy: { createdAt: 'desc' },
-            select: { id: true, signerRole: true, expiresAt: true, usedAt: true, createdAt: true },
+            orderBy: {
+              createdAt: 'desc',
+            },
+            select: {
+              id: true,
+              signerRole: true,
+              expiresAt: true,
+              usedAt: true,
+              createdAt: true,
+            },
           },
         },
         orderBy: {
@@ -266,6 +312,15 @@ router.post(
       ) {
         return res.status(400).json({
           error: 'Риэлторлик шартномаси учун хизмат ҳақини киритинг',
+        });
+      }
+
+      if (
+        caseItem.serviceType === 'SALE_PURCHASE' &&
+        !(Number(caseItem.requestedAmount) > 0)
+      ) {
+        return res.status(400).json({
+          error: 'Олди-сотди шартномаси учун битим нархини киритинг',
         });
       }
 
@@ -402,12 +457,19 @@ router.post(
         });
       }
 
-      const signerRole = contract.case?.serviceType === 'SALE_PURCHASE'
-        ? parsed.data.signerRole
-        : 'CLIENT';
+      const signerRole =
+        contract.case?.serviceType === 'SALE_PURCHASE'
+          ? parsed.data.signerRole
+          : 'CLIENT';
 
-      if (contract.case?.serviceType === 'SALE_PURCHASE' && !['SELLER', 'BUYER'].includes(signerRole)) {
-        return res.status(400).json({ error: 'Олди-сотди шартномаси учун Сотувчи ёки Олувчи QR турини танланг' });
+      if (
+        contract.case?.serviceType === 'SALE_PURCHASE' &&
+        !['SELLER', 'BUYER'].includes(signerRole)
+      ) {
+        return res.status(400).json({
+          error:
+            'Олди-сотди шартномаси учун Сотувчи ёки Харидор QR турини танланг',
+        });
       }
 
       if (contract.status === 'SIGNED') {
@@ -520,7 +582,12 @@ router.post(
         contractDisplayId: contract.displayId,
         expiresAt,
         signerRole,
-        signerLabel: signerRole === 'SELLER' ? 'Сотувчи' : signerRole === 'BUYER' ? 'Олувчи' : 'Мижоз',
+        signerLabel:
+          signerRole === 'SELLER'
+            ? 'Сотувчи'
+            : signerRole === 'BUYER'
+              ? 'Харидор'
+              : 'Мижоз',
         signUrl,
         qrDataUrl,
         kiosk: kiosk
@@ -536,7 +603,6 @@ router.post(
     }
   }
 );
-
 
 router.post(
   '/:contractId/pdf',
