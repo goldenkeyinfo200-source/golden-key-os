@@ -263,14 +263,14 @@ function extractContractBlocks(renderedHtml) {
 
 function bodyBottom(doc) {
   /*
-    Footer тахминан 790 дан бошланади.
-    Матн footer устига чиқиб кетмаслиги учун
-    body bottom'ни 770 атрофида ушлаймиз.
+    Footer 790 дан бошланади.
+    Матн footer ва PDFKit'нинг automatic page-break чегарасига
+    яқинлашиб кетмаслиги учун body bottom'ни 748 да ушлаймиз.
   */
   return Math.min(
     doc.page.height -
       doc.page.margins.bottom,
-    770
+    748
   );
 }
 
@@ -296,7 +296,7 @@ function writeContractTitle(doc, text) {
       align: 'center',
       lineGap: 1,
     })
-    .moveDown(0.35);
+    .moveDown(0.25);
 }
 
 function writeContractHeading(doc, text) {
@@ -317,7 +317,7 @@ function writeContractHeading(doc, text) {
       align: 'left',
       lineGap: 0.7,
     })
-    .moveDown(0.18);
+    .moveDown(0.12);
 }
 
 function writeContractParagraph(doc, text) {
@@ -325,19 +325,39 @@ function writeContractParagraph(doc, text) {
     return;
   }
 
-  ensureSpace(doc, 24);
+  doc
+    .font('Regular')
+    .fontSize(9.05);
+
+  const textHeight = doc.heightOfString(text, {
+    width: 495,
+    align: 'justify',
+    lineGap: 0.9,
+    paragraphGap: 0,
+  });
+
+  /*
+    Кичик абзацни янги саҳифага бутунлай кўчириш мумкин,
+    лекин узун абзац PDFKit томонидан табиий бўлинади.
+    Шу тарзда катта бўш жойлар қолмайди.
+  */
+  if (textHeight <= 110) {
+    ensureSpace(doc, Math.min(textHeight + 8, 118));
+  } else {
+    ensureSpace(doc, 24);
+  }
 
   doc
     .font('Regular')
-    .fontSize(9.15)
+    .fontSize(9.05)
     .fillColor('#111111')
     .text(text, {
       width: 495,
       align: 'justify',
-      lineGap: 1.15,
+      lineGap: 0.9,
       paragraphGap: 0,
     })
-    .moveDown(0.24);
+    .moveDown(0.16);
 }
 
 function writeContractBlocks(doc, blocks) {
@@ -419,6 +439,9 @@ function writeLabelValueAt(
 ========================================================= */
 
 function drawHeader(doc, logoPath) {
+  const previousX = doc.x;
+  const previousY = doc.y;
+
   if (logoPath) {
     doc.image(
       logoPath,
@@ -461,6 +484,9 @@ function drawHeader(doc, logoPath) {
     .moveTo(50, 82)
     .lineTo(545, 82)
     .stroke();
+
+  doc.x = previousX;
+  doc.y = previousY;
 }
 
 function drawFooter(
@@ -484,6 +510,8 @@ function drawFooter(
   */
 
   const originalBottomMargin = doc.page.margins.bottom;
+  const previousX = doc.x;
+  const previousY = doc.y;
 
   doc.page.margins.bottom = 0;
 
@@ -515,6 +543,8 @@ function drawFooter(
   doc.restore();
 
   doc.page.margins.bottom = originalBottomMargin;
+  doc.x = previousX;
+  doc.y = previousY;
 }
 
 /* =========================================================
@@ -703,7 +733,7 @@ function drawConfirmationCard(doc, {
   telegramId,
 }) {
   doc
-    .roundedRect(x, y, width, 150, 8)
+    .roundedRect(x, y, width, 132, 8)
     .fillAndStroke('#FAFAFA', '#D8D8D8');
 
   doc
@@ -759,7 +789,7 @@ function drawConfirmationCard(doc, {
     .text(
       'Усул: Бир марталик QR-код',
       x + 12,
-      y + 126,
+      y + 112,
       {
         width: width - 24,
       }
@@ -939,7 +969,7 @@ function drawVerificationPage(
 
     drawConfirmationCard(doc, {
       x: 55,
-      y: 535,
+      y: 510,
       width: 235,
       confirmation: buyer,
       telegramId: caseItem.applicant?.telegramId || null,
@@ -947,7 +977,7 @@ function drawVerificationPage(
 
     drawConfirmationCard(doc, {
       x: 305,
-      y: 535,
+      y: 510,
       width: 235,
       confirmation: seller,
       telegramId: caseItem.sellerTelegramId || null,
@@ -960,14 +990,14 @@ function drawVerificationPage(
       .text(
         'SHA-256',
         55,
-        705
+        655
       )
       .font('Regular')
       .fontSize(6.8)
       .text(
         verificationHash,
         55,
-        721,
+        668,
         {
           width: 485,
           lineGap: 1,
@@ -981,7 +1011,7 @@ function drawVerificationPage(
       .text(
         'Текшириш манзили',
         55,
-        760
+        705
       )
       .font('Regular')
       .fontSize(6.8)
@@ -989,11 +1019,13 @@ function drawVerificationPage(
       .text(
         verificationUrl,
         55,
-        775,
+        719,
         {
           width: 485,
+          height: 34,
           link: verificationUrl,
           underline: true,
+          lineBreak: true,
         }
       );
 
@@ -1069,7 +1101,7 @@ function drawVerificationPage(
     .text(
       'Ушбу QR орқали тасдиқ электрон розиликни қайд этади. Қонунчилик ёки муайян битим учун малакавий электрон рақамли имзо талаб этилса, алоҳида E-IMZO ёки бошқа ваколатли имзо воситаси қўлланилади.',
       65,
-      700,
+      690,
       {
         width: 465,
         align: 'justify',
