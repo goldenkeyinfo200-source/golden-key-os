@@ -72,6 +72,9 @@ const REALTOR_DIRECTION_OPTIONS = [
   ['BUY', 'Уй сотиб олиш'],
   ['RENT_OUT', 'Ижарага бериш'],
   ['RENT_IN', 'Ижарага олиш'],
+  ['NOTARY_DOCUMENTS', 'Ҳужжатларни нотариусга тайёрлаш'],
+  ['CADASTRE_ASSISTANCE', 'Кадастр хизматларини кўрсатишда ёрдам'],
+  ['INHERITANCE_ASSISTANCE', 'Мерос ишларини расмийлаштиришда ёрдам'],
 ];
 
 const PROPERTY_TYPE_OPTIONS = [
