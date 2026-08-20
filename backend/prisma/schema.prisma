@@ -95,6 +95,41 @@ enum CaseBankStatus {
   CLOSED
 }
 
+enum ClientDocumentKind {
+  ORIGINAL
+  COPY
+  NOTARIZED_COPY
+  ELECTRONIC_COPY
+  OTHER
+}
+
+enum ClientDocumentStatus {
+  RECEIVED
+  PARTIALLY_RETURNED
+  RETURNED
+  LOST_OR_DAMAGED
+}
+
+enum HandoverType {
+  RECEIPT
+  RETURN
+}
+
+enum ActStatus {
+  DRAFT
+  READY_TO_SIGN
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+enum InvitationPurpose {
+  CONTRACT_SIGN
+  DOCUMENT_RECEIPT_CONFIRM
+  DOCUMENT_RETURN_CONFIRM
+  SERVICE_COMPLETION_CONFIRM
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -117,9 +152,9 @@ model Branch {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  users   User[]
-  cases   Case[]
-  kiosks  KioskDevice[]
+  users  User[]
+  cases  Case[]
+  kiosks KioskDevice[]
 
   @@index([companyId])
 }
@@ -147,23 +182,23 @@ model Bank {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  companyId    String?
-  branchId     String?
-  bankId       String?
-  bankPosition String?
-  fullName     String
-  phone        String?
-  email        String?  @unique
-  login        String?  @unique
-  passwordHash String?
-  telegramId   String?  @unique
-  role         UserRole
-  isActive     Boolean  @default(true)
+  id                 String    @id @default(cuid())
+  companyId          String?
+  branchId           String?
+  bankId             String?
+  bankPosition       String?
+  fullName           String
+  phone              String?
+  email              String?   @unique
+  login              String?   @unique
+  passwordHash       String?
+  telegramId         String?   @unique
+  role               UserRole
+  isActive           Boolean   @default(true)
   resetCodeHash      String?
   resetCodeExpiresAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   company Company? @relation(fields: [companyId], references: [id])
 
@@ -171,11 +206,11 @@ model User {
 
   bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
 
-  managedCases  Case[]        @relation("ReceptionManagerCases")
-  executedCases Case[]        @relation("ExecutorCases")
-  auditLogs     AuditLog[]
-  kiosks        KioskDevice[]
-  bankOffers    BankOffer[]
+  managedCases    Case[]               @relation("ReceptionManagerCases")
+  executedCases   Case[]               @relation("ExecutorCases")
+  auditLogs       AuditLog[]
+  kiosks          KioskDevice[]
+  bankOffers      BankOffer[]
   bankAssignments CaseBankAssignment[] @relation("AssignedBankEmployee")
 
   @@index([companyId])
@@ -186,7 +221,7 @@ model User {
 }
 
 model Client {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   telegramId     String?
   fullName       String
   pinfl          String?
@@ -195,8 +230,8 @@ model Client {
   birthDate      DateTime?
   address        String?
   phone          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   applicantCases Case[]     @relation("ApplicantCases")
   borrowers      Borrower[]
@@ -210,75 +245,75 @@ model Client {
 }
 
 model Case {
-  id                 String      @id @default(cuid())
-  displayId          String      @unique
-  branchId           String?
-  applicantClientId  String
-  receptionManagerId String?
-  executorId         String?
-  serviceType        ServiceType
-  status             CaseStatus  @default(NEW)
-  requestedAmount    Decimal?    @db.Decimal(18, 2)
-  approvedAmount             Decimal?    @db.Decimal(18, 2)
-  serviceFeePercent           Decimal     @default(4.5) @db.Decimal(6, 3)
-  serviceFeeAutoAmount        Decimal?    @db.Decimal(18, 2)
-  serviceFee                  Decimal?    @db.Decimal(18, 2)
+  id                   String      @id @default(cuid())
+  displayId            String      @unique
+  branchId             String?
+  applicantClientId    String
+  receptionManagerId   String?
+  executorId           String?
+  serviceType          ServiceType
+  status               CaseStatus  @default(NEW)
+  requestedAmount      Decimal?    @db.Decimal(18, 2)
+  approvedAmount       Decimal?    @db.Decimal(18, 2)
+  serviceFeePercent    Decimal     @default(4.5) @db.Decimal(6, 3)
+  serviceFeeAutoAmount Decimal?    @db.Decimal(18, 2)
+  serviceFee           Decimal?    @db.Decimal(18, 2)
 
-  collateralType              String?
-  collateralAddress           String?
-  collateralCadastreNumber    String?
-  collateralOwnerFullName     String?
-  collateralOwnerPinfl        String?
+  collateralType                String?
+  collateralAddress             String?
+  collateralCadastreNumber      String?
+  collateralOwnerFullName       String?
+  collateralOwnerPinfl          String?
   collateralOwnerPassportSeries String?
   collateralOwnerPassportNumber String?
-  collateralOwnerPhone        String?
-  collateralOwnerAddress      String?
-  collateralArea              Decimal?    @db.Decimal(12, 2)
-  collateralEstimatedValue    Decimal?    @db.Decimal(18, 2)
-  collateralNotes             String?
+  collateralOwnerPhone          String?
+  collateralOwnerAddress        String?
+  collateralArea                Decimal? @db.Decimal(12, 2)
+  collateralEstimatedValue      Decimal? @db.Decimal(18, 2)
+  collateralNotes               String?
 
   // SALE_PURCHASE: сотувчи ва олди-сотди объекти
-  sellerFullName              String?
-  sellerPhone                 String?
-  sellerPinfl                  String?
-  sellerPassportSeries        String?
-  sellerPassportNumber        String?
-  sellerAddress               String?
-  salePropertyType            String?
-  salePropertyAddress         String?
-  saleCadastreNumber          String?
-  salePropertyArea            Decimal?    @db.Decimal(12, 2)
-  saleServiceFeePayer         String?
+  sellerFullName       String?
+  sellerPhone          String?
+  sellerPinfl          String?
+  sellerPassportSeries String?
+  sellerPassportNumber String?
+  sellerAddress        String?
+  salePropertyType     String?
+  salePropertyAddress  String?
+  saleCadastreNumber   String?
+  salePropertyArea     Decimal? @db.Decimal(12, 2)
+  saleServiceFeePayer  String?
 
   // SALE_PURCHASE: закалат
-  saleDepositAmount           Decimal?    @db.Decimal(18, 2)
-  saleDepositPaidAt           DateTime?
-  saleDepositDeadline         DateTime?
-  saleDepositTermsAccepted    Boolean     @default(false)
+  saleDepositAmount        Decimal?  @db.Decimal(18, 2)
+  saleDepositPaidAt        DateTime?
+  saleDepositDeadline      DateTime?
+  saleDepositTermsAccepted Boolean   @default(false)
 
   // SALE_PURCHASE: суғурта полиси
-  saleInsuranceCompany        String?
-  saleInsurancePolicySeries   String?
-  saleInsurancePolicyNumber   String?
-  saleInsuranceAmount         Decimal?    @db.Decimal(18, 2)
-  saleInsuranceStartDate      DateTime?
-  saleInsuranceEndDate        DateTime?
-  saleInsurancePolicyFileUrl  String?
+  saleInsuranceCompany       String?
+  saleInsurancePolicySeries  String?
+  saleInsurancePolicyNumber  String?
+  saleInsuranceAmount        Decimal?  @db.Decimal(18, 2)
+  saleInsuranceStartDate     DateTime?
+  saleInsuranceEndDate       DateTime?
+  saleInsurancePolicyFileUrl String?
 
-  bankName           String?
-  nextAction         String?
-  nextActionDueAt    DateTime?
-  creditIssuedAt     DateTime?
-  clientReceivedAt   DateTime?
-  completedAt        DateTime?
+  bankName         String?
+  nextAction       String?
+  nextActionDueAt  DateTime?
+  creditIssuedAt   DateTime?
+  clientReceivedAt DateTime?
+  completedAt      DateTime?
 
   // Marketing / реклама tracking
-  source             String?
-  campaign           String?
-  startParameter     String?
+  source         String?
+  campaign       String?
+  startParameter String?
 
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   branch Branch? @relation(fields: [branchId], references: [id])
 
@@ -288,14 +323,17 @@ model Case {
 
   executor User? @relation("ExecutorCases", fields: [executorId], references: [id])
 
-  borrowers   Borrower[]
-  contracts   Contract[]
-  documents   Document[]
-  payments    Payment[]
-  invitations Invitation[]
-  history     CaseHistory[]
-  bankOffers  BankOffer[]
-  bankAssignments CaseBankAssignment[]
+  borrowers             Borrower[]
+  contracts             Contract[]
+  documents             Document[]
+  payments              Payment[]
+  invitations           Invitation[]
+  history               CaseHistory[]
+  bankOffers            BankOffer[]
+  bankAssignments       CaseBankAssignment[]
+  clientDocumentItems   ClientDocumentItem[]
+  documentHandovers     DocumentHandover[]
+  serviceCompletionActs ServiceCompletionAct[]
 
   @@index([branchId])
   @@index([applicantClientId])
@@ -374,21 +412,29 @@ model Contract {
 }
 
 model Invitation {
-  id         String   @id @default(cuid())
-  tokenHash  String   @unique
-  signerRole String?  // CLIENT | SELLER | BUYER
-  caseId     String
-  contractId String?
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
+  id                     String            @id @default(cuid())
+  tokenHash              String            @unique
+  signerRole             String? // CLIENT | SELLER | BUYER
+  purpose                InvitationPurpose @default(CONTRACT_SIGN)
+  caseId                 String
+  contractId             String?
+  documentHandoverId     String?
+  serviceCompletionActId String?
+  expiresAt              DateTime
+  usedAt                 DateTime?
+  createdAt              DateTime          @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-  contract Contract? @relation(fields: [contractId], references: [id])
+  contract             Contract?             @relation(fields: [contractId], references: [id])
+  documentHandover     DocumentHandover?     @relation(fields: [documentHandoverId], references: [id], onDelete: Cascade)
+  serviceCompletionAct ServiceCompletionAct? @relation(fields: [serviceCompletionActId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([contractId])
+  @@index([documentHandoverId])
+  @@index([serviceCompletionActId])
+  @@index([purpose])
   @@index([expiresAt])
 }
 
@@ -409,6 +455,112 @@ model Document {
   @@index([caseId])
   @@index([clientId])
   @@index([type])
+}
+
+model ClientDocumentItem {
+  id                 String               @id @default(cuid())
+  caseId             String
+  name               String
+  series             String?
+  number             String?
+  kind               ClientDocumentKind   @default(ORIGINAL)
+  quantity           Int                  @default(1)
+  conditionOnReceipt String?
+  conditionOnReturn  String?
+  notes              String?
+  status             ClientDocumentStatus @default(RECEIVED)
+  receivedAt         DateTime             @default(now())
+  returnedAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  case          Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  handoverItems DocumentHandoverItem[]
+
+  @@index([caseId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([returnedAt])
+}
+
+model DocumentHandover {
+  id          String       @id @default(cuid())
+  displayId   String       @unique
+  caseId      String
+  type        HandoverType
+  status      ActStatus    @default(DRAFT)
+  pdfUrl      String?
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  note        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  case        Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  items       DocumentHandoverItem[]
+  invitations Invitation[]
+
+  @@index([caseId])
+  @@index([type])
+  @@index([status])
+  @@index([confirmedAt])
+}
+
+model DocumentHandoverItem {
+  id             String   @id @default(cuid())
+  handoverId     String
+  documentItemId String
+  quantity       Int      @default(1)
+  conditionNote  String?
+  createdAt      DateTime @default(now())
+
+  handover     DocumentHandover   @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  documentItem ClientDocumentItem @relation(fields: [documentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([handoverId, documentItemId])
+  @@index([handoverId])
+  @@index([documentItemId])
+}
+
+model ServiceCompletionAct {
+  id               String      @id @default(cuid())
+  displayId        String      @unique
+  caseId           String
+  status           ActStatus   @default(DRAFT)
+  serviceType      ServiceType
+  serviceDirection String?
+  summary          String?
+  clientClaims     String?
+  pdfUrl           String?
+  confirmedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  case        Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  items       ServiceCompletionActItem[]
+  invitations Invitation[]
+
+  @@index([caseId])
+  @@index([status])
+  @@index([serviceType])
+  @@index([confirmedAt])
+}
+
+model ServiceCompletionActItem {
+  id        String   @id @default(cuid())
+  actId     String
+  title     String
+  details   String?
+  completed Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  act ServiceCompletionAct @relation(fields: [actId], references: [id], onDelete: Cascade)
+
+  @@index([actId])
+  @@index([completed])
+  @@index([sortOrder])
 }
 
 model Payment {
@@ -460,10 +612,10 @@ model CaseBankAssignment {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  bank Bank @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  assignedBankEmployee User? @relation("AssignedBankEmployee", fields: [assignedBankEmployeeId], references: [id], onDelete: SetNull)
-  offers BankOffer[]
+  case                 Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bank                 Bank        @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  assignedBankEmployee User?       @relation("AssignedBankEmployee", fields: [assignedBankEmployeeId], references: [id], onDelete: SetNull)
+  offers               BankOffer[]
 
   @@unique([caseId, bankId])
   @@index([caseId])
@@ -513,21 +665,21 @@ model BankOffer {
 }
 
 model KioskDevice {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   branchId          String
   managerId         String?
-  deviceCode        String   @unique
+  deviceCode        String    @unique
   name              String
-  authTokenHash     String   @unique
-  isOnline          Boolean  @default(false)
+  authTokenHash     String    @unique
+  isOnline          Boolean   @default(false)
   lastSeenAt        DateTime?
   currentContractId String?
   currentQrDataUrl  String?
   currentSignUrl    String?
   qrExpiresAt       DateTime?
-  displayStatus     String   @default("IDLE")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  displayStatus     String    @default("IDLE")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   branch  Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   manager User?  @relation(fields: [managerId], references: [id])
@@ -557,14 +709,14 @@ model AuditLog {
 }
 
 model MarketingVisit {
-  id             String   @id @default(cuid())
-  telegramId     String
-  source         String
-  campaign       String
-  startParam     String
-  username       String?
-  firstName      String?
-  lastName       String?
+  id                   String    @id @default(cuid())
+  telegramId           String
+  source               String
+  campaign             String
+  startParam           String
+  username             String?
+  firstName            String?
+  lastName             String?
   phoneLinkedAt        DateTime?
   applicationStartedAt DateTime?
   lastStepAt           DateTime?
@@ -576,8 +728,8 @@ model MarketingVisit {
   caseDisplayId        String?
   convertedAt          DateTime?
   completedAt          DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@index([telegramId])
   @@index([source])

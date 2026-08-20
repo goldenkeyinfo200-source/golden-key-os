@@ -30,6 +30,39 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || null;
 }
 
+
+function signerLabel(role) {
+  if (role === 'SELLER') return 'Сотувчи';
+  if (role === 'BUYER') return 'Харидор';
+  return 'Мижоз';
+}
+
+function publicStatusLabel(status) {
+  const labels = {
+    DRAFT: 'Лойиҳа',
+    READY_TO_SIGN: 'Тасдиқ кутилмоқда',
+    SIGNED: 'Тўлиқ тасдиқланган',
+    CANCELLED: 'Бекор қилинган',
+  };
+
+  return labels[status] || status || 'Номаълум';
+}
+
+function confirmationForRole(invitations, role) {
+  const matches = invitations
+    .filter((item) => item.signerRole === role && item.usedAt)
+    .sort((a, b) => new Date(b.usedAt) - new Date(a.usedAt));
+
+  const item = matches[0] || null;
+
+  return {
+    role,
+    label: signerLabel(role),
+    confirmed: Boolean(item),
+    confirmedAt: item?.usedAt || null,
+  };
+}
+
 async function findInvitation(token) {
   const tokenHash = hashToken(token);
 
@@ -108,6 +141,141 @@ function invitationProblem(invitation) {
   return null;
 }
 
+
+/**
+ * PUBLIC CONTRACT VERIFICATION
+ *
+ * QR-код орқали шартноманинг Golden Key OS'даги қайдини текшириш учун.
+ * Бу endpoint очиқ, шу сабаб ЖШШИР, паспорт, телефон, манзил, IP каби
+ * шахсий/техник маълумотлар қайтарилмайди.
+ */
+router.get('/contracts/:displayId/verify', async (req, res, next) => {
+  try {
+    const displayId = String(req.params.displayId || '').trim();
+
+    if (!displayId) {
+      return res.status(400).json({
+        valid: false,
+        error: 'Шартнома рақами киритилмаган',
+      });
+    }
+
+    const contract = await prisma.contract.findUnique({
+      where: {
+        displayId,
+      },
+      select: {
+        id: true,
+        displayId: true,
+        status: true,
+        signedAt: true,
+        createdAt: true,
+        pdfUrl: true,
+        case: {
+          select: {
+            displayId: true,
+            serviceType: true,
+          },
+        },
+        invitations: {
+          where: {
+            usedAt: {
+              not: null,
+            },
+          },
+          select: {
+            signerRole: true,
+            usedAt: true,
+          },
+          orderBy: {
+            usedAt: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!contract) {
+      return res.status(404).json({
+        valid: false,
+        error: 'Бундай рақамли шартнома Golden Key OS тизимида топилмади',
+      });
+    }
+
+    const pdfAudit = await prisma.auditLog.findFirst({
+      where: {
+        entityType: 'Contract',
+        entityId: contract.id,
+        action: 'CONTRACT_PDF_GENERATED',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        metadata: true,
+        createdAt: true,
+      },
+    });
+
+    const verificationHash =
+      pdfAudit?.metadata &&
+      typeof pdfAudit.metadata === 'object' &&
+      !Array.isArray(pdfAudit.metadata)
+        ? pdfAudit.metadata.verificationHash || null
+        : null;
+
+    const isSalePurchase =
+      contract.case?.serviceType === 'SALE_PURCHASE';
+
+    let confirmations;
+
+    if (isSalePurchase) {
+      confirmations = [
+        confirmationForRole(contract.invitations, 'BUYER'),
+        confirmationForRole(contract.invitations, 'SELLER'),
+      ];
+    } else {
+      confirmations = [
+        confirmationForRole(contract.invitations, 'CLIENT'),
+      ];
+    }
+
+    const confirmationCount =
+      confirmations.filter((item) => item.confirmed).length;
+
+    const requiredConfirmationCount =
+      isSalePurchase ? 2 : 1;
+
+    const fullyConfirmed =
+      contract.status === 'SIGNED' &&
+      confirmationCount >= requiredConfirmationCount;
+
+    return res.json({
+      valid: true,
+      item: {
+        contractDisplayId: contract.displayId,
+        caseDisplayId: contract.case?.displayId || null,
+        serviceType: contract.case?.serviceType || null,
+        status: contract.status,
+        statusLabel: publicStatusLabel(contract.status),
+        createdAt: contract.createdAt,
+        signedAt: contract.signedAt,
+        fullyConfirmed,
+        confirmationCount,
+        requiredConfirmationCount,
+        confirmations,
+        verificationHash,
+        pdfGenerated: Boolean(contract.pdfUrl),
+        pdfGeneratedAt: pdfAudit?.createdAt || null,
+        registryMessage: fullyConfirmed
+          ? 'Ҳужжат Golden Key OS электрон архивида тўлиқ тасдиқланган ҳолда қайд этилган.'
+          : 'Ҳужжат Golden Key OS тизимида мавжуд, аммо тасдиқлаш жараёни якунланмаган.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/contracts/:token', async (req, res, next) => {
   try {
     const invitation = await findInvitation(req.params.token);
@@ -143,7 +311,7 @@ router.get('/contracts/:token', async (req, res, next) => {
         serviceType: caseItem.serviceType,
         expiresAt: invitation.expiresAt,
         signerRole: invitation.signerRole || 'CLIENT',
-        signerLabel: invitation.signerRole === 'SELLER' ? 'Сотувчи' : invitation.signerRole === 'BUYER' ? 'Харидор' : 'Мижоз',
+        signerLabel: signerLabel(invitation.signerRole || 'CLIENT'),
         html,
       },
     });
@@ -182,7 +350,16 @@ router.post('/contracts/:token/confirm', async (req, res, next) => {
         });
         const roles = new Set(confirmations.map((x) => x.signerRole));
         shouldSign = roles.has('SELLER') && roles.has('BUYER');
-        waitingFor = roles.has('SELLER') ? 'BUYER' : 'SELLER';
+
+        if (shouldSign) {
+          waitingFor = null;
+        } else if (roles.has('SELLER')) {
+          waitingFor = 'BUYER';
+        } else if (roles.has('BUYER')) {
+          waitingFor = 'SELLER';
+        } else {
+          waitingFor = 'BUYER';
+        }
       }
 
       let updatedContract = contract;

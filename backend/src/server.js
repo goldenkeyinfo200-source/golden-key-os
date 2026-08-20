@@ -11,6 +11,8 @@ import banksRouter from './routes/banks.js';
 import telegramRouter from './routes/telegram.js';
 import usersRouter from './routes/users.js';
 import branchesRouter from './routes/branches.js';
+import caseActsRouter from './routes/case-acts.js';
+import publicActsRouter from './routes/public-acts.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -148,6 +150,8 @@ app.use('/api/banks', banksRouter);
 app.use('/api/telegram', telegramRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/branches', branchesRouter);
+app.use('/api/case-acts', caseActsRouter);
+app.use('/api/public-acts', publicActsRouter);
 
 /* =========================================================
    404 HANDLER
