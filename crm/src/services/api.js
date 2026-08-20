@@ -1,6 +1,6 @@
 export const API_URL =
   import.meta.env.VITE_API_URL ||
-  'https://backend-production-40a1.up.railway.app/api';
+  'https://backend-production-054ce.up.railway.app/api';
 
 export const TOKEN_KEY = 'golden_key_access_token';
 export const USER_KEY = 'golden_key_current_user';
