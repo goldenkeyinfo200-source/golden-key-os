@@ -505,7 +505,6 @@ export function realtorContractHtml() {
         <p><strong>СТИР:</strong> 304692047</p>
         <p><strong>Телефон:</strong> +998 99 999 79 73</p>
         <p><strong>E-mail:</strong> goldenkeyinfo200@gmail.com</p>
-        <p><strong>Саҳифа:</strong> www.taplink.cc/goldenkey</p>
         <p><strong>Раҳбар:</strong> Таджибаев Азим Иркинджанович</p>
         <p>
           <strong>Фуқаролик жавобгарлиги суғуртаси:</strong>
@@ -664,7 +663,6 @@ export function salePurchaseContractHtml() {
         <p><strong>СТИР:</strong> 304692047</p>
         <p><strong>Телефон:</strong> +998 99 999 79 73</p>
         <p><strong>E-mail:</strong> goldenkeyinfo200@gmail.com</p>
-        <p><strong>Саҳифа:</strong> www.taplink.cc/goldenkey</p>
         <p><strong>Раҳбар:</strong> Таджибаев Азим Иркинджанович</p>
         <p><strong>Фуқаролик жавобгарлиги суғуртаси:</strong> «KAFOLAT» Суғурта компанияси АЖ, 0077162-сонли полис, 29.08.2025 йил.</p>
         <p><strong>М.Ў.</strong> __________________ А. И. Таджибаев</p>
@@ -789,7 +787,6 @@ export function defaultContractHtml() {
         <p><strong>СТИР:</strong> 304692047</p>
         <p><strong>Телефон:</strong> +998 99 999 79 73</p>
         <p><strong>E-mail:</strong> goldenkeyinfo200@gmail.com</p>
-        <p><strong>Саҳифа:</strong> www.taplink.cc/goldenkey</p>
         <p><strong>Раҳбар:</strong> Таджибаев Азим Иркинджанович</p>
         <p><strong>Суғурта:</strong> «KAFOLAT» Суғурта компанияси АЖ, 0077162-сонли полис, 29.08.2025</p>
         <p><strong>М.Ў.</strong> __________________ А. И. Таджибаев</p>
@@ -947,7 +944,12 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
     realtorDirectionCode,
     realtorDirectionLabel: realtorDirection.label,
     realtorDirectionScope,
-    realtorBudgetOrPrice: formatMoney(caseItem.requestedAmount),
+    realtorBudgetOrPrice:
+      caseItem.requestedAmount === null ||
+      caseItem.requestedAmount === undefined ||
+      caseItem.requestedAmount === ''
+        ? 'Қўлланилмайди'
+        : formatMoney(caseItem.requestedAmount),
     requestedAmount: formatMoney(caseItem.requestedAmount),
     approvedAmount: formatMoney(
       selectedOffer?.approvedAmount ?? caseItem.approvedAmount
