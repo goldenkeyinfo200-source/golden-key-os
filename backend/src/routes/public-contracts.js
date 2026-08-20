@@ -33,7 +33,7 @@ function getClientIp(req) {
 
 function signerLabel(role) {
   if (role === 'SELLER') return 'Сотувчи';
-  if (role === 'BUYER') return 'Харидор';
+  if (role === 'BUYER') return 'Олувчи';
   return 'Мижоз';
 }
 
@@ -367,7 +367,7 @@ router.post('/contracts/:token/confirm', async (req, res, next) => {
         updatedContract = await tx.contract.update({ where: { id: contract.id }, data: { status: 'SIGNED', signedAt: now } });
         const oldStatus = caseItem.status;
         await tx.case.update({ where: { id: caseItem.id }, data: { status: 'CONTRACT_SIGNED' } });
-        await tx.caseHistory.create({ data: { caseId: caseItem.id, fromStatus: oldStatus, toStatus: 'CONTRACT_SIGNED', note: caseItem.serviceType === 'SALE_PURCHASE' ? `${contract.displayId} шартномаси Сотувчи ва Харидор томонидан QR орқали тасдиқланди` : `${contract.displayId} шартномаси мижоз томонидан QR орқали тасдиқланди` } });
+        await tx.caseHistory.create({ data: { caseId: caseItem.id, fromStatus: oldStatus, toStatus: 'CONTRACT_SIGNED', note: caseItem.serviceType === 'SALE_PURCHASE' ? `${contract.displayId} шартномаси Сотувчи ва Олувчи томонидан QR орқали тасдиқланди` : `${contract.displayId} шартномаси мижоз томонидан QR орқали тасдиқланди` } });
       }
 
       await tx.auditLog.create({ data: { userId: null, entityType: 'Contract', entityId: contract.id, action: 'CONTRACT_CONFIRMED_BY_QR', metadata: { invitationId: invitation.id, caseId: caseItem.id, signerRole, confirmedAt: now.toISOString(), ip: getClientIp(req), userAgent: req.headers['user-agent'] || null, method: 'ONE_TIME_QR', accepted: true, fullySigned: shouldSign } } });
@@ -383,7 +383,7 @@ router.post('/contracts/:token/confirm', async (req, res, next) => {
     }
 
     return res.json({
-      message: result.fullySigned ? 'Шартнома тўлиқ тасдиқланди' : `${signerRole === 'SELLER' ? 'Сотувчи' : 'Харидор'} тасдиқлади. Иккинчи томон тасдиғи кутилмоқда.`,
+      message: result.fullySigned ? 'Шартнома тўлиқ тасдиқланди' : `${signerRole === 'SELLER' ? 'Сотувчи' : 'Олувчи'} тасдиқлади. Иккинчи томон тасдиғи кутилмоқда.`,
       fullySigned: result.fullySigned,
       waitingFor: result.waitingFor,
       item: { id: result.contract.id, displayId: result.contract.displayId, status: result.contract.status, signedAt: result.contract.signedAt, pdfUrl: finalization?.pdfUrl || result.contract.pdfUrl || null, pdfError },

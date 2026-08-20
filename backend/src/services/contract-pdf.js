@@ -102,11 +102,26 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function normalizeConfirmationForHash(item) {
+  if (!item) return null;
+
+  return {
+    role: item.role || 'CLIENT',
+    invitationId: item.invitationId || null,
+    signedAt: item.signedAt
+      ? new Date(item.signedAt).toISOString()
+      : null,
+    ip: item.ip || null,
+    method: item.method || 'ONE_TIME_QR',
+  };
+}
+
 function contractVerificationHash({
   contract,
   renderedHtml,
   signedAt,
   invitationId,
+  confirmations = [],
 }) {
   const canonical = JSON.stringify({
     contractId: contract.id,
@@ -115,6 +130,7 @@ function contractVerificationHash({
     templateId: contract.templateId,
     signedAt: new Date(signedAt).toISOString(),
     invitationId,
+    confirmations: confirmations.map(normalizeConfirmationForHash),
     renderedHtml,
   });
 
@@ -125,20 +141,28 @@ function contractVerificationHash({
 }
 
 function buildVerificationUrl(contract) {
-  const baseUrl =
-    process.env.PUBLIC_VERIFY_URL?.replace(
-      /\/+$/,
-      ''
-    ) ||
-    'https://taplink.cc/goldenkey';
+  const displayId = encodeURIComponent(contract.displayId);
 
-  if (process.env.PUBLIC_VERIFY_URL) {
-    return `${baseUrl}/${encodeURIComponent(
-      contract.displayId
-    )}`;
+  const configuredBase =
+    process.env.PUBLIC_VERIFY_URL?.trim().replace(/\/+$/, '');
+
+  if (configuredBase) {
+    return `${configuredBase}/${displayId}`;
   }
 
-  return baseUrl;
+  const railwayDomain =
+    process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+
+  if (railwayDomain) {
+    return `https://${railwayDomain}/api/public/contracts/${displayId}/verify`;
+  }
+
+  /*
+    Production fallback for the current Golden Key OS backend.
+    Tavsiya: Railway Variables ichida PUBLIC_VERIFY_URL ni
+    https://<backend-domain>/api/public/contracts qilib belgilang.
+  */
+  return `https://backend-production-054ce.up.railway.app/api/public/contracts/${displayId}/verify`;
 }
 
 /* =========================================================
@@ -413,18 +437,16 @@ function drawHeader(doc, logoPath) {
     .fontSize(7.5)
     .fillColor('#666666')
     .text(
-      'www.taplink.cc/goldenkey',
+      '+998 99 999 79 73',
       360,
       37,
       {
         width: 185,
         align: 'right',
-        link: 'https://taplink.cc/goldenkey',
-        underline: true,
       }
     )
     .text(
-      '+998 99 999 79 73',
+      'goldenkeyinfo200@gmail.com',
       360,
       50,
       {
@@ -499,6 +521,27 @@ function drawFooter(
    COVER
 ========================================================= */
 
+function coverTitle(caseItem) {
+  if (caseItem.serviceType === 'SALE_PURCHASE') {
+    return {
+      main: 'КЎЧМАС МУЛК ОЛДИ-СОТДИСИНИ ТАШКИЛ ЭТИШ ВА РИЭЛТОРЛИК ХИЗМАТЛАРИ БЎЙИЧА',
+      accent: 'УЧ ТОМОНЛАМА ЭЛЕКТРОН ШАРТНОМА',
+    };
+  }
+
+  if (caseItem.serviceType === 'REALTOR_SERVICE') {
+    return {
+      main: 'РИЭЛТОРЛИК ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА',
+      accent: 'ЭЛЕКТРОН ШАРТНОМА',
+    };
+  }
+
+  return {
+    main: 'РИЭЛТОРЛИК ВА ИПОТЕКА ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА',
+    accent: 'ЭЛЕКТРОН ШАРТНОМА',
+  };
+}
+
 function drawCover(
   doc,
   {
@@ -521,24 +564,26 @@ function drawCover(
     );
   }
 
+  const title = coverTitle(caseItem);
+
   doc
     .font('Bold')
-    .fontSize(18)
+    .fontSize(caseItem.serviceType === 'SALE_PURCHASE' ? 15.5 : 18)
     .fillColor('#111111')
     .text(
-      'РИЭЛТОРЛИК ВА ИПОТЕКА ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА',
+      title.main,
       60,
-      235,
+      225,
       {
         width: 475,
         align: 'center',
       }
     )
     .moveDown(0.35)
-    .fontSize(20)
+    .fontSize(caseItem.serviceType === 'SALE_PURCHASE' ? 18 : 20)
     .fillColor('#E30613')
     .text(
-      'ЭЛЕКТРОН ШАРТНОМА',
+      title.accent,
       {
         align: 'center',
       }
@@ -623,18 +668,9 @@ function drawCover(
     .fontSize(9)
     .fillColor('#666666')
     .text(
-      'www.taplink.cc/goldenkey',
+      '+998 99 999 79 73 · goldenkeyinfo200@gmail.com',
       150,
       690,
-      {
-        width: 295,
-        align: 'center',
-        link: 'https://taplink.cc/goldenkey',
-        underline: true,
-      }
-    )
-    .text(
-      '+998 99 999 79 73 · goldenkeyinfo200@gmail.com',
       {
         width: 295,
         align: 'center',
@@ -646,18 +682,117 @@ function drawCover(
    VERIFICATION PAGE
 ========================================================= */
 
+function confirmationTitle(caseItem, confirmations) {
+  if (caseItem.serviceType === 'SALE_PURCHASE') {
+    const buyer = confirmations.find((item) => item.role === 'BUYER');
+    const seller = confirmations.find((item) => item.role === 'SELLER');
+
+    if (buyer && seller) {
+      return '✓ ОЛУВЧИ ВА СОТУВЧИ ТОМОНИДАН QR ОРҚАЛИ ТАСДИҚЛАНГАН';
+    }
+  }
+
+  return '✓ QR ОРҚАЛИ ТАСДИҚЛАНГАН';
+}
+
+function drawConfirmationCard(doc, {
+  x,
+  y,
+  width,
+  confirmation,
+  telegramId,
+}) {
+  doc
+    .roundedRect(x, y, width, 150, 8)
+    .fillAndStroke('#FAFAFA', '#D8D8D8');
+
+  doc
+    .font('Bold')
+    .fontSize(10.5)
+    .fillColor('#111111')
+    .text(
+      confirmation?.label || 'Тасдиқловчи',
+      x + 12,
+      y + 12,
+      {
+        width: width - 24,
+        align: 'center',
+      }
+    );
+
+  doc
+    .font('Regular')
+    .fontSize(8)
+    .fillColor('#333333')
+    .text(
+      `Тасдиқланган: ${formatDateTime(confirmation?.signedAt)}`,
+      x + 12,
+      y + 38,
+      {
+        width: width - 24,
+      }
+    )
+    .text(
+      `Invitation ID: ${confirmation?.invitationId || '—'}`,
+      x + 12,
+      y + 58,
+      {
+        width: width - 24,
+      }
+    )
+    .text(
+      `IP манзил: ${confirmation?.ip || 'Қайд этилмаган'}`,
+      x + 12,
+      y + 82,
+      {
+        width: width - 24,
+      }
+    )
+    .text(
+      `Telegram ID: ${telegramId || 'Уланмаган'}`,
+      x + 12,
+      y + 104,
+      {
+        width: width - 24,
+      }
+    )
+    .text(
+      'Усул: Бир марталик QR-код',
+      x + 12,
+      y + 126,
+      {
+        width: width - 24,
+      }
+    );
+}
+
 function drawVerificationPage(
   doc,
   {
     contract,
     caseItem,
     confirmation,
+    confirmations = [],
     verificationHash,
     qrBuffer,
     verificationUrl,
   }
 ) {
   doc.addPage();
+
+  const normalizedConfirmations =
+    confirmations.length > 0
+      ? confirmations
+      : [
+          {
+            role: 'CLIENT',
+            label: 'Мижоз',
+            invitationId: confirmation?.invitationId || null,
+            signedAt: confirmation?.signedAt || contract.signedAt,
+            ip: confirmation?.ip || null,
+            userAgent: confirmation?.userAgent || null,
+          },
+        ];
 
   doc
     .font('Bold')
@@ -666,7 +801,7 @@ function drawVerificationPage(
     .text(
       'ЭЛЕКТРОН ТАСДИҚ ВА ҲУЖЖАТНИ ТЕКШИРИШ',
       60,
-      110,
+      105,
       {
         width: 475,
         align: 'center',
@@ -676,7 +811,7 @@ function drawVerificationPage(
   doc
     .roundedRect(
       65,
-      160,
+      150,
       465,
       95,
       10
@@ -688,26 +823,26 @@ function drawVerificationPage(
 
   doc
     .font('Bold')
-    .fontSize(14)
+    .fontSize(caseItem.serviceType === 'SALE_PURCHASE' ? 11.8 : 14)
     .fillColor('#087742')
     .text(
-      '✓ QR ОРҚАЛИ ТАСДИҚЛАНГАН',
-      85,
-      185,
+      confirmationTitle(caseItem, normalizedConfirmations),
+      82,
+      177,
       {
-        width: 425,
+        width: 431,
         align: 'center',
       }
     )
     .font('Regular')
-    .fontSize(10)
+    .fontSize(9.5)
     .fillColor('#222222')
     .text(
-      formatDateTime(
-        confirmation.signedAt
-      ),
+      formatDateTime(contract.signedAt || confirmation?.signedAt),
+      82,
+      211,
       {
-        width: 425,
+        width: 431,
         align: 'center',
       }
     );
@@ -715,10 +850,10 @@ function drawVerificationPage(
   if (qrBuffer) {
     doc.image(
       qrBuffer,
-      80,
-      300,
+      70,
+      285,
       {
-        fit: [175, 175],
+        fit: [155, 155],
       }
     );
   }
@@ -728,9 +863,9 @@ function drawVerificationPage(
     .fontSize(10)
     .fillColor('#111111')
     .text(
-      'QR-код',
-      80,
-      485,
+      'Шартномани текшириш QR-коди',
+      60,
+      450,
       {
         width: 175,
         align: 'center',
@@ -740,13 +875,11 @@ function drawVerificationPage(
     .fontSize(8)
     .fillColor('#666666')
     .text(
-      process.env.PUBLIC_VERIFY_URL
-        ? 'Ҳужжат ҳолатини текшириш учун сканерланг'
-        : 'Golden Key маълумот саҳифасини очиш учун сканерланг',
-      70,
-      500,
+      'Golden Key OS реестрида шартноманинг ҳақиқийлиги ва тасдиқ ҳолатини текшириш учун сканерланг',
+      55,
+      468,
       {
-        width: 195,
+        width: 185,
         align: 'center',
       }
     );
@@ -757,52 +890,132 @@ function drawVerificationPage(
     .fillColor('#111111')
     .text(
       'Шартнома рақами',
-      300,
-      305
+      270,
+      290
     )
     .font('Regular')
     .fontSize(9)
     .text(
       contract.displayId,
-      300,
-      322,
+      270,
+      307,
       {
-        width: 230,
+        width: 260,
       }
     );
 
   writeLabelValueAt(
     doc,
-    300,
-    355,
+    270,
+    340,
     'Мурожаат',
     caseItem.displayId
   );
 
   writeLabelValueAt(
     doc,
-    300,
-    390,
+    270,
+    375,
+    'Ҳолат',
+    contract.status === 'SIGNED'
+      ? 'Тўлиқ тасдиқланган'
+      : contract.status
+  );
+
+  writeLabelValueAt(
+    doc,
+    270,
+    410,
+    'Тасдиқланган сана',
+    formatDateTime(contract.signedAt || confirmation?.signedAt)
+  );
+
+  if (caseItem.serviceType === 'SALE_PURCHASE') {
+    const buyer =
+      normalizedConfirmations.find((item) => item.role === 'BUYER') || null;
+
+    const seller =
+      normalizedConfirmations.find((item) => item.role === 'SELLER') || null;
+
+    drawConfirmationCard(doc, {
+      x: 55,
+      y: 535,
+      width: 235,
+      confirmation: buyer,
+      telegramId: caseItem.applicant?.telegramId || null,
+    });
+
+    drawConfirmationCard(doc, {
+      x: 305,
+      y: 535,
+      width: 235,
+      confirmation: seller,
+      telegramId: caseItem.sellerTelegramId || null,
+    });
+
+    doc
+      .font('Bold')
+      .fontSize(8.5)
+      .fillColor('#111111')
+      .text(
+        'SHA-256',
+        55,
+        705
+      )
+      .font('Regular')
+      .fontSize(6.8)
+      .text(
+        verificationHash,
+        55,
+        721,
+        {
+          width: 485,
+          lineGap: 1,
+        }
+      );
+
+    doc
+      .font('Bold')
+      .fontSize(8.5)
+      .fillColor('#111111')
+      .text(
+        'Текшириш манзили',
+        55,
+        760
+      )
+      .font('Regular')
+      .fontSize(6.8)
+      .fillColor('#444444')
+      .text(
+        verificationUrl,
+        55,
+        775,
+        {
+          width: 485,
+          link: verificationUrl,
+          underline: true,
+        }
+      );
+
+    return;
+  }
+
+  const clientConfirmation = normalizedConfirmations[0];
+
+  writeLabelValueAt(
+    doc,
+    270,
+    445,
     'Invitation ID',
-    confirmation.invitationId || '—'
+    clientConfirmation?.invitationId || '—'
   );
 
   writeLabelValueAt(
     doc,
-    300,
-    425,
+    270,
+    480,
     'IP манзил',
-    confirmation.ip ||
-      'Қайд этилмаган'
-  );
-
-  writeLabelValueAt(
-    doc,
-    300,
-    460,
-    'Telegram ID',
-    caseItem.applicant?.telegramId ||
-      'Уланмаган'
+    clientConfirmation?.ip || 'Қайд этилмаган'
   );
 
   doc
@@ -831,7 +1044,7 @@ function drawVerificationPage(
     .fontSize(9)
     .fillColor('#111111')
     .text(
-      'QR манзили',
+      'Текшириш манзили',
       65,
       630
     )
@@ -874,6 +1087,7 @@ export async function generateContractPdf({
   caseItem,
   selectedOffer,
   confirmation,
+  confirmations = [],
 }) {
   if (
     !contract ||
@@ -928,6 +1142,7 @@ export async function generateContractPdf({
         confirmation.signedAt,
       invitationId:
         confirmation.invitationId,
+      confirmations,
     });
 
   const regularFont =
@@ -1103,6 +1318,7 @@ export async function generateContractPdf({
           contract,
           caseItem,
           confirmation,
+          confirmations,
           verificationHash,
           qrBuffer,
           verificationUrl,

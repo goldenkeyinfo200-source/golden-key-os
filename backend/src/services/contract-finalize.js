@@ -10,6 +10,94 @@ function safeFileName(displayId) {
   return `${String(displayId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 }
 
+
+function confirmationLabel(role) {
+  if (role === 'SELLER') return 'Сотувчи';
+  if (role === 'BUYER') return 'Олувчи';
+  return 'Мижоз';
+}
+
+function jsonObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+async function loadContractConfirmations({
+  contract,
+  fallbackConfirmation,
+}) {
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      entityType: 'Contract',
+      entityId: contract.id,
+      action: 'CONTRACT_CONFIRMED_BY_QR',
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    select: {
+      metadata: true,
+      createdAt: true,
+    },
+  });
+
+  const byRole = new Map();
+
+  for (const log of logs) {
+    const metadata = jsonObject(log.metadata);
+    const role = metadata.signerRole || 'CLIENT';
+
+    byRole.set(role, {
+      role,
+      label: confirmationLabel(role),
+      invitationId: metadata.invitationId || null,
+      signedAt: metadata.confirmedAt || log.createdAt,
+      ip: metadata.ip || null,
+      userAgent: metadata.userAgent || null,
+      method: metadata.method || 'ONE_TIME_QR',
+      accepted: metadata.accepted === true,
+    });
+  }
+
+  const requiredRoles =
+    contract.case.serviceType === 'SALE_PURCHASE'
+      ? ['BUYER', 'SELLER']
+      : ['CLIENT'];
+
+  const confirmations = requiredRoles
+    .map((role) => byRole.get(role))
+    .filter(Boolean);
+
+  if (confirmations.length === requiredRoles.length) {
+    return confirmations;
+  }
+
+  if (fallbackConfirmation) {
+    const fallbackRole =
+      contract.case.serviceType === 'SALE_PURCHASE'
+        ? fallbackConfirmation.signerRole || null
+        : 'CLIENT';
+
+    if (fallbackRole && !byRole.has(fallbackRole)) {
+      byRole.set(fallbackRole, {
+        role: fallbackRole,
+        label: confirmationLabel(fallbackRole),
+        invitationId: fallbackConfirmation.invitationId || null,
+        signedAt: fallbackConfirmation.signedAt || contract.signedAt,
+        ip: fallbackConfirmation.ip || null,
+        userAgent: fallbackConfirmation.userAgent || null,
+        method: 'ONE_TIME_QR',
+        accepted: true,
+      });
+    }
+  }
+
+  return requiredRoles
+    .map((role) => byRole.get(role))
+    .filter(Boolean);
+}
+
 export async function finalizeSignedContract({
   contractId,
   confirmation,
@@ -23,6 +111,14 @@ export async function finalizeSignedContract({
       case: {
         include: {
           applicant: true,
+          borrowers: {
+            include: {
+              client: true,
+            },
+            orderBy: {
+              sequence: 'asc',
+            },
+          },
           bankOffers: {
             where: {
               status: 'SELECTED',
@@ -73,11 +169,17 @@ export async function finalizeSignedContract({
 
   const selectedOffer = contract.case.bankOffers[0] || null;
 
+  const confirmations = await loadContractConfirmations({
+    contract,
+    fallbackConfirmation: confirmation,
+  });
+
   const pdf = await generateContractPdf({
     contract,
     caseItem: contract.case,
     selectedOffer,
     confirmation,
+    confirmations,
   });
 
   const fileName = safeFileName(contract.displayId);
@@ -116,6 +218,12 @@ export async function finalizeSignedContract({
             storagePath,
             fileName,
             verificationHash: pdf.verificationHash,
+            confirmations: confirmations.map((item) => ({
+              role: item.role,
+              label: item.label,
+              invitationId: item.invitationId,
+              signedAt: item.signedAt,
+            })),
           },
         },
       });
