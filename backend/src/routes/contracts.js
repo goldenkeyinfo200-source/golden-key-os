@@ -125,7 +125,7 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
   }
 
   if (caseItem.serviceType === 'REALTOR_SERVICE') {
-    const marker = 'data-gk-template="realtor-service-v1"';
+    const marker = 'data-gk-template="realtor-service-v2"';
 
     const current = await tx.contractTemplate.findFirst({
       where: {

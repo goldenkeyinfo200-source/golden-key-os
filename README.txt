@@ -1,16 +1,24 @@
-Golden Key OS — PDF бўш саҳифаларни тузатиш
+Golden Key OS — realtor template v2 fix
 
-Алмаштириладиган файл:
-backend/src/services/contract-pdf.js
+Алмаштириладиган файллар:
+1) backend/src/routes/contracts.js
+2) backend/src/services/contract-template.js
 
-Нима тузатилди:
-- шартнома матни footer зонасига яқинлашмайди;
-- қисқа абзацлар учун ҳақиқий баландлик ҳисобланади;
-- узун абзацлар PDFKit томонидан табиий бўлинади;
-- Олувчи/Сотувчи тасдиқ блоклари ихчамлаштирилди;
-- SHA-256 ва текшириш URL юқорига кўчирилди;
-- verification URL энди pastki margin'дан ўтиб янги бўш саҳифа яратмайди;
-- header/footer чизилганда doc.x/doc.y сақланади;
-- шартнома мазмуни ва QR логикаси ўзгартирилмади.
+Асосий тузатиш:
+contracts.js ичида:
+data-gk-template="realtor-service-v1"
+→
+data-gk-template="realtor-service-v2"
 
-Файлни алмаштиринг, commit + push қилинг ва янги шартнома яратиб текширинг.
+Натижа:
+- янги риэлторлик шартномалари v2 шаблондан яратилади;
+- CADASTRE_ASSISTANCE, NOTARY_DOCUMENTS, INHERITANCE_ASSISTANCE ва бошқа йўналишлар шартномада ўз матни билан чиқади;
+- эски имзоланган шартномалар ўзгармайди;
+- янги шартнома яратилганда ContractTemplate версияси янгиланиши мумкин.
+
+Қўйиш:
+- contracts.js → backend/src/routes/contracts.js
+- contract-template.js → backend/src/services/contract-template.js
+- commit + push
+- Railway backend deployment тугашини кутинг
+- кейин янги шартнома яратиб текширинг
