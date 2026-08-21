@@ -66,10 +66,10 @@ const INITIAL_FORM = {
   sellerFullName: '', sellerPhone: '', sellerPinfl: '', sellerPassportSeries: '', sellerPassportNumber: '', sellerAddress: '',
   salePropertyType: 'APARTMENT', salePropertyAddress: '', saleCadastreNumber: '', salePropertyArea: '', salePrice: '', saleServiceFee: '', saleServiceFeePayer: 'BUYER',
   saleDepositAmount: '', saleDepositPaidAt: '', saleDepositDeadline: '',
-  investorInvestmentAmount: '',
-  investorProfitShare: '',
-  investorContractStart: '',
-  investorContractEnd: '',
+  investorAmount: '',
+  investorProfitSharePercent: '',
+  investorContractStartDate: '',
+  investorContractEndDate: '',
   investorNotes: '',
 };
 
@@ -292,10 +292,10 @@ function NewCaseModal({ open, onClose, onCreated }) {
 
       const investorDetails = isInvestorPartnership
         ? [
-            `Инвестиция суммаси: ${form.investorInvestmentAmount || '—'} сўм`,
-            `Соф фойдадан инвестор улуши: ${form.investorProfitShare || '—'}%`,
-            `Шартнома бошланиш санаси: ${form.investorContractStart || '—'}`,
-            `Шартнома тугаш санаси: ${form.investorContractEnd || '—'}`,
+            `Инвестиция суммаси: ${form.investorAmount || '—'} сўм`,
+            `Соф фойдадан инвестор улуши: ${form.investorProfitSharePercent || '—'}%`,
+            `Шартнома бошланиш санаси: ${form.investorContractStartDate || '—'}`,
+            `Шартнома тугаш санаси: ${form.investorContractEndDate || '—'}`,
             `Қўшимча изоҳ: ${form.investorNotes.trim() || '—'}`,
           ].join('\n')
         : '';
@@ -335,7 +335,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
         requestedAmount: isSalePurchase
           ? (form.salePrice ? form.salePrice.replace(/\s/g, '') : null)
           : isInvestorPartnership
-          ? (form.investorInvestmentAmount ? form.investorInvestmentAmount.replace(/\s/g, '') : null)
+          ? (form.investorAmount ? form.investorAmount.replace(/\s/g, '') : null)
           : isRealtorService
           ? form.propertyPrice
             ? form.propertyPrice.replace(/\s/g, '')
@@ -352,14 +352,14 @@ function NewCaseModal({ open, onClose, onCreated }) {
             : null
           : null,
 
-        investorInvestmentAmount: isInvestorPartnership && form.investorInvestmentAmount
-          ? form.investorInvestmentAmount.replace(/\s/g, '')
+        investorAmount: isInvestorPartnership && form.investorAmount
+          ? form.investorAmount.replace(/\s/g, '')
           : null,
-        investorProfitShare: isInvestorPartnership && form.investorProfitShare
-          ? form.investorProfitShare
+        investorProfitSharePercent: isInvestorPartnership && form.investorProfitSharePercent
+          ? form.investorProfitSharePercent
           : null,
-        investorContractStart: isInvestorPartnership ? (form.investorContractStart || null) : null,
-        investorContractEnd: isInvestorPartnership ? (form.investorContractEnd || null) : null,
+        investorContractStartDate: isInvestorPartnership ? (form.investorContractStartDate || null) : null,
+        investorContractEndDate: isInvestorPartnership ? (form.investorContractEndDate || null) : null,
         investorNotes: isInvestorPartnership ? form.investorNotes.trim() : '',
       };
 
@@ -784,10 +784,10 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   <label className="field">
                     <span>Инвестиция суммаси *</span>
                     <input
-                      value={form.investorInvestmentAmount}
+                      value={form.investorAmount}
                       onChange={(event) =>
                         updateField(
-                          'investorInvestmentAmount',
+                          'investorAmount',
                           event.target.value.replace(/\D/g, '')
                         )
                       }
@@ -795,25 +795,25 @@ function NewCaseModal({ open, onClose, onCreated }) {
                       inputMode="numeric"
                       disabled={saving}
                     />
-                    {fieldErrors.investorInvestmentAmount?.[0] ? (
-                      <small>{fieldErrors.investorInvestmentAmount[0]}</small>
+                    {fieldErrors.investorAmount?.[0] ? (
+                      <small>{fieldErrors.investorAmount[0]}</small>
                     ) : null}
                   </label>
 
                   <label className="field">
                     <span>Соф фойдадан инвестор улуши (%) *</span>
                     <input
-                      value={form.investorProfitShare}
+                      value={form.investorProfitSharePercent}
                       onChange={(event) => {
                         const value = event.target.value.replace(/[^\d.]/g, '');
-                        updateField('investorProfitShare', value);
+                        updateField('investorProfitSharePercent', value);
                       }}
                       placeholder="Масалан: 40"
                       inputMode="decimal"
                       disabled={saving}
                     />
-                    {fieldErrors.investorProfitShare?.[0] ? (
-                      <small>{fieldErrors.investorProfitShare[0]}</small>
+                    {fieldErrors.investorProfitSharePercent?.[0] ? (
+                      <small>{fieldErrors.investorProfitSharePercent[0]}</small>
                     ) : null}
                   </label>
 
@@ -821,14 +821,14 @@ function NewCaseModal({ open, onClose, onCreated }) {
                     <span>Шартнома бошланиш санаси *</span>
                     <input
                       type="date"
-                      value={form.investorContractStart}
+                      value={form.investorContractStartDate}
                       onChange={(event) =>
-                        updateField('investorContractStart', event.target.value)
+                        updateField('investorContractStartDate', event.target.value)
                       }
                       disabled={saving}
                     />
-                    {fieldErrors.investorContractStart?.[0] ? (
-                      <small>{fieldErrors.investorContractStart[0]}</small>
+                    {fieldErrors.investorContractStartDate?.[0] ? (
+                      <small>{fieldErrors.investorContractStartDate[0]}</small>
                     ) : null}
                   </label>
 
@@ -836,15 +836,15 @@ function NewCaseModal({ open, onClose, onCreated }) {
                     <span>Шартнома тугаш санаси *</span>
                     <input
                       type="date"
-                      value={form.investorContractEnd}
-                      min={form.investorContractStart || undefined}
+                      value={form.investorContractEndDate}
+                      min={form.investorContractStartDate || undefined}
                       onChange={(event) =>
-                        updateField('investorContractEnd', event.target.value)
+                        updateField('investorContractEndDate', event.target.value)
                       }
                       disabled={saving}
                     />
-                    {fieldErrors.investorContractEnd?.[0] ? (
-                      <small>{fieldErrors.investorContractEnd[0]}</small>
+                    {fieldErrors.investorContractEndDate?.[0] ? (
+                      <small>{fieldErrors.investorContractEndDate[0]}</small>
                     ) : null}
                   </label>
 
