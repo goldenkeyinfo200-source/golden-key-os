@@ -1,24 +1,20 @@
-Golden Key OS — realtor template v2 fix
+Golden Key OS — риэлторлик йўналиши v3 fix
 
 Алмаштириладиган файллар:
-1) backend/src/routes/contracts.js
-2) backend/src/services/contract-template.js
+1) backend/src/services/contract-template.js
+2) backend/src/routes/contracts.js
 
-Асосий тузатиш:
-contracts.js ичида:
-data-gk-template="realtor-service-v1"
-→
-data-gk-template="realtor-service-v2"
+Нима тузатилди:
+- CRM nextAction ичида йўналиш КОД эмас, матнли NOM билан сақланса ҳам backend уни танийди.
+- Масалан:
+  "Кадастр хизматларини кўрсатишда ёрдам" -> CADASTRE_ASSISTANCE
+  "Ҳужжатларни нотариусга тайёрлаш" -> NOTARY_DOCUMENTS
+  ва ҳ.к.
+- PDF генератори <li> тегларини олмагани учун хизмат мазмуни бўш чиқар эди.
+  Энди scope <p> + <br/> тарзида берилади ва PDFда тўлиқ чиқади.
+- Realtor template marker v3 қилинди. Бу DBда янги ContractTemplate версияси
+  яратилишини мажбур қилади; эски имзоланган шартномаларга тегилмайди.
 
-Натижа:
-- янги риэлторлик шартномалари v2 шаблондан яратилади;
-- CADASTRE_ASSISTANCE, NOTARY_DOCUMENTS, INHERITANCE_ASSISTANCE ва бошқа йўналишлар шартномада ўз матни билан чиқади;
-- эски имзоланган шартномалар ўзгармайди;
-- янги шартнома яратилганда ContractTemplate версияси янгиланиши мумкин.
-
-Қўйиш:
-- contracts.js → backend/src/routes/contracts.js
-- contract-template.js → backend/src/services/contract-template.js
-- commit + push
-- Railway backend deployment тугашини кутинг
-- кейин янги шартнома яратиб текширинг
+Текшириш:
+Deploy тугагач, ЯНГИ риэлторлик шартнома яратинг.
+3.4 бўлимда танланган йўналиш ва шу йўналишга мос хизматлар чиқиши керак.

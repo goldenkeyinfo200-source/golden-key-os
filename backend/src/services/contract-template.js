@@ -100,7 +100,7 @@ function realtorServiceScopeHtml() {
 
 export function realtorContractHtml() {
   return `
-    <article class="contract-document" data-gk-template="realtor-service-v2">
+    <article class="contract-document" data-gk-template="realtor-service-v3">
       <header>
         <h1>РИЭЛТОРЛИК ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА ЭЛЕКТРОН ШАРТНОМА</h1>
         <p><strong>Шартнома рақами:</strong> {{contractDisplayId}}</p>
@@ -160,7 +160,7 @@ export function realtorContractHtml() {
         </p>
         <p>
           3.4. Буюртмачи танлаган риэлторлик йўналиши ва мазкур йўналиш доирасида
-          Ижрочи томонидан бажариладиган хизматлар қуйида кўрсатилади:
+          Ижрочи томонидан бажариладиган аниқ хизматлар қуйида кўрсатилади:
         </p>
         ${realtorServiceScopeHtml()}
         <p>
@@ -810,8 +810,25 @@ export function renderContractHtml(templateHtml, context) {
 export function buildContractContext({ contract, caseItem, selectedOffer }) {
   const applicant = caseItem.applicant || {};
 
+  const REALTOR_DIRECTION_LABEL_TO_CODE = {
+    'Уй сотиш': 'SELL',
+    'Уй сотиб олиш': 'BUY',
+    'Ижарага бериш': 'RENT_OUT',
+    'Ижарага олиш': 'RENT_IN',
+    'Ҳужжатларни нотариусга тайёрлаш': 'NOTARY_DOCUMENTS',
+    'Кадастр хизматларини кўрсатишда ёрдам': 'CADASTRE_ASSISTANCE',
+    'Мерос ишларини расмийлаштиришда ёрдам': 'INHERITANCE_ASSISTANCE',
+  };
+
+  const realtorDirectionRaw =
+    String(caseItem.nextAction || '')
+      .match(/Риэлторлик йўналиши:\s*([^\n\r]+)/)?.[1]
+      ?.trim() || '';
+
   const realtorDirectionCode =
-    String(caseItem.nextAction || '').match(/Риэлторлик йўналиши:\s*([A-Z_]+)/)?.[1] || '';
+    /^[A-Z_]+$/.test(realtorDirectionRaw)
+      ? realtorDirectionRaw
+      : REALTOR_DIRECTION_LABEL_TO_CODE[realtorDirectionRaw] || '';
 
   const REALTOR_DIRECTION_CONTRACT = {
     SELL: {
@@ -889,9 +906,9 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
       ],
     };
 
-  const realtorDirectionScope = `<ul>${realtorDirection.scope
-    .map((item) => `<li>${escapeHtml(item)}</li>`)
-    .join('')}</ul>`;
+  const realtorDirectionScope = `<p>${realtorDirection.scope
+    .map((item) => `— ${escapeHtml(item)}`)
+    .join('<br/>')}</p>`;
   const borrower =
     caseItem.borrowers?.find(
       (item) => item.status === 'APPROVED'
