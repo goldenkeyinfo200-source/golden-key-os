@@ -8,6 +8,7 @@ import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
 import {
   defaultContractHtml,
+  investorPartnershipContractHtml,
   realtorContractHtml,
   salePurchaseContractHtml,
 } from '../services/contract-template.js';
@@ -47,7 +48,9 @@ async function generateContractDisplayId(tx, serviceType) {
       ? `GK-RX-${year}-`
       : serviceType === 'SALE_PURCHASE'
         ? `GK-OS-${year}-`
-        : `GK-SH-${year}-`;
+        : serviceType === 'INVESTOR_PARTNERSHIP'
+          ? `GK-IV-${year}-`
+          : `GK-SH-${year}-`;
 
   const latest = await tx.contract.findFirst({
     where: {
@@ -199,6 +202,46 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
         serviceType: 'SALE_PURCHASE',
         version: (latest?.version || 0) + 1,
         htmlBody: salePurchaseContractHtml(),
+        isActive: true,
+      },
+    });
+  }
+
+  if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
+    const marker = 'data-gk-template="investor-partnership-v1"';
+
+    const current = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'INVESTOR_PARTNERSHIP',
+        isActive: true,
+      },
+      orderBy: {
+        version: 'desc',
+      },
+    });
+
+    if (current?.htmlBody?.includes(marker)) {
+      return current;
+    }
+
+    const latest = await tx.contractTemplate.findFirst({
+      where: {
+        serviceType: 'INVESTOR_PARTNERSHIP',
+      },
+      orderBy: {
+        version: 'desc',
+      },
+      select: {
+        version: true,
+      },
+    });
+
+    return tx.contractTemplate.create({
+      data: {
+        name: 'Инвестор билан ҳамкорлик қилиш тўғрисида шартнома',
+        serviceType: 'INVESTOR_PARTNERSHIP',
+        version: (latest?.version || 0) + 1,
+        htmlBody: investorPartnershipContractHtml(),
         isActive: true,
       },
     });

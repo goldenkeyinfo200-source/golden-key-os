@@ -566,6 +566,13 @@ function coverTitle(caseItem) {
     };
   }
 
+  if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
+    return {
+      main: 'ИНВЕСТОР БИЛАН ҲАМКОРЛИК ҚИЛИШ ТЎҒРИСИДА',
+      accent: 'ЭЛЕКТРОН ШАРТНОМА',
+    };
+  }
+
   return {
     main: 'РИЭЛТОРЛИК ВА ИПОТЕКА ХИЗМАТЛАРИНИ КЎРСАТИШ ТЎҒРИСИДА',
     accent: 'ЭЛЕКТРОН ШАРТНОМА',
@@ -657,41 +664,85 @@ function drawCover(
       10
     )
     .fillAndStroke(
-      '#FFF7F7',
-      '#F2B7BB'
+      caseItem.serviceType === 'INVESTOR_PARTNERSHIP'
+        ? '#F5F8FF'
+        : '#FFF7F7',
+      caseItem.serviceType === 'INVESTOR_PARTNERSHIP'
+        ? '#B7C8F2'
+        : '#F2B7BB'
     );
 
-  doc
-    .font('Bold')
-    .fontSize(11)
-    .fillColor('#B0000B')
-    .text(
-      'ФУҚАРОЛИК ЖАВОБГАРЛИГИ СУҒУРТАЛАНГАН',
-      115,
-      455,
-      {
-        width: 365,
-        align: 'center',
-      }
-    )
-    .moveDown(0.35)
-    .font('Regular')
-    .fontSize(10)
-    .fillColor('#222222')
-    .text(
-      '«KAFOLAT» Суғурта компанияси АЖ',
-      {
-        width: 365,
-        align: 'center',
-      }
-    )
-    .text(
-      'Суғурта полиси № 0077162 · 29.08.2025',
-      {
-        width: 365,
-        align: 'center',
-      }
-    );
+  if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
+    const share =
+      caseItem.investorProfitSharePercent === null ||
+      caseItem.investorProfitSharePercent === undefined
+        ? '—'
+        : `${caseItem.investorProfitSharePercent}%`;
+
+    doc
+      .font('Bold')
+      .fontSize(11)
+      .fillColor('#1E3A8A')
+      .text(
+        'ИНВЕСТОРЛИК ҲАМКОРЛИГИ',
+        115,
+        451,
+        {
+          width: 365,
+          align: 'center',
+        }
+      )
+      .moveDown(0.35)
+      .font('Regular')
+      .fontSize(9.5)
+      .fillColor('#222222')
+      .text(
+        `Инвестиция: ${caseItem.investorAmount ?? caseItem.requestedAmount ?? '—'} сўм`,
+        {
+          width: 365,
+          align: 'center',
+        }
+      )
+      .text(
+        `Соф фойдадан инвестор улуши: ${share}`,
+        {
+          width: 365,
+          align: 'center',
+        }
+      );
+  } else {
+    doc
+      .font('Bold')
+      .fontSize(11)
+      .fillColor('#B0000B')
+      .text(
+        'ФУҚАРОЛИК ЖАВОБГАРЛИГИ СУҒУРТАЛАНГАН',
+        115,
+        455,
+        {
+          width: 365,
+          align: 'center',
+        }
+      )
+      .moveDown(0.35)
+      .font('Regular')
+      .fontSize(10)
+      .fillColor('#222222')
+      .text(
+        '«KAFOLAT» Суғурта компанияси АЖ',
+        {
+          width: 365,
+          align: 'center',
+        }
+      )
+      .text(
+        'Суғурта полиси № 0077162 · 29.08.2025',
+        {
+          width: 365,
+          align: 'center',
+        }
+      );
+  }
 
   doc
     .font('Regular')
@@ -720,6 +771,10 @@ function confirmationTitle(caseItem, confirmations) {
     if (buyer && seller) {
       return '✓ ОЛУВЧИ ВА СОТУВЧИ ТОМОНИДАН QR ОРҚАЛИ ТАСДИҚЛАНГАН';
     }
+  }
+
+  if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
+    return '✓ ИНВЕСТОР ТОМОНИДАН QR ОРҚАЛИ ТАСДИҚЛАНГАН';
   }
 
   return '✓ QR ОРҚАЛИ ТАСДИҚЛАНГАН';

@@ -1,34 +1,23 @@
-Golden Key OS — Investor Partnership backend v1
+Golden Key OS — INVESTOR_PARTNERSHIP complete contract fix
 
 Алмаштириладиган файллар:
-1) backend/prisma/schema.prisma
-2) backend/src/routes/cases.js
+1) backend/src/services/contract-template.js
+2) backend/src/services/contract-pdf.js
+3) backend/src/services/contract-finalize.js
+4) backend/src/routes/contracts.js
 
-Қўшилди:
-- ServiceType: INVESTOR_PARTNERSHIP
-- Мурожаат ID префикси: GK-IN-2026-000001
-- Case майдонлари:
-  investorAmount
-  investorProfitSharePercent
-  investorContractStartDate
-  investorContractEndDate
-  investorNotes
+Натижа:
+- INVESTOR_PARTNERSHIP учун алоҳида шартнома шаблони;
+- шартнома рақами GK-IV-2026-000001 форматида;
+- муқова: "Инвестор билан ҳамкорлик қилиш тўғрисида электрон шартнома";
+- инвестиция суммаси, соф фойдадан улуш %, бошланиш/тугаш санаси;
+- Инвестор маълумотлари;
+- ипотекадаги қарз олувчи/гаров эгаси блоклари инвестор шартномасида чиқмайди;
+- QR тасдиқ саҳифасида "Инвестор томонидан" деб кўрсатилади;
+- DBда investor-partnership-v1 marker билан янги ContractTemplate автоматик яратилади;
+- риэлторлик шаблони marker'i realtor-service-v3 ҳолатида сақланади.
 
-Инвесторнинг Ф.И.Ш., телефон, ЖШШИР, паспорт ва манзили алоҳида
-Case майдонларига такрорланмайди — улар мавжуд Client/applicant моделида сақланади.
-
-Backend текширувлари:
-- инвестиция суммаси > 0
-- фойда улуши > 0 ва <= 100
-- бошланиш ва тугаш санаси шарт
-- тугаш санаси бошланиш санасидан кейин бўлиши шарт
-
-Муҳим:
-Файлларни push қилгандан кейин backend Railway Console'да:
-  npx prisma db push
-
-Бу ўзгариш фақат янги enum қиймати ва nullable колонкалар қўшади.
-Мавжуд мурожаатларни ўчириш учун DROP талаб қилинмайди.
-
-Кейинги босқич:
-crm/src/pages/CasesPage.jsx'га инвестор учун махсус форма қўшилади.
+Deploy:
+Файлларни алмаштиринг → commit/push → Railway backend deploy.
+DB push қайта талаб қилинмайди, чунки бу ZIP schema'ни ўзгартирмайди.
+ЯНГИ инвестор шартномасини яратиб текширинг.

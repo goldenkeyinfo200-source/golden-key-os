@@ -11,9 +11,10 @@ function safeFileName(displayId) {
 }
 
 
-function confirmationLabel(role) {
+function confirmationLabel(role, serviceType) {
   if (role === 'SELLER') return 'Сотувчи';
   if (role === 'BUYER') return 'Олувчи';
+  if (serviceType === 'INVESTOR_PARTNERSHIP') return 'Инвестор';
   return 'Мижоз';
 }
 
@@ -50,7 +51,7 @@ async function loadContractConfirmations({
 
     byRole.set(role, {
       role,
-      label: confirmationLabel(role),
+      label: confirmationLabel(role, contract.case.serviceType),
       invitationId: metadata.invitationId || null,
       signedAt: metadata.confirmedAt || log.createdAt,
       ip: metadata.ip || null,
@@ -82,7 +83,7 @@ async function loadContractConfirmations({
     if (fallbackRole && !byRole.has(fallbackRole)) {
       byRole.set(fallbackRole, {
         role: fallbackRole,
-        label: confirmationLabel(fallbackRole),
+        label: confirmationLabel(fallbackRole, contract.case.serviceType),
         invitationId: fallbackConfirmation.invitationId || null,
         signedAt: fallbackConfirmation.signedAt || contract.signedAt,
         ip: fallbackConfirmation.ip || null,
