@@ -1,20 +1,34 @@
-Golden Key OS — риэлторлик йўналиши v3 fix
+Golden Key OS — Investor Partnership backend v1
 
 Алмаштириладиган файллар:
-1) backend/src/services/contract-template.js
-2) backend/src/routes/contracts.js
+1) backend/prisma/schema.prisma
+2) backend/src/routes/cases.js
 
-Нима тузатилди:
-- CRM nextAction ичида йўналиш КОД эмас, матнли NOM билан сақланса ҳам backend уни танийди.
-- Масалан:
-  "Кадастр хизматларини кўрсатишда ёрдам" -> CADASTRE_ASSISTANCE
-  "Ҳужжатларни нотариусга тайёрлаш" -> NOTARY_DOCUMENTS
-  ва ҳ.к.
-- PDF генератори <li> тегларини олмагани учун хизмат мазмуни бўш чиқар эди.
-  Энди scope <p> + <br/> тарзида берилади ва PDFда тўлиқ чиқади.
-- Realtor template marker v3 қилинди. Бу DBда янги ContractTemplate версияси
-  яратилишини мажбур қилади; эски имзоланган шартномаларга тегилмайди.
+Қўшилди:
+- ServiceType: INVESTOR_PARTNERSHIP
+- Мурожаат ID префикси: GK-IN-2026-000001
+- Case майдонлари:
+  investorAmount
+  investorProfitSharePercent
+  investorContractStartDate
+  investorContractEndDate
+  investorNotes
 
-Текшириш:
-Deploy тугагач, ЯНГИ риэлторлик шартнома яратинг.
-3.4 бўлимда танланган йўналиш ва шу йўналишга мос хизматлар чиқиши керак.
+Инвесторнинг Ф.И.Ш., телефон, ЖШШИР, паспорт ва манзили алоҳида
+Case майдонларига такрорланмайди — улар мавжуд Client/applicant моделида сақланади.
+
+Backend текширувлари:
+- инвестиция суммаси > 0
+- фойда улуши > 0 ва <= 100
+- бошланиш ва тугаш санаси шарт
+- тугаш санаси бошланиш санасидан кейин бўлиши шарт
+
+Муҳим:
+Файлларни push қилгандан кейин backend Railway Console'да:
+  npx prisma db push
+
+Бу ўзгариш фақат янги enum қиймати ва nullable колонкалар қўшади.
+Мавжуд мурожаатларни ўчириш учун DROP талаб қилинмайди.
+
+Кейинги босқич:
+crm/src/pages/CasesPage.jsx'га инвестор учун махсус форма қўшилади.

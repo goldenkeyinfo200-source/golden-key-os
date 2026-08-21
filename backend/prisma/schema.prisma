@@ -47,6 +47,7 @@ enum ServiceType {
   REALTOR_SERVICE
   SALE_PURCHASE
   CADASTRE_SERVICE
+  INVESTOR_PARTNERSHIP
   OTHER
 }
 
@@ -258,6 +259,13 @@ model Case {
   serviceFeePercent    Decimal     @default(4.5) @db.Decimal(6, 3)
   serviceFeeAutoAmount Decimal?    @db.Decimal(18, 2)
   serviceFee           Decimal?    @db.Decimal(18, 2)
+
+  // INVESTOR_PARTNERSHIP: инвестор билан 1 йиллик ҳамкорлик
+  investorAmount             Decimal?  @db.Decimal(18, 2)
+  investorProfitSharePercent Decimal?  @db.Decimal(6, 3)
+  investorContractStartDate  DateTime?
+  investorContractEndDate    DateTime?
+  investorNotes              String?
 
   collateralType                String?
   collateralAddress             String?

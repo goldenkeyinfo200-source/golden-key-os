@@ -32,6 +32,7 @@ const serviceTypes = [
   'REALTOR_SERVICE',
   'SALE_PURCHASE',
   'CADASTRE_SERVICE',
+  'INVESTOR_PARTNERSHIP',
   'OTHER',
 ];
 
@@ -129,6 +130,35 @@ const createCaseSchema = z.object({
   saleDepositAmount: z.union([z.number(), z.string()]).optional().nullable(),
   saleDepositPaidAt: z.string().trim().optional().or(z.literal('')),
   saleDepositDeadline: z.string().trim().optional().or(z.literal('')),
+
+  investorAmount: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  investorProfitSharePercent: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  investorContractStartDate: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal('')),
+
+  investorContractEndDate: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal('')),
+
+  investorNotes: z
+    .string()
+    .trim()
+    .max(2000, 'Инвестор изоҳи жуда узун')
+    .optional()
+    .or(z.literal('')),
 
   bankName: z
     .string()
@@ -355,6 +385,7 @@ const generateCaseDisplayId = async (tx, serviceType) => {
     REALTOR_SERVICE: 'GK-RM',
     SALE_PURCHASE: 'GK-OS',
     CADASTRE_SERVICE: 'GK-KD',
+    INVESTOR_PARTNERSHIP: 'GK-IN',
     OTHER: 'GK-BS',
   };
 
@@ -1244,6 +1275,26 @@ router.post(
           ? parseDate(data.saleDepositDeadline)
           : null;
 
+      const investorAmount =
+        data.serviceType === 'INVESTOR_PARTNERSHIP'
+          ? parseAmount(data.investorAmount)
+          : null;
+
+      const investorProfitSharePercent =
+        data.serviceType === 'INVESTOR_PARTNERSHIP'
+          ? parseAmount(data.investorProfitSharePercent)
+          : null;
+
+      const investorContractStartDate =
+        data.serviceType === 'INVESTOR_PARTNERSHIP'
+          ? parseDate(data.investorContractStartDate)
+          : null;
+
+      const investorContractEndDate =
+        data.serviceType === 'INVESTOR_PARTNERSHIP'
+          ? parseDate(data.investorContractEndDate)
+          : null;
+
       if (
         ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType) &&
         data.serviceFee !== undefined &&
@@ -1291,6 +1342,41 @@ router.post(
         }
       }
 
+      if (data.serviceType === 'INVESTOR_PARTNERSHIP') {
+        if (!(Number(investorAmount) > 0)) {
+          return res.status(400).json({
+            error: 'Инвестиция суммасини киритинг',
+          });
+        }
+
+        if (
+          !(Number(investorProfitSharePercent) > 0) ||
+          Number(investorProfitSharePercent) > 100
+        ) {
+          return res.status(400).json({
+            error: 'Инвестор улуши 0 дан катта ва 100% дан ошмаслиги керак',
+          });
+        }
+
+        if (!investorContractStartDate) {
+          return res.status(400).json({
+            error: 'Инвестор шартномаси бошланиш санасини киритинг',
+          });
+        }
+
+        if (!investorContractEndDate) {
+          return res.status(400).json({
+            error: 'Инвестор шартномаси тугаш санасини киритинг',
+          });
+        }
+
+        if (investorContractEndDate <= investorContractStartDate) {
+          return res.status(400).json({
+            error: 'Шартнома тугаш санаси бошланиш санасидан кейин бўлиши керак',
+          });
+        }
+      }
+
       const birthDate = parseDate(data.birthDate);
 
       if (data.birthDate && !birthDate) {
@@ -1334,7 +1420,10 @@ router.post(
               receptionManagerId: req.user.id,
               serviceType: data.serviceType,
               status: 'NEW',
-              requestedAmount,
+              requestedAmount:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? investorAmount
+                  : requestedAmount,
               serviceFee:
                 ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType)
                   ? serviceFee
@@ -1354,6 +1443,28 @@ router.post(
               saleDepositPaidAt: data.serviceType === 'SALE_PURCHASE' ? saleDepositPaidAt : null,
               saleDepositDeadline: data.serviceType === 'SALE_PURCHASE' ? saleDepositDeadline : null,
               saleDepositTermsAccepted: data.serviceType === 'SALE_PURCHASE',
+
+              investorAmount:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? investorAmount
+                  : null,
+              investorProfitSharePercent:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? investorProfitSharePercent
+                  : null,
+              investorContractStartDate:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? investorContractStartDate
+                  : null,
+              investorContractEndDate:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? investorContractEndDate
+                  : null,
+              investorNotes:
+                data.serviceType === 'INVESTOR_PARTNERSHIP'
+                  ? normalizeOptional(data.investorNotes)
+                  : null,
+
               bankName: normalizeOptional(
                 data.bankName
               ),
