@@ -21,6 +21,7 @@ const SERVICE_OPTIONS = [
   ['REALTOR_SERVICE', 'Риэлторлик хизмати'],
   ['SALE_PURCHASE', 'Олди-сотди'],
   ['CADASTRE_SERVICE', 'Кадастр хизмати'],
+  ['INVESTOR_PARTNERSHIP', 'Инвестор билан ҳамкорлик'],
   ['OTHER', 'Бошқа'],
 ];
 
@@ -65,6 +66,11 @@ const INITIAL_FORM = {
   sellerFullName: '', sellerPhone: '', sellerPinfl: '', sellerPassportSeries: '', sellerPassportNumber: '', sellerAddress: '',
   salePropertyType: 'APARTMENT', salePropertyAddress: '', saleCadastreNumber: '', salePropertyArea: '', salePrice: '', saleServiceFee: '', saleServiceFeePayer: 'BUYER',
   saleDepositAmount: '', saleDepositPaidAt: '', saleDepositDeadline: '',
+  investorInvestmentAmount: '',
+  investorProfitShare: '',
+  investorContractStart: '',
+  investorContractEnd: '',
+  investorNotes: '',
 };
 
 const REALTOR_DIRECTION_OPTIONS = [
@@ -226,7 +232,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
           serviceType: value,
         };
 
-        if (['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(value)) {
+        if (['REALTOR_SERVICE', 'SALE_PURCHASE', 'INVESTOR_PARTNERSHIP'].includes(value)) {
           next.bankName = '';
           next.requestedAmount = '';
           next.nextAction = '';
@@ -259,6 +265,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
     try {
       const isRealtorService = form.serviceType === 'REALTOR_SERVICE';
       const isSalePurchase = form.serviceType === 'SALE_PURCHASE';
+      const isInvestorPartnership = form.serviceType === 'INVESTOR_PARTNERSHIP';
 
       const realtorDetails = isRealtorService
         ? [
@@ -283,6 +290,16 @@ function NewCaseModal({ open, onClose, onCreated }) {
           ].join('\n')
         : form.nextAction.trim();
 
+      const investorDetails = isInvestorPartnership
+        ? [
+            `Инвестиция суммаси: ${form.investorInvestmentAmount || '—'} сўм`,
+            `Соф фойдадан инвестор улуши: ${form.investorProfitShare || '—'}%`,
+            `Шартнома бошланиш санаси: ${form.investorContractStart || '—'}`,
+            `Шартнома тугаш санаси: ${form.investorContractEnd || '—'}`,
+            `Қўшимча изоҳ: ${form.investorNotes.trim() || '—'}`,
+          ].join('\n')
+        : '';
+
       const payload = {
         fullName: form.fullName.trim(),
         phone: form.phone.trim(),
@@ -292,8 +309,12 @@ function NewCaseModal({ open, onClose, onCreated }) {
         birthDate: form.birthDate || null,
         address: form.address.trim(),
         serviceType: form.serviceType,
-        bankName: (isRealtorService || isSalePurchase) ? '' : form.bankName.trim(),
-        nextAction: isSalePurchase ? 'Олди-сотди шартномасини тайёрлаш' : realtorDetails,
+        bankName: (isRealtorService || isSalePurchase || isInvestorPartnership) ? '' : form.bankName.trim(),
+        nextAction: isSalePurchase
+          ? 'Олди-сотди шартномасини тайёрлаш'
+          : isInvestorPartnership
+            ? investorDetails
+            : realtorDetails,
         sellerFullName: isSalePurchase ? form.sellerFullName.trim() : '',
         sellerPhone: isSalePurchase ? form.sellerPhone.trim() : '',
         sellerPinfl: isSalePurchase ? form.sellerPinfl.trim() : '',
@@ -313,6 +334,8 @@ function NewCaseModal({ open, onClose, onCreated }) {
 
         requestedAmount: isSalePurchase
           ? (form.salePrice ? form.salePrice.replace(/\s/g, '') : null)
+          : isInvestorPartnership
+          ? (form.investorInvestmentAmount ? form.investorInvestmentAmount.replace(/\s/g, '') : null)
           : isRealtorService
           ? form.propertyPrice
             ? form.propertyPrice.replace(/\s/g, '')
@@ -328,6 +351,16 @@ function NewCaseModal({ open, onClose, onCreated }) {
             ? form.realtorServiceFee.replace(/\s/g, '')
             : null
           : null,
+
+        investorInvestmentAmount: isInvestorPartnership && form.investorInvestmentAmount
+          ? form.investorInvestmentAmount.replace(/\s/g, '')
+          : null,
+        investorProfitShare: isInvestorPartnership && form.investorProfitShare
+          ? form.investorProfitShare
+          : null,
+        investorContractStart: isInvestorPartnership ? (form.investorContractStart || null) : null,
+        investorContractEnd: isInvestorPartnership ? (form.investorContractEnd || null) : null,
+        investorNotes: isInvestorPartnership ? form.investorNotes.trim() : '',
       };
 
       const data = await apiRequest('/cases', {
@@ -551,7 +584,9 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   ? 'Риэлторлик хизмати ва объект маълумотлари'
                   : form.serviceType === 'SALE_PURCHASE'
                     ? 'Харидор, сотувчи ва кўчмас мулк битими маълумотлари'
-                    : 'Мурожаат мақсади ва сўралаётган маблағ'}
+                    : form.serviceType === 'INVESTOR_PARTNERSHIP'
+                      ? 'Инвестор билан ҳамкорлик ва шартнома маълумотлари'
+                      : 'Мурожаат мақсади ва сўралаётган маблағ'}
               </span>
             </div>
 
@@ -738,6 +773,96 @@ function NewCaseModal({ open, onClose, onCreated }) {
 
                   <div className="field field-wide" style={{ fontSize: '13px', lineHeight: 1.6 }}>
                     <strong>Шартномага автоматик киритиладиган шартлар:</strong> харидор битимдан қайтса берилган закалат қайтарилмайди; сотувчи битимдан қайтса олган закалатни икки баравар миқдорда қайтаради; битимдан қайтган тараф риэлторлик хизмати бўйича белгиланган харажатларни қоплайди. Суғуртага оид стандарт шартлар ҳам шартнома шаблонида автоматик кўрсатилади.
+                  </div>
+                </>
+              ) : form.serviceType === 'INVESTOR_PARTNERSHIP' ? (
+                <>
+                  <div className="field field-wide">
+                    <strong>Инвестор билан ҳамкорлик маълумотлари</strong>
+                  </div>
+
+                  <label className="field">
+                    <span>Инвестиция суммаси *</span>
+                    <input
+                      value={form.investorInvestmentAmount}
+                      onChange={(event) =>
+                        updateField(
+                          'investorInvestmentAmount',
+                          event.target.value.replace(/\D/g, '')
+                        )
+                      }
+                      placeholder="Масалан: 100000000"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                    {fieldErrors.investorInvestmentAmount?.[0] ? (
+                      <small>{fieldErrors.investorInvestmentAmount[0]}</small>
+                    ) : null}
+                  </label>
+
+                  <label className="field">
+                    <span>Соф фойдадан инвестор улуши (%) *</span>
+                    <input
+                      value={form.investorProfitShare}
+                      onChange={(event) => {
+                        const value = event.target.value.replace(/[^\d.]/g, '');
+                        updateField('investorProfitShare', value);
+                      }}
+                      placeholder="Масалан: 40"
+                      inputMode="decimal"
+                      disabled={saving}
+                    />
+                    {fieldErrors.investorProfitShare?.[0] ? (
+                      <small>{fieldErrors.investorProfitShare[0]}</small>
+                    ) : null}
+                  </label>
+
+                  <label className="field">
+                    <span>Шартнома бошланиш санаси *</span>
+                    <input
+                      type="date"
+                      value={form.investorContractStart}
+                      onChange={(event) =>
+                        updateField('investorContractStart', event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                    {fieldErrors.investorContractStart?.[0] ? (
+                      <small>{fieldErrors.investorContractStart[0]}</small>
+                    ) : null}
+                  </label>
+
+                  <label className="field">
+                    <span>Шартнома тугаш санаси *</span>
+                    <input
+                      type="date"
+                      value={form.investorContractEnd}
+                      min={form.investorContractStart || undefined}
+                      onChange={(event) =>
+                        updateField('investorContractEnd', event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                    {fieldErrors.investorContractEnd?.[0] ? (
+                      <small>{fieldErrors.investorContractEnd[0]}</small>
+                    ) : null}
+                  </label>
+
+                  <label className="field field-wide">
+                    <span>Қўшимча изоҳ</span>
+                    <textarea
+                      value={form.investorNotes}
+                      onChange={(event) =>
+                        updateField('investorNotes', event.target.value)
+                      }
+                      placeholder="Инвестиция шартлари ёки қўшимча келишувлар"
+                      rows={3}
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <div className="field field-wide" style={{ fontSize: '13px', lineHeight: 1.6 }}>
+                    <strong>Шартнома тартиби:</strong> инвестор билан асосий ҳамкорлик шартномаси бир марта тузилади. Ҳамкорлик муддати давомида инвестор маблағи муайян битимда ишлатилганда, ўша битимдан чиққан соф фойданинг белгиланган улуши инвесторга ажратилади.
                   </div>
                 </>
               ) : (
