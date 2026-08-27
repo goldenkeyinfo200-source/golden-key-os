@@ -47,7 +47,14 @@ export const auth = async (req, res, next) => {
         companyId: true,
         branchId: true,
         bankId: true,
+        appraisalCompanyId: true,
         bankPosition: true,
+        appraisalCompany: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         bank: {
           select: {
             id: true,
