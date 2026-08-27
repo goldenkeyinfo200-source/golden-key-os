@@ -13,6 +13,7 @@ import usersRouter from './routes/users.js';
 import branchesRouter from './routes/branches.js';
 import caseActsRouter from './routes/case-acts.js';
 import publicActsRouter from './routes/public-acts.js';
+import { syncSuperAdminFromEnv } from './services/admin-sync.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -204,12 +205,23 @@ app.use((error, req, res, next) => {
    SERVER START
 ========================================================= */
 
-const server = app.listen(port, '0.0.0.0', () => {
-  console.log('========================================');
-  console.log('Golden Key OS API ишга тушди');
-  console.log(`PORT: ${port}`);
-  console.log(`ENV: ${process.env.NODE_ENV || 'development'}`);
-  console.log('========================================');
+let server;
+
+async function startServer() {
+  await syncSuperAdminFromEnv();
+
+  server = app.listen(port, '0.0.0.0', () => {
+    console.log('========================================');
+    console.log('Golden Key OS API ишга тушди');
+    console.log(`PORT: ${port}`);
+    console.log(`ENV: ${process.env.NODE_ENV || 'development'}`);
+    console.log('========================================');
+  });
+}
+
+startServer().catch((error) => {
+  console.error('❌ Серверни ишга туширишда хато:', error);
+  process.exit(1);
 });
 
 /* =========================================================
@@ -218,6 +230,10 @@ const server = app.listen(port, '0.0.0.0', () => {
 
 function shutdown(signal) {
   console.log(`${signal} қабул қилинди. Сервер тўхтатилмоқда...`);
+
+  if (!server) {
+    process.exit(0);
+  }
 
   server.close((error) => {
     if (error) {

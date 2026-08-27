@@ -1,17 +1,20 @@
-Golden Key OS — CRM API URL fix
+Golden Key OS — Super Admin login sync fix
 
-Алмаштириш:
-crm/src/services/api.js
-
-Railway CRM Variables:
-VITE_API_URL=https://backend-production-40a1.up.railway.app/api
+Нима тузатилди:
+- Backend startup вақтида Railway ADMIN_LOGIN / ADMIN_PASSWORD билан SUPER_ADMIN синхронланади.
+- Агар admin бор бўлса, маълумот ўчирилмайди; фақат role/isActive ва зарур бўлса passwordHash янгиланади.
+- Case, Client, Contract, Payment, Appraisal ва бошқа жадвалларга тегилмайди.
+- Backend URL ўзгармаган:
+  https://backend-production-40a1.up.railway.app
 
 Қўллаш:
-1) ZIP ичидаги api.js ни crm/src/services/api.js ўрнига қўйинг.
-2) GitHub commit/push қилинг.
-3) Railway crm service'да VITE_API_URL ни юқоридаги қийматга қўйинг.
-4) CRM'ни тўлиқ rebuild/redeploy қилинг.
-5) Browser'да Ctrl+F5 қилинг.
-6) DevTools Network'да appraisals сўрови 40a1 доменига кетишини текширинг.
+1. ZIP ичидаги backend/src/services/admin-sync.js янги файлни қўшинг.
+2. ZIP ичидаги backend/src/server.js билан мавжуд server.js ни алмаштиринг.
+3. GitHub commit/push қилинг.
+4. Railway backend deployment Success/Active бўлишини кутинг.
+5. CRM да ADMIN_LOGIN ва ADMIN_PASSWORD қийматлари билан киринг.
 
-Backend ва Prisma'га тегилмайди.
+Муҳим:
+- Railway backend Variables да ADMIN_LOGIN ва ADMIN_PASSWORD тўғри бўлиши шарт.
+- ADMIN_PASSWORD камида 8 белги.
+- DATABASE_URL, Prisma schema ва мавжуд маълумотларга бу patch тегмайди.
