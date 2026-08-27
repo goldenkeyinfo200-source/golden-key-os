@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   RefreshCw,
   Send,
-  Upload,
 } from 'lucide-react';
 
 import { apiRequest } from '../../services/api.js';
@@ -23,7 +22,7 @@ const STATUS = {
   CANCELLED: 'Бекор қилинган',
 };
 
-export function AppraisalSection({ caseId, caseItem }) {
+export function AppraisalSection({ caseId, caseItem = null }) {
   const [companies, setCompanies] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -36,35 +35,43 @@ export function AppraisalSection({ caseId, caseItem }) {
   const [uploadingId, setUploadingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
 
-  const serviceType = caseItem?.serviceType || '';
-  const isAppraisalService = [
-    'PRIMARY_MORTGAGE',
-    'SECONDARY_MORTGAGE',
-    'MICROLOAN',
-  ].includes(serviceType);
+  // МУҲИМ:
+  // caseItem келмаса ҳам Баҳолаш блоки яширилмайди.
+  // Шу билан эски <AppraisalSection caseId={item.id} /> чақируви ҳам ишлайди.
+  const propertyInfo = useMemo(() => {
+    if (!caseItem) return null;
 
-  const propertyInfo = useMemo(() => ({
-    type: caseItem?.collateralType || '—',
-    address: caseItem?.collateralAddress || '—',
-    cadastralNumber: caseItem?.collateralCadastreNumber || '—',
-    ownerFullName: caseItem?.collateralOwnerFullName || '—',
-    ownerPinfl: caseItem?.collateralOwnerPinfl || '—',
-    area: caseItem?.collateralArea ? `${caseItem.collateralArea} м²` : '—',
-    estimatedValue: caseItem?.collateralEstimatedValue
-      ? `${new Intl.NumberFormat('uz-UZ').format(Number(caseItem.collateralEstimatedValue))} сўм`
-      : '—',
-  }), [caseItem]);
+    return {
+      type: caseItem?.collateralType || '—',
+      address: caseItem?.collateralAddress || '—',
+      cadastralNumber: caseItem?.collateralCadastreNumber || '—',
+      ownerFullName: caseItem?.collateralOwnerFullName || '—',
+      ownerPinfl: caseItem?.collateralOwnerPinfl || '—',
+      area: caseItem?.collateralArea ? `${caseItem.collateralArea} м²` : '—',
+      estimatedValue:
+        caseItem?.collateralEstimatedValue !== null &&
+        caseItem?.collateralEstimatedValue !== undefined &&
+        caseItem?.collateralEstimatedValue !== ''
+          ? `${new Intl.NumberFormat('uz-UZ').format(
+              Number(caseItem.collateralEstimatedValue)
+            )} сўм`
+          : '—',
+    };
+  }, [caseItem]);
 
   const load = useCallback(async () => {
     if (!caseId) return;
+
     setLoading(true);
     setError('');
+
     try {
       const [companiesData, documentsData, requestData] = await Promise.all([
         apiRequest('/appraisals/companies'),
         apiRequest(`/documents/case/${caseId}`),
         apiRequest(`/appraisals/case/${caseId}`),
       ]);
+
       setCompanies(companiesData.items || []);
       setDocuments(documentsData.items || []);
       setRequests(requestData.items || []);
@@ -75,27 +82,39 @@ export function AppraisalSection({ caseId, caseItem }) {
     }
   }, [caseId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const toggleDoc = (id) => {
     setDocumentIds((current) =>
-      current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+      current.includes(id)
+        ? current.filter((x) => x !== id)
+        : [...current, id]
     );
   };
 
   const createRequest = async (event) => {
     event.preventDefault();
+
     if (!companyId) {
       setError('Баҳолаш компаниясини танланг.');
       return;
     }
+
     setSending(true);
     setError('');
+
     try {
       await apiRequest(`/appraisals/case/${caseId}`, {
         method: 'POST',
-        body: JSON.stringify({ companyId, documentIds, note }),
+        body: JSON.stringify({
+          companyId,
+          documentIds,
+          note,
+        }),
       });
+
       setCompanyId('');
       setDocumentIds([]);
       setNote('');
@@ -109,20 +128,25 @@ export function AppraisalSection({ caseId, caseItem }) {
 
   const uploadFile = async (requestId, file, kind) => {
     if (!file) return;
+
     if (file.size > 20 * 1024 * 1024) {
       setError('Файл ҳажми 20 МБдан ошмаслиги керак.');
       return;
     }
+
     setUploadingId(requestId);
     setError('');
+
     try {
       const form = new FormData();
       form.append('file', file);
       form.append('kind', kind);
+
       await apiRequest(`/appraisals/requests/${requestId}/files`, {
         method: 'POST',
         body: form,
       });
+
       await load();
     } catch (e) {
       setError(e.message || 'Файлни юклаб бўлмади.');
@@ -139,6 +163,7 @@ export function AppraisalSection({ caseId, caseItem }) {
 
     try {
       const response = await fetch(report.fileUrl);
+
       if (!response.ok) {
         throw new Error('Ҳисобот файлини олиб бўлмади.');
       }
@@ -146,24 +171,24 @@ export function AppraisalSection({ caseId, caseItem }) {
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
+
       link.href = objectUrl;
       link.download = report.fileName || 'appraisal-report.pdf';
+
       document.body.appendChild(link);
       link.click();
       link.remove();
+
       URL.revokeObjectURL(objectUrl);
     } catch (e) {
-      // Агар браузер cross-origin юклаб олишни чекласа,
-      // signed URL'ни янги ойнада очамиз.
+      // Signed URL cross-origin download'ни чекласа, файлни янги ойнада очамиз.
       window.open(report.fileUrl, '_blank', 'noopener,noreferrer');
     } finally {
       setDownloadingId(null);
     }
   };
 
-  if (!caseId || !isAppraisalService) {
-    return null;
-  }
+  if (!caseId) return null;
 
   if (loading) {
     return (
@@ -187,58 +212,85 @@ export function AppraisalSection({ caseId, caseItem }) {
         <Building2 size={22} />
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-          gap: 9,
-          marginBottom: 15,
-          padding: 12,
-          borderRadius: 11,
-          background: '#fafafa',
-          border: '1px solid #ececec',
-        }}
-      >
-        {[
-          ['Мулк тури', propertyInfo.type],
-          ['Кадастр рақами', propertyInfo.cadastralNumber],
-          ['Мулкдор', propertyInfo.ownerFullName],
-          ['Мулкдор ЖШШИР', propertyInfo.ownerPinfl],
-          ['Майдони', propertyInfo.area],
-          ['Тахминий қиймати', propertyInfo.estimatedValue],
-        ].map(([label, value]) => (
-          <div key={label} style={{ display: 'grid', gap: 3 }}>
-            <span style={{ color: '#7b7f86', fontSize: 11 }}>{label}</span>
-            <strong style={{ fontSize: 12 }}>{value}</strong>
-          </div>
-        ))}
-        <div style={{ gridColumn: '1 / -1', display: 'grid', gap: 3 }}>
-          <span style={{ color: '#7b7f86', fontSize: 11 }}>Мулк манзили</span>
-          <strong style={{ fontSize: 12 }}>{propertyInfo.address}</strong>
-        </div>
-      </div>
+      {propertyInfo ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+            gap: 9,
+            marginBottom: 15,
+            padding: 12,
+            borderRadius: 11,
+            background: '#fafafa',
+            border: '1px solid #ececec',
+          }}
+        >
+          {[
+            ['Мулк тури', propertyInfo.type],
+            ['Кадастр рақами', propertyInfo.cadastralNumber],
+            ['Мулкдор', propertyInfo.ownerFullName],
+            ['Мулкдор ЖШШИР', propertyInfo.ownerPinfl],
+            ['Майдони', propertyInfo.area],
+            ['Тахминий қиймати', propertyInfo.estimatedValue],
+          ].map(([label, value]) => (
+            <div key={label} style={{ display: 'grid', gap: 3 }}>
+              <span style={{ color: '#7b7f86', fontSize: 11 }}>
+                {label}
+              </span>
+              <strong style={{ fontSize: 12 }}>{value}</strong>
+            </div>
+          ))}
 
-      {propertyInfo.address === '—' && propertyInfo.cadastralNumber === '—' ? (
-        <div className="form-error" style={{ marginBottom: 12 }}>
-          Аввал юқоридаги «Гаровга олинаётган мулк маълумотлари» бўлимида мулк манзили ёки кадастр рақамини киритинг.
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              display: 'grid',
+              gap: 3,
+            }}
+          >
+            <span style={{ color: '#7b7f86', fontSize: 11 }}>
+              Мулк манзили
+            </span>
+            <strong style={{ fontSize: 12 }}>
+              {propertyInfo.address}
+            </strong>
+          </div>
         </div>
       ) : null}
 
-      <form onSubmit={createRequest} style={{ display: 'grid', gap: 13 }}>
+      <form
+        onSubmit={createRequest}
+        style={{ display: 'grid', gap: 13 }}
+      >
         <label className="field">
           <span>Баҳолаш компанияси</span>
-          <select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+          <select
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+          >
             <option value="">— Компанияни танланг —</option>
+
             {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
         </label>
 
         <div>
-          <strong style={{ fontSize: 12 }}>Юбориладиган ҳужжатлар</strong>
+          <strong style={{ fontSize: 12 }}>
+            Юбориладиган ҳужжатлар
+          </strong>
+
           {documents.length ? (
-            <div style={{ display: 'grid', gap: 7, marginTop: 8 }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 7,
+                marginTop: 8,
+              }}
+            >
               {documents.map((doc) => (
                 <label
                   key={doc.id}
@@ -256,7 +308,9 @@ export function AppraisalSection({ caseId, caseItem }) {
                     checked={documentIds.includes(doc.id)}
                     onChange={() => toggleDoc(doc.id)}
                   />
+
                   <FileText size={16} />
+
                   <span style={{ fontSize: 12 }}>
                     {doc.fileName || doc.type}
                   </span>
@@ -264,12 +318,15 @@ export function AppraisalSection({ caseId, caseItem }) {
               ))}
             </div>
           ) : (
-            <p className="executor-note">Мурожаатда ҳужжатлар ҳали йўқ.</p>
+            <p className="executor-note">
+              Мурожаатда ҳужжатлар ҳали йўқ.
+            </p>
           )}
         </div>
 
         <label className="field">
           <span>Изоҳ</span>
+
           <textarea
             rows={3}
             value={note}
@@ -278,26 +335,44 @@ export function AppraisalSection({ caseId, caseItem }) {
           />
         </label>
 
-        {error ? <div className="form-error">{error}</div> : null}
+        {error ? (
+          <div className="form-error">
+            {error}
+          </div>
+        ) : null}
 
         <button
           className="primary"
           type="submit"
-          disabled={
-            sending ||
-            !companyId ||
-            (propertyInfo.address === '—' && propertyInfo.cadastralNumber === '—')
-          }
+          disabled={sending || !companyId}
         >
-          {sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />}
-          {sending ? 'Юборилмоқда...' : 'Баҳолашга юбориш'}
+          {sending ? (
+            <LoaderCircle className="spin" size={17} />
+          ) : (
+            <Send size={17} />
+          )}
+
+          {sending
+            ? 'Юборилмоқда...'
+            : 'Баҳолашга юбориш'}
         </button>
       </form>
 
-      <div style={{ display: 'grid', gap: 12, marginTop: 20 }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 12,
+          marginTop: 20,
+        }}
+      >
         {requests.map((request) => {
-          const reports = (request.files || []).filter((f) => f.kind === 'REPORT');
-          const photos = (request.files || []).filter((f) => f.kind === 'PROPERTY_PHOTO');
+          const reports = (request.files || []).filter(
+            (f) => f.kind === 'REPORT'
+          );
+
+          const photos = (request.files || []).filter(
+            (f) => f.kind === 'PROPERTY_PHOTO'
+          );
 
           return (
             <article
@@ -310,21 +385,43 @@ export function AppraisalSection({ caseId, caseItem }) {
                 gap: 10,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
                 <div>
                   <strong>{request.displayId}</strong>
-                  <div style={{ color: '#777', fontSize: 11, marginTop: 3 }}>
+
+                  <div
+                    style={{
+                      color: '#777',
+                      fontSize: 11,
+                      marginTop: 3,
+                    }}
+                  >
                     {request.company?.name}
                   </div>
                 </div>
+
                 <span className="status-badge status-progress">
                   {STATUS[request.status] || request.status}
                 </span>
               </div>
 
-              <div style={{ fontSize: 11, color: '#666' }}>
-                Юборилган ҳужжатлар: {request.documents?.length || request._count?.documents || 0} ·
-                Мулк расмлари: {photos.length}
+              <div
+                style={{
+                  fontSize: 11,
+                  color: '#666',
+                }}
+              >
+                Юборилган ҳужжатлар:{' '}
+                {request.documents?.length ||
+                  request._count?.documents ||
+                  0}{' '}
+                · Мулк расмлари: {photos.length}
               </div>
 
               <label
@@ -342,17 +439,28 @@ export function AppraisalSection({ caseId, caseItem }) {
                 }}
               >
                 {uploadingId === request.id ? (
-                  <LoaderCircle className="spin" size={16} />
+                  <LoaderCircle
+                    className="spin"
+                    size={16}
+                  />
                 ) : (
                   <Image size={16} />
                 )}
+
                 Мулк расмини юклаш (20 МБгача)
+
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   hidden
                   disabled={uploadingId === request.id}
-                  onChange={(e) => uploadFile(request.id, e.target.files?.[0], 'PROPERTY_PHOTO')}
+                  onChange={(e) =>
+                    uploadFile(
+                      request.id,
+                      e.target.files?.[0],
+                      'PROPERTY_PHOTO'
+                    )
+                  }
                 />
               </label>
 
@@ -371,12 +479,29 @@ export function AppraisalSection({ caseId, caseItem }) {
                     >
                       <CheckCircle2 size={17} />
 
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <strong>Баҳолаш ҳисоботи тайёр</strong>
-                        <span>{report.fileName || 'appraisal-report.pdf'}</span>
+                      <div
+                        style={{
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        <strong>
+                          Баҳолаш ҳисоботи тайёр
+                        </strong>
+
+                        <span>
+                          {report.fileName ||
+                            'appraisal-report.pdf'}
+                        </span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 7,
+                          flexWrap: 'wrap',
+                        }}
+                      >
                         <a
                           href={report.fileUrl}
                           target="_blank"
@@ -390,14 +515,22 @@ export function AppraisalSection({ caseId, caseItem }) {
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() => downloadReport(report)}
-                          disabled={downloadingId === report.id}
+                          onClick={() =>
+                            downloadReport(report)
+                          }
+                          disabled={
+                            downloadingId === report.id
+                          }
                         >
                           {downloadingId === report.id ? (
-                            <LoaderCircle className="spin" size={15} />
+                            <LoaderCircle
+                              className="spin"
+                              size={15}
+                            />
                           ) : (
                             <Download size={15} />
                           )}
+
                           {downloadingId === report.id
                             ? 'Юкланмоқда...'
                             : 'Ҳисоботни юклаб олиш'}
@@ -414,7 +547,9 @@ export function AppraisalSection({ caseId, caseItem }) {
         {!requests.length ? (
           <div className="details-empty-block">
             <RefreshCw size={28} />
-            <strong>Баҳолаш заявкаси ҳали юборилмаган</strong>
+            <strong>
+              Баҳолаш заявкаси ҳали юборилмаган
+            </strong>
           </div>
         ) : null}
       </div>
