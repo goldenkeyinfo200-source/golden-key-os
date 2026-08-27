@@ -8,14 +8,10 @@ import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
 import {
   defaultContractHtml,
-  investorPartnershipContractHtml,
   realtorContractHtml,
   salePurchaseContractHtml,
 } from '../services/contract-template.js';
-import {
-  createSignedFileUrl,
-  deleteStorageFile,
-} from '../services/supabaseStorage.js';
+import { createSignedFileUrl } from '../services/supabaseStorage.js';
 
 const router = Router();
 
@@ -51,9 +47,7 @@ async function generateContractDisplayId(tx, serviceType) {
       ? `GK-RX-${year}-`
       : serviceType === 'SALE_PURCHASE'
         ? `GK-OS-${year}-`
-        : serviceType === 'INVESTOR_PARTNERSHIP'
-          ? `GK-IV-${year}-`
-          : `GK-SH-${year}-`;
+        : `GK-SH-${year}-`;
 
   const latest = await tx.contract.findFirst({
     where: {
@@ -131,7 +125,7 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
   }
 
   if (caseItem.serviceType === 'REALTOR_SERVICE') {
-    const marker = 'data-gk-template="realtor-service-v3"';
+    const marker = 'data-gk-template="realtor-service-v1"';
 
     const current = await tx.contractTemplate.findFirst({
       where: {
@@ -210,46 +204,6 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     });
   }
 
-  if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
-    const marker = 'data-gk-template="investor-partnership-v1"';
-
-    const current = await tx.contractTemplate.findFirst({
-      where: {
-        serviceType: 'INVESTOR_PARTNERSHIP',
-        isActive: true,
-      },
-      orderBy: {
-        version: 'desc',
-      },
-    });
-
-    if (current?.htmlBody?.includes(marker)) {
-      return current;
-    }
-
-    const latest = await tx.contractTemplate.findFirst({
-      where: {
-        serviceType: 'INVESTOR_PARTNERSHIP',
-      },
-      orderBy: {
-        version: 'desc',
-      },
-      select: {
-        version: true,
-      },
-    });
-
-    return tx.contractTemplate.create({
-      data: {
-        name: 'Инвестор билан ҳамкорлик қилиш тўғрисида шартнома',
-        serviceType: 'INVESTOR_PARTNERSHIP',
-        version: (latest?.version || 0) + 1,
-        htmlBody: investorPartnershipContractHtml(),
-        isActive: true,
-      },
-    });
-  }
-
   let template = await tx.contractTemplate.findFirst({
     where: {
       serviceType: caseItem.serviceType,
@@ -276,311 +230,6 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 }
 
 router.use(auth);
-
-
-/**
- * GET /api/contracts
- *
- * Барча шартномалар рўйхати:
- * - pagination
- * - шартнома ID / мурожаат ID / мижоз Ф.И.Ш. / телефон бўйича қидирув
- * - ҳолат бўйича фильтр
- * - филиал ва мижоз маълумотлари
- * - PDF учун вақтинчалик signed URL
- */
-router.get(
-  '/',
-  allowRoles(...MANAGE_ROLES),
-  async (req, res, next) => {
-    try {
-      const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
-      const limit = Math.min(
-        100,
-        Math.max(1, Number.parseInt(req.query.limit, 10) || 20)
-      );
-
-      const search = String(req.query.search || '').trim();
-      const status = String(req.query.status || '').trim();
-
-      const allowedStatuses = [
-        'DRAFT',
-        'MANAGER_REVIEW',
-        'READY_TO_SIGN',
-        'SIGNED',
-        'CANCELLED',
-        'ARCHIVED',
-      ];
-
-      if (status && !allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          error: 'Шартнома ҳолати нотўғри',
-        });
-      }
-
-      const where = {};
-
-      if (status) {
-        where.status = status;
-      }
-
-      if (search) {
-        where.OR = [
-          {
-            displayId: {
-              contains: search,
-              mode: 'insensitive',
-            },
-          },
-          {
-            case: {
-              is: {
-                displayId: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              },
-            },
-          },
-          {
-            case: {
-              is: {
-                applicant: {
-                  is: {
-                    fullName: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          {
-            case: {
-              is: {
-                applicant: {
-                  is: {
-                    phone: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-              },
-            },
-          },
-        ];
-      }
-
-      // Филиал даражасидаги роллар фақат ўз филиали шартномаларини кўради.
-      if (
-        ['BRANCH_MANAGER', 'RECEPTION_MANAGER'].includes(req.user.role) &&
-        req.user.branchId
-      ) {
-        where.case = {
-          ...(where.case || {}),
-          is: {
-            ...(where.case?.is || {}),
-            branchId: req.user.branchId,
-          },
-        };
-      }
-
-      // Қабул менежери учун — фақат ўзига бириктирилган мурожаатлар.
-      if (req.user.role === 'RECEPTION_MANAGER') {
-        where.case = {
-          ...(where.case || {}),
-          is: {
-            ...(where.case?.is || {}),
-            receptionManagerId: req.user.id,
-          },
-        };
-      }
-
-      const [items, total] = await Promise.all([
-        prisma.contract.findMany({
-          where,
-          include: {
-            case: {
-              select: {
-                id: true,
-                displayId: true,
-                serviceType: true,
-                branchId: true,
-                receptionManagerId: true,
-                applicant: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    phone: true,
-                  },
-                },
-                branch: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-            template: {
-              select: {
-                id: true,
-                name: true,
-                version: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        prisma.contract.count({
-          where,
-        }),
-      ]);
-
-      const itemsWithPdf = await Promise.all(
-        items.map(async (item) => ({
-          ...item,
-          pdfUrl: item.pdfUrl
-            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
-            : null,
-        }))
-      );
-
-      return res.json({
-        items: itemsWithPdf,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-
-/**
- * DELETE /api/contracts/:contractId
- *
- * Тест ёки нотўғри яратилган шартномани тўлиқ ўчириш.
- * Фақат SUPER_ADMIN ва DIRECTOR.
- *
- * - Contract'га боғланган Invitation'лар аввал ўчирилади
- * - QR экранда шу шартнома очиқ бўлса, экран IDLE ҳолатига қайтарилади
- * - Contract базадан ўчирилади
- * - PDF Supabase Storage'дан best-effort тарзда ўчирилади
- * - AuditLog'да ўчириш қайди қолади
- */
-router.delete(
-  '/:contractId',
-  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
-  async (req, res, next) => {
-    try {
-      const contract = await prisma.contract.findUnique({
-        where: {
-          id: req.params.contractId,
-        },
-        select: {
-          id: true,
-          displayId: true,
-          caseId: true,
-          status: true,
-          pdfUrl: true,
-        },
-      });
-
-      if (!contract) {
-        return res.status(404).json({
-          error: 'Шартнома топилмади',
-        });
-      }
-
-      const storagePath =
-        contract.pdfUrl &&
-        !/^https?:\/\//i.test(contract.pdfUrl)
-          ? contract.pdfUrl
-          : null;
-
-      await prisma.$transaction(async (tx) => {
-        // KioskDevice.currentContractId schema'да relation эмас,
-        // шунинг учун ўчиришдан олдин қўлда тозалаймиз.
-        await tx.kioskDevice.updateMany({
-          where: {
-            currentContractId: contract.id,
-          },
-          data: {
-            currentContractId: null,
-            currentQrDataUrl: null,
-            currentSignUrl: null,
-            qrExpiresAt: null,
-            displayStatus: 'IDLE',
-          },
-        });
-
-        // Invitation.contract relation'да onDelete: Cascade йўқ.
-        await tx.invitation.deleteMany({
-          where: {
-            contractId: contract.id,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            userId: req.user.id,
-            entityType: 'Contract',
-            entityId: contract.id,
-            action: 'CONTRACT_DELETED',
-            metadata: {
-              displayId: contract.displayId,
-              caseId: contract.caseId,
-              previousStatus: contract.status,
-              pdfStoragePath: storagePath,
-              deletedAt: new Date().toISOString(),
-            },
-          },
-        });
-
-        await tx.contract.delete({
-          where: {
-            id: contract.id,
-          },
-        });
-      });
-
-      let storageDeleted = false;
-      let storageWarning = null;
-
-      if (storagePath) {
-        try {
-          await deleteStorageFile(storagePath);
-          storageDeleted = true;
-        } catch (storageError) {
-          storageWarning =
-            storageError?.message ||
-            'PDF файлни Storage дан ўчиришда хатолик юз берди';
-        }
-      }
-
-      return res.json({
-        message: `${contract.displayId} шартномаси ўчирилди`,
-        deletedId: contract.id,
-        displayId: contract.displayId,
-        storageDeleted,
-        storageWarning,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 router.get(
   '/case/:caseId',
@@ -875,10 +524,13 @@ router.post(
         });
       });
 
+      // Production-safe public signing URL.
+      // Railway Variables'da PUBLIC_SIGN_URL ёки CRM_PUBLIC_URL берилса ўша ишлатилади.
+      // Агар берилмаса, Golden Key OS production /sign манзили ишлатилади.
       const publicBaseUrl =
         process.env.PUBLIC_SIGN_URL?.replace(/\/+$/, '') ||
         process.env.CRM_PUBLIC_URL?.replace(/\/+$/, '') ||
-        'http://localhost:5173/sign';
+        'https://crm-production-eced.up.railway.app/sign';
 
       const signUrl = `${publicBaseUrl}/${token}`;
       const qrDataUrl = await QRCode.toDataURL(signUrl, {

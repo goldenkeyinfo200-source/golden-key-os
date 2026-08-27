@@ -1,15 +1,26 @@
-Golden Key OS — Scanner UI FIX
+Golden Key OS — contract sign localhost FIX
 
 Алмаштирилади:
-crm/src/components/documents/DocumentsSection.jsx
+backend/src/routes/contracts.js
 
-Нима тузатилди:
-- «Ҳужжат юклаш» ойнаси яна ҳақиқий modal кўринишида чиқади.
-- Modal fixed overlay билан экран марказида очилади.
-- «Файл танлаш» ва «Сканердан олиш» икки устунли карточка.
-- Кўриш / download / delete тугмалари ихчам ва тартибли.
-- 20 MB лимит сақланди.
-- Scanner Agent интеграцияси сақланди.
-- Ташқи CSS class'ларга боғлиқлик камайтирилди: асосий дизайн inline style билан берилди.
+Муаммо:
+QR/sign URL fallback 'http://localhost:5173/sign' эди.
+Production'да «Шартнома яратиш» / QR жараёни localhost'га кетиб қолар эди.
 
-Фақат CRM frontend deploy қилиш керак.
+Тузатилди:
+fallback:
+https://crm-production-eced.up.railway.app/sign
+
+Устуворлик:
+1) PUBLIC_SIGN_URL
+2) CRM_PUBLIC_URL
+3) https://crm-production-eced.up.railway.app/sign
+
+Railway backend Variables'да тавсия:
+PUBLIC_SIGN_URL=https://crm-production-eced.up.railway.app/sign
+
+Deploy:
+1) contracts.js ни backend/src/routes/contracts.js га алмаштиринг
+2) commit + push
+3) BACKEND service'ни deploy қилинг
+4) янги QR яратинг; эски QR/token'лар эски URLни сақлаган бўлиши мумкин
