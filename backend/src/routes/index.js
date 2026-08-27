@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import authRouter from './auth.js';
+import appraisalsRouter from './appraisals.js';
 import bankOffersRouter from './bank-offers.js';
 import banksRouter from './banks.js';
 import branchesRouter from './branches.js';
@@ -28,6 +29,12 @@ router.use('/health', healthRouter);
 ========================================================= */
 
 router.use('/auth', authRouter);
+
+/* =========================================================
+   APPRAISALS
+========================================================= */
+
+router.use('/appraisals', appraisalsRouter);
 
 /* =========================================================
    CASES
@@ -114,6 +121,7 @@ router.get('/', (_req, res) => {
       health: '/api/health',
       login: '/api/auth/login',
       currentUser: '/api/auth/me',
+      appraisals: '/api/appraisals',
       cases: '/api/cases',
       banks: '/api/banks',
       bankOffers: '/api/bank-offers',
