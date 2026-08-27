@@ -274,6 +274,195 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 
 router.use(auth);
 
+
+/**
+ * GET /api/contracts
+ *
+ * Барча шартномалар рўйхати:
+ * - pagination
+ * - шартнома ID / мурожаат ID / мижоз Ф.И.Ш. / телефон бўйича қидирув
+ * - ҳолат бўйича фильтр
+ * - филиал ва мижоз маълумотлари
+ * - PDF учун вақтинчалик signed URL
+ */
+router.get(
+  '/',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(
+        100,
+        Math.max(1, Number.parseInt(req.query.limit, 10) || 20)
+      );
+
+      const search = String(req.query.search || '').trim();
+      const status = String(req.query.status || '').trim();
+
+      const allowedStatuses = [
+        'DRAFT',
+        'MANAGER_REVIEW',
+        'READY_TO_SIGN',
+        'SIGNED',
+        'CANCELLED',
+        'ARCHIVED',
+      ];
+
+      if (status && !allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          error: 'Шартнома ҳолати нотўғри',
+        });
+      }
+
+      const where = {};
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (search) {
+        where.OR = [
+          {
+            displayId: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            case: {
+              is: {
+                displayId: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+          {
+            case: {
+              is: {
+                applicant: {
+                  is: {
+                    fullName: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          {
+            case: {
+              is: {
+                applicant: {
+                  is: {
+                    phone: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ];
+      }
+
+      // Филиал даражасидаги роллар фақат ўз филиали шартномаларини кўради.
+      if (
+        ['BRANCH_MANAGER', 'RECEPTION_MANAGER'].includes(req.user.role) &&
+        req.user.branchId
+      ) {
+        where.case = {
+          ...(where.case || {}),
+          is: {
+            ...(where.case?.is || {}),
+            branchId: req.user.branchId,
+          },
+        };
+      }
+
+      // Қабул менежери учун — фақат ўзига бириктирилган мурожаатлар.
+      if (req.user.role === 'RECEPTION_MANAGER') {
+        where.case = {
+          ...(where.case || {}),
+          is: {
+            ...(where.case?.is || {}),
+            receptionManagerId: req.user.id,
+          },
+        };
+      }
+
+      const [items, total] = await Promise.all([
+        prisma.contract.findMany({
+          where,
+          include: {
+            case: {
+              select: {
+                id: true,
+                displayId: true,
+                serviceType: true,
+                branchId: true,
+                receptionManagerId: true,
+                applicant: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    phone: true,
+                  },
+                },
+                branch: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            template: {
+              select: {
+                id: true,
+                name: true,
+                version: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.contract.count({
+          where,
+        }),
+      ]);
+
+      const itemsWithPdf = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          pdfUrl: item.pdfUrl
+            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
+            : null,
+        }))
+      );
+
+      return res.json({
+        items: itemsWithPdf,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.get(
   '/case/:caseId',
   allowRoles(...MANAGE_ROLES),
