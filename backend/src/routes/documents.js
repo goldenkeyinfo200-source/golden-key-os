@@ -22,7 +22,6 @@ const DOCUMENT_ROLES = [
   'RECEPTION_MANAGER',
   'EXECUTOR',
   'BANK_EMPLOYEE',
-  'APPRAISAL_EMPLOYEE',
   'LAWYER',
 ];
 
@@ -84,9 +83,7 @@ function getExtension(file) {
     .toLowerCase()
     .replace(/[^.a-z0-9]/g, '');
 
-  if (extension) {
-    return extension;
-  }
+  if (extension) return extension;
 
   const fallback = {
     'image/jpeg': '.jpg',
@@ -100,9 +97,7 @@ function getExtension(file) {
 
 async function getCaseAccess(caseId, user) {
   const item = await prisma.case.findUnique({
-    where: {
-      id: caseId,
-    },
+    where: { id: caseId },
     select: {
       id: true,
       displayId: true,
@@ -114,16 +109,11 @@ async function getCaseAccess(caseId, user) {
   });
 
   if (!item) {
-    return {
-      item: null,
-      allowed: false,
-    };
+    return { item: null, allowed: false };
   }
 
   const allowed =
-    ['SUPER_ADMIN', 'DIRECTOR', 'ACCOUNTANT', 'LAWYER'].includes(
-      user.role
-    ) ||
+    ['SUPER_ADMIN', 'DIRECTOR', 'ACCOUNTANT', 'LAWYER'].includes(user.role) ||
     item.receptionManagerId === user.id ||
     item.executorId === user.id ||
     user.role === 'BANK_EMPLOYEE' ||
@@ -133,75 +123,47 @@ async function getCaseAccess(caseId, user) {
       item.branchId === user.branchId
     );
 
-  return {
-    item,
-    allowed,
-  };
+  return { item, allowed };
 }
 
 router.use(auth);
 
-/**
- * GET /api/documents/case/:caseId
- */
 router.get(
   '/case/:caseId',
   allowRoles(...DOCUMENT_ROLES),
   async (req, res, next) => {
     try {
-      const access = await getCaseAccess(
-        req.params.caseId,
-        req.user
-      );
+      const access = await getCaseAccess(req.params.caseId, req.user);
 
       if (!access.item) {
-        return res.status(404).json({
-          error: 'Мурожаат топилмади',
-        });
+        return res.status(404).json({ error: 'Мурожаат топилмади' });
       }
 
       if (!access.allowed) {
         return res.status(403).json({
-          error:
-            'Ушбу мурожаат ҳужжатларини кўриш учун рухсатингиз йўқ',
+          error: 'Ушбу мурожаат ҳужжатларини кўриш учун рухсатингиз йўқ',
         });
       }
 
       const documents = await prisma.document.findMany({
-        where: {
-          caseId: access.item.id,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        where: { caseId: access.item.id },
+        orderBy: { createdAt: 'desc' },
       });
 
       const items = await Promise.all(
         documents.map(async (document) => ({
           ...document,
-          fileUrl: await createSignedFileUrl(
-            document.fileUrl
-          ),
+          fileUrl: await createSignedFileUrl(document.fileUrl),
         }))
       );
 
-      return res.json({
-        items,
-      });
+      return res.json({ items });
     } catch (error) {
       next(error);
     }
   }
 );
 
-/**
- * POST /api/documents/case/:caseId
- *
- * multipart/form-data:
- * file
- * type
- * clientId (optional)
- */
 router.post(
   '/case/:caseId',
   allowRoles(...DOCUMENT_ROLES),
@@ -224,26 +186,19 @@ router.post(
       if (!parsed.success) {
         return res.status(400).json({
           error: 'Ҳужжат тури нотўғри',
-          details:
-            parsed.error.flatten().fieldErrors,
+          details: parsed.error.flatten().fieldErrors,
         });
       }
 
-      const access = await getCaseAccess(
-        req.params.caseId,
-        req.user
-      );
+      const access = await getCaseAccess(req.params.caseId, req.user);
 
       if (!access.item) {
-        return res.status(404).json({
-          error: 'Мурожаат топилмади',
-        });
+        return res.status(404).json({ error: 'Мурожаат топилмади' });
       }
 
       if (!access.allowed) {
         return res.status(403).json({
-          error:
-            'Ушбу мурожаатга ҳужжат юклаш учун рухсатингиз йўқ',
+          error: 'Ушбу мурожаатга ҳужжат юклаш учун рухсатингиз йўқ',
         });
       }
 
@@ -253,8 +208,7 @@ router.post(
         null;
 
       const extension = getExtension(req.file);
-      const uniqueName =
-        `${Date.now()}-${crypto.randomUUID()}${extension}`;
+      const uniqueName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
 
       uploadedStoragePath = [
         access.item.displayId,
@@ -268,56 +222,48 @@ router.post(
         mimeType: req.file.mimetype,
       });
 
-      const item = await prisma.$transaction(
-        async (tx) => {
-          const document = await tx.document.create({
-            data: {
+      const item = await prisma.$transaction(async (tx) => {
+        const document = await tx.document.create({
+          data: {
+            caseId: access.item.id,
+            clientId,
+            type: parsed.data.type,
+            fileUrl: uploadedStoragePath,
+            fileName: req.file.originalname,
+            mimeType: req.file.mimetype,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Document',
+            entityId: document.id,
+            action: 'DOCUMENT_UPLOADED',
+            metadata: {
               caseId: access.item.id,
-              clientId,
-              type: parsed.data.type,
-              fileUrl: uploadedStoragePath,
-              fileName: req.file.originalname,
-              mimeType: req.file.mimetype,
+              caseDisplayId: access.item.displayId,
+              type: document.type,
+              fileName: document.fileName,
+              storagePath: uploadedStoragePath,
             },
-          });
+          },
+        });
 
-          await tx.auditLog.create({
-            data: {
-              userId: req.user.id,
-              entityType: 'Document',
-              entityId: document.id,
-              action: 'DOCUMENT_UPLOADED',
-              metadata: {
-                caseId: access.item.id,
-                caseDisplayId:
-                  access.item.displayId,
-                type: document.type,
-                fileName: document.fileName,
-                storagePath: uploadedStoragePath,
-              },
-            },
-          });
-
-          return {
-            ...document,
-            fileUrl: await createSignedFileUrl(
-              document.fileUrl
-            ),
-          };
-        }
-      );
+        return {
+          ...document,
+          fileUrl: await createSignedFileUrl(document.fileUrl),
+        };
+      });
 
       return res.status(201).json({
-        message:
-          'Ҳужжат муваффақиятли юкланди',
+        message: 'Ҳужжат муваффақиятли юкланди',
         item,
       });
     } catch (error) {
       if (uploadedStoragePath) {
         try {
-          await deleteStorageFile(
-            uploadedStoragePath
-          );
+          await deleteStorageFile(uploadedStoragePath);
         } catch (cleanupError) {
           console.error(
             'Муваффақиятсиз upload файлни тозалаш хатоси:',
@@ -331,50 +277,33 @@ router.post(
   }
 );
 
-/**
- * DELETE /api/documents/:documentId
- */
 router.delete(
   '/:documentId',
   allowRoles(...DELETE_ROLES),
   async (req, res, next) => {
     try {
-      const document =
-        await prisma.document.findUnique({
-          where: {
-            id: req.params.documentId,
+      const document = await prisma.document.findUnique({
+        where: { id: req.params.documentId },
+        include: {
+          case: {
+            select: { id: true },
           },
-          include: {
-            case: {
-              select: {
-                id: true,
-              },
-            },
-          },
-        });
+        },
+      });
 
       if (!document) {
-        return res.status(404).json({
-          error: 'Ҳужжат топилмади',
-        });
+        return res.status(404).json({ error: 'Ҳужжат топилмади' });
       }
 
       const access = document.case
-        ? await getCaseAccess(
-            document.case.id,
-            req.user
-          )
+        ? await getCaseAccess(document.case.id, req.user)
         : {
-            allowed: [
-              'SUPER_ADMIN',
-              'DIRECTOR',
-            ].includes(req.user.role),
+            allowed: ['SUPER_ADMIN', 'DIRECTOR'].includes(req.user.role),
           };
 
       if (!access.allowed) {
         return res.status(403).json({
-          error:
-            'Ушбу ҳужжатни ўчириш учун рухсатингиз йўқ',
+          error: 'Ушбу ҳужжатни ўчириш учун рухсатингиз йўқ',
         });
       }
 
@@ -402,15 +331,12 @@ router.delete(
         });
 
         await tx.document.delete({
-          where: {
-            id: document.id,
-          },
+          where: { id: document.id },
         });
       });
 
       return res.json({
-        message:
-          'Ҳужжат муваффақиятли ўчирилди',
+        message: 'Ҳужжат муваффақиятли ўчирилди',
       });
     } catch (error) {
       next(error);

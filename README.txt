@@ -1,17 +1,16 @@
-Golden Key OS — Баҳолаш ходимлари кўриниши + ихчам интерфейс
+Golden Key OS — Ҳужжат юклаш лимитини 20 MB қилиш
 
 Алмаштирилади:
-1) backend/src/routes/appraisals.js
-2) crm/src/pages/AppraisalsPage.jsx
+1) crm/src/components/documents/DocumentsSection.jsx
+2) backend/src/routes/documents.js
 
-Нима тузатилди:
-- /appraisals/companies энди компания билан бирга актив APPRAISAL_EMPLOYEE ходимларини ҳам қайтаради.
-- Компания карточкасида ходим Ф.И.Ш., логин ва телефон кўринади.
-- Ходимлар сони кўринади.
-- Компания қўшиш ва ходим қўшиш формалари битта ихчам блокка йиғилди.
-- Икки колонкали компакт кўриниш қўшилди.
-- Баҳолаш заявкалари қисмига тегилмади.
-- Баҳоловчининг «Кўриш / ўрганиш → Қабул қилиш → Ишни бошлаш → PDF ҳисобот» жараёни сақланди.
+Тузатилди:
+- Frontend текшируви: 15 MB → 20 MB
+- Modal матни: «JPG, PNG, WEBP ёки PDF · 20 MB гача»
+- Backend multer fileSize: 15 MB → 20 MB
 
-Deploy:
-аввал backend push/deploy, кейин CRM push/deploy.
+Deploy тартиби:
+1) backend файлни алмаштиринг → push/deploy
+2) CRM файлни алмаштиринг → push/deploy
+
+Бошқа логика ўзгартирилмаган.
