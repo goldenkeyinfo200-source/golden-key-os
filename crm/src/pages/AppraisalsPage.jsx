@@ -212,94 +212,234 @@ export function AppraisalsPage() {
       {error ? <div className="form-error">{error}</div> : null}
 
       {canManage ? (
-        <section className="panel details-section">
-          <div className="details-section-head">
+        <section className="panel details-section" style={{ padding: 14 }}>
+          <div className="details-section-head" style={{ marginBottom: 10 }}>
             <div>
-              <span className="section-kicker">Ҳамкорлар</span>
-              <h3>Баҳолаш компаниялари</h3>
+              <span className="section-kicker">Созламалар</span>
+              <h3 style={{ marginBottom: 2 }}>Баҳолаш компаниялари ва ходимлар</h3>
+              <p style={{ margin: 0, fontSize: 11, color: '#7b7f86' }}>
+                Компания ва унга бириктирилган баҳоловчи ходимларни шу ердан бошқаринг.
+              </p>
             </div>
-            <Building2 size={22} />
+            <Building2 size={20} />
           </div>
 
-          <form onSubmit={createCompany} className="form-grid">
-            {[
-              ['name','Компания номи *'],
-              ['inn','СТИР'],
-              ['license','Лицензия / сертификат'],
-              ['phone','Телефон'],
-              ['email','E-mail'],
-              ['address','Манзил'],
-            ].map(([key,label]) => (
-              <label className="field" key={key}>
-                <span>{label}</span>
-                <input
-                  value={companyForm[key]}
-                  onChange={(e) => setCompanyForm((x) => ({ ...x, [key]: e.target.value }))}
-                />
-              </label>
-            ))}
-            <button className="primary" type="submit" disabled={!companyForm.name.trim()}>
-              <Plus size={16} /> Компания қўшиш
-            </button>
-          </form>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+              gap: 12,
+              alignItems: 'start',
+            }}
+          >
+            <div
+              style={{
+                border: '1px solid #ececec',
+                borderRadius: 12,
+                padding: 12,
+                background: '#fafafa',
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 9 }}>
+                Компания қўшиш
+              </div>
 
-          <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+              <form
+                onSubmit={createCompany}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 8,
+                }}
+              >
+                {[
+                  ['name','Компания номи *'],
+                  ['inn','СТИР'],
+                  ['license','Лицензия / сертификат'],
+                  ['phone','Телефон'],
+                  ['email','E-mail'],
+                  ['address','Манзил'],
+                ].map(([key,label]) => (
+                  <label className="field" key={key}>
+                    <span>{label}</span>
+                    <input
+                      value={companyForm[key]}
+                      onChange={(e) => setCompanyForm((x) => ({ ...x, [key]: e.target.value }))}
+                    />
+                  </label>
+                ))}
+
+                <button
+                  className="primary"
+                  type="submit"
+                  disabled={!companyForm.name.trim()}
+                  style={{ gridColumn: '1 / -1', minHeight: 38 }}
+                >
+                  <Plus size={15} /> Компания қўшиш
+                </button>
+              </form>
+            </div>
+
+            <div
+              style={{
+                border: '1px solid #ececec',
+                borderRadius: 12,
+                padding: 12,
+                background: '#fafafa',
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 9 }}>
+                Баҳоловчи ходим қўшиш
+              </div>
+
+              <form
+                onSubmit={createEmployee}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 8,
+                }}
+              >
+                <label className="field" style={{ gridColumn: '1 / -1' }}>
+                  <span>Компания *</span>
+                  <select
+                    value={employeeForm.companyId}
+                    onChange={(e) => setEmployeeForm((x) => ({ ...x, companyId: e.target.value }))}
+                  >
+                    <option value="">— Танланг —</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {[
+                  ['fullName','Ф.И.Ш. *'],
+                  ['phone','Телефон'],
+                  ['email','E-mail'],
+                  ['login','Логин *'],
+                  ['password','Пароль *'],
+                ].map(([key,label]) => (
+                  <label
+                    className="field"
+                    key={key}
+                    style={key === 'password' ? { gridColumn: '1 / -1' } : undefined}
+                  >
+                    <span>{label}</span>
+                    <input
+                      type={key === 'password' ? 'password' : 'text'}
+                      value={employeeForm[key]}
+                      onChange={(e) => setEmployeeForm((x) => ({ ...x, [key]: e.target.value }))}
+                    />
+                  </label>
+                ))}
+
+                <button
+                  className="primary"
+                  type="submit"
+                  style={{ gridColumn: '1 / -1', minHeight: 38 }}
+                  disabled={
+                    !employeeForm.companyId ||
+                    !employeeForm.fullName ||
+                    !employeeForm.login ||
+                    employeeForm.password.length < 6
+                  }
+                >
+                  <UserPlus size={15} /> Аккаунт яратиш
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             {companies.map((c) => (
-              <div className="details-list-card" key={c.id}>
-                <div>
-                  <strong>{c.name}</strong>
-                  <span>{c.phone || 'Телефон йўқ'} · {c._count?.requests || 0} заявка</span>
+              <div
+                key={c.id}
+                style={{
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 11,
+                  padding: '10px 12px',
+                  display: 'grid',
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ fontSize: 13 }}>{c.name}</strong>
+                    <div style={{ fontSize: 10.5, color: '#777', marginTop: 2 }}>
+                      {c.phone || 'Телефон йўқ'} · {c._count?.requests || 0} заявка · {c.employees?.length || 0} ходим
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 999,
+                      background: '#f4f0ff',
+                      color: '#6941c6',
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {c.employees?.length || 0} ходим
+                  </span>
                 </div>
+
+                {c.employees?.length ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 7,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {c.employees.map((emp) => (
+                      <div
+                        key={emp.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 7,
+                          border: '1px solid #ececec',
+                          borderRadius: 9,
+                          padding: '6px 8px',
+                          background: '#fafafa',
+                          fontSize: 10.5,
+                        }}
+                      >
+                        <UserPlus size={13} />
+                        <div style={{ display: 'grid', gap: 1 }}>
+                          <strong style={{ fontSize: 10.5 }}>{emp.fullName}</strong>
+                          <span style={{ color: '#777' }}>
+                            {emp.login || 'логин йўқ'}
+                            {emp.phone ? ` · ${emp.phone}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      color: '#8a8f98',
+                      paddingTop: 2,
+                    }}
+                  >
+                    Бу компанияга ҳали баҳоловчи ходим бириктирилмаган.
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      {canManage ? (
-        <section className="panel details-section">
-          <div className="details-section-head">
-            <div>
-              <span className="section-kicker">Аккаунт</span>
-              <h3>Баҳоловчи ходимини қўшиш</h3>
-            </div>
-            <UserPlus size={22} />
-          </div>
-          <form onSubmit={createEmployee} className="form-grid">
-            <label className="field field-wide">
-              <span>Компания *</span>
-              <select
-                value={employeeForm.companyId}
-                onChange={(e) => setEmployeeForm((x) => ({ ...x, companyId: e.target.value }))}
-              >
-                <option value="">— Танланг —</option>
-                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
-            {[
-              ['fullName','Ф.И.Ш. *'],
-              ['phone','Телефон'],
-              ['email','E-mail'],
-              ['login','Логин *'],
-              ['password','Пароль *'],
-            ].map(([key,label]) => (
-              <label className="field" key={key}>
-                <span>{label}</span>
-                <input
-                  type={key === 'password' ? 'password' : 'text'}
-                  value={employeeForm[key]}
-                  onChange={(e) => setEmployeeForm((x) => ({ ...x, [key]: e.target.value }))}
-                />
-              </label>
-            ))}
-            <button
-              className="primary"
-              type="submit"
-              disabled={!employeeForm.companyId || !employeeForm.fullName || !employeeForm.login || employeeForm.password.length < 6}
-            >
-              <UserPlus size={16} /> Аккаунт яратиш
-            </button>
-          </form>
         </section>
       ) : null}
 

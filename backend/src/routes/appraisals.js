@@ -192,6 +192,21 @@ router.get('/companies', async (req, res, next) => {
     const items = await prisma.appraisalCompany.findMany({
       where: { isActive: true },
       include: {
+        employees: {
+          where: {
+            role: 'APPRAISAL_EMPLOYEE',
+            isActive: true,
+          },
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true,
+            login: true,
+            isActive: true,
+          },
+          orderBy: { fullName: 'asc' },
+        },
         _count: { select: { employees: true, requests: true } },
       },
       orderBy: { name: 'asc' },
