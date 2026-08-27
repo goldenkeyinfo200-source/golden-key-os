@@ -1,26 +1,24 @@
-Golden Key OS — CasesPage validation fix
+Golden Key OS — шартномани текшириш саҳифаси
 
 Алмаштириш:
-crm/src/pages/CasesPage.jsx
+backend/src/routes/public-contracts.js
 
-Тузатилганлар:
-1) birthDate бўш бўлса null эмас, '' юборилади.
-   Backend Zod birthDate учун string/'' қабул қилади.
-
-2) Инвестор payload field номлари backend билан мос:
-   investorAmount
-   investorProfitSharePercent
-   investorContractStartDate
-   investorContractEndDate
-   investorNotes
-
-3) Backend details қайтарса, умумий "Киритилган маълумотларда хато бор"
-   ўрнига биринчи аниқ майдон хатоси кўрсатилади.
+Нима ўзгарди:
+- /api/public/contracts/:displayId/verify браузерда очилганда JSON ўрнига
+  чиройли Golden Key OS текширув саҳифаси чиқади.
+- "ШАРТНОМА ҲАҚИҚИЙ" ҳолати кўрсатилади.
+- Шартнома рақами, мурожаат рақами, шартнома тури, ҳолати,
+  тасдиқланган сана, тасдиқлар сони, PDF ҳолати ва SHA-256 чиқади.
+- INVESTOR_PARTNERSHIP учун "Инвестор билан ҳамкорлик шартномаси".
+- Инвестор тасдиғи "Инвестор" деб кўрсатилади.
+- Паспорт, ЖШШИР, телефон, манзил ва IP очиқ саҳифада чиқмайди.
+- JSON API сақланди:
+  /api/public/contracts/GK-.../verify?format=json
 
 Қўллаш:
-- CasesPage.jsx ни алмаштиринг
-- CRM учун commit/push қилинг
-- Railway CRM deploy тугашини кутинг
-- Иккиламчи ипотекадан янги мурожаат сақлаб кўринг
+1) public-contracts.js ни backend/src/routes/ га алмаштиринг.
+2) Commit / push қилинг.
+3) Railway backend deploy тугашини кутинг.
+4) Эски ёки янги шартнома QR кодини қайта скан қилинг.
 
-Backend ёки Prisma'га бу fix учун тегиш шарт эмас.
+Prisma db push керак эмас.
