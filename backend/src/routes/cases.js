@@ -181,6 +181,81 @@ const createCaseSchema = z.object({
     .nullable(),
 });
 
+
+const updateCaseSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(3, 'Ф.И.Ш. камида 3 та белгидан иборат бўлиши керак')
+    .max(200, 'Ф.И.Ш. жуда узун'),
+
+  phone: z
+    .string()
+    .trim()
+    .min(7, 'Телефон рақами нотўғри')
+    .max(30, 'Телефон рақами жуда узун'),
+
+  pinfl: z
+    .string()
+    .trim()
+    .regex(/^\d{14}$/, 'ЖШШИР 14 та рақамдан иборат бўлиши керак')
+    .optional()
+    .or(z.literal('')),
+
+  passportSeries: z
+    .string()
+    .trim()
+    .max(10, 'Паспорт серияси жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  passportNumber: z
+    .string()
+    .trim()
+    .max(20, 'Паспорт рақами жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  birthDate: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal('')),
+
+  address: z
+    .string()
+    .trim()
+    .max(500, 'Манзил жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  serviceType: z.enum(serviceTypes),
+
+  requestedAmount: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  serviceFee: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable(),
+
+  bankName: z
+    .string()
+    .trim()
+    .max(200, 'Банк номи жуда узун')
+    .optional()
+    .or(z.literal('')),
+
+  nextAction: z
+    .string()
+    .trim()
+    .max(500, 'Кейинги ҳаракат матни жуда узун')
+    .optional()
+    .or(z.literal('')),
+});
+
 const updateStatusSchema = z.object({
   status: z.enum(caseStatuses),
 
@@ -1513,6 +1588,277 @@ router.post(
       return res.status(201).json({
         message: 'Мурожаат муваффақиятли яратилди',
         item: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+
+/**
+ * PATCH /api/cases/:id
+ *
+ * Мурожаатда нотўғри киритилган асосий маълумотларни таҳрирлаш.
+ * Таҳрирлаш фақат бошқарув ролларига рухсат этилган.
+ */
+router.patch(
+  '/:id',
+  allowRoles(
+    'SUPER_ADMIN',
+    'DIRECTOR',
+    'BRANCH_MANAGER',
+    'RECEPTION_MANAGER'
+  ),
+  async (req, res, next) => {
+    try {
+      const parsed = updateCaseSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Киритилган маълумотларда хато бор',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const existingCase = await prisma.case.findUnique({
+        where: { id: req.params.id },
+        include: {
+          applicant: true,
+          contracts: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
+        },
+      });
+
+      if (!existingCase) {
+        return res.status(404).json({
+          error: 'Мурожаат топилмади',
+        });
+      }
+
+      if (
+        req.user.role === 'BRANCH_MANAGER' &&
+        req.user.branchId &&
+        existingCase.branchId !== req.user.branchId
+      ) {
+        return res.status(403).json({
+          error: 'Бошқа филиал мурожаатини таҳрирлаш мумкин эмас',
+        });
+      }
+
+      if (
+        req.user.role === 'RECEPTION_MANAGER' &&
+        existingCase.receptionManagerId !== req.user.id
+      ) {
+        return res.status(403).json({
+          error: 'Ушбу мурожаатни таҳрирлаш учун рухсатингиз йўқ',
+        });
+      }
+
+      const data = parsed.data;
+
+      const requestedAmount = parseAmount(data.requestedAmount);
+
+      if (
+        data.requestedAmount !== undefined &&
+        data.requestedAmount !== null &&
+        data.requestedAmount !== '' &&
+        requestedAmount === null
+      ) {
+        return res.status(400).json({
+          error: 'Сумма нотўғри',
+        });
+      }
+
+      const serviceFee = parseAmount(data.serviceFee);
+
+      if (
+        data.serviceFee !== undefined &&
+        data.serviceFee !== null &&
+        data.serviceFee !== '' &&
+        serviceFee === null
+      ) {
+        return res.status(400).json({
+          error: 'Хизмат ҳақи нотўғри',
+        });
+      }
+
+      const birthDate = parseDate(data.birthDate);
+
+      if (data.birthDate && !birthDate) {
+        return res.status(400).json({
+          error: 'Туғилган сана нотўғри',
+        });
+      }
+
+      const hasSignedContract = existingCase.contracts.some(
+        (contract) => contract.status === 'SIGNED'
+      );
+
+      if (
+        hasSignedContract &&
+        data.serviceType !== existingCase.serviceType
+      ) {
+        return res.status(409).json({
+          error:
+            'Тасдиқланган шартномаси бор мурожаатда хизмат турини ўзгартириш мумкин эмас',
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.client.update({
+          where: {
+            id: existingCase.applicantClientId,
+          },
+          data: {
+            fullName: data.fullName.trim(),
+            phone: data.phone.trim(),
+            pinfl: normalizeOptional(data.pinfl),
+            passportSeries: normalizeOptional(data.passportSeries),
+            passportNumber: normalizeOptional(data.passportNumber),
+            birthDate,
+            address: normalizeOptional(data.address),
+          },
+        });
+
+        const updated = await tx.case.update({
+          where: {
+            id: existingCase.id,
+          },
+          data: {
+            serviceType: data.serviceType,
+            requestedAmount,
+            serviceFee,
+            bankName: normalizeOptional(data.bankName),
+            nextAction: normalizeOptional(data.nextAction),
+          },
+          include: caseInclude,
+        });
+
+        await tx.caseHistory.create({
+          data: {
+            caseId: existingCase.id,
+            fromStatus: existingCase.status,
+            toStatus: existingCase.status,
+            note: 'Мурожаат маълумотлари таҳрирланди',
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Case',
+            entityId: existingCase.id,
+            action: 'CASE_UPDATED',
+            metadata: {
+              displayId: existingCase.displayId,
+              previousServiceType: existingCase.serviceType,
+              serviceType: data.serviceType,
+            },
+          },
+        });
+
+        return updated;
+      });
+
+      return res.json({
+        message: 'Мурожаат маълумотлари сақланди',
+        item: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/cases/:id
+ *
+ * Нотўғри/тест мурожаатини ўчириш.
+ * Фақат SUPER_ADMIN ва DIRECTOR.
+ *
+ * Case'га боғланган маълумотларнинг аксарияти Prisma schema'да
+ * onDelete: Cascade орқали ўчади. Applicant Client эса бошқа жойда
+ * ишлатилмаса алоҳида тозаланади.
+ */
+router.delete(
+  '/:id',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const existingCase = await prisma.case.findUnique({
+        where: {
+          id: req.params.id,
+        },
+        select: {
+          id: true,
+          displayId: true,
+          applicantClientId: true,
+        },
+      });
+
+      if (!existingCase) {
+        return res.status(404).json({
+          error: 'Мурожаат топилмади',
+        });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Case',
+            entityId: existingCase.id,
+            action: 'CASE_DELETED',
+            metadata: {
+              displayId: existingCase.displayId,
+              deletedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        await tx.case.delete({
+          where: {
+            id: existingCase.id,
+          },
+        });
+
+        const clientUsage = await Promise.all([
+          tx.case.count({
+            where: {
+              applicantClientId: existingCase.applicantClientId,
+            },
+          }),
+          tx.borrower.count({
+            where: {
+              clientId: existingCase.applicantClientId,
+            },
+          }),
+          tx.document.count({
+            where: {
+              clientId: existingCase.applicantClientId,
+            },
+          }),
+        ]);
+
+        if (clientUsage.every((count) => count === 0)) {
+          await tx.client.delete({
+            where: {
+              id: existingCase.applicantClientId,
+            },
+          });
+        }
+      });
+
+      return res.json({
+        message: `${existingCase.displayId} мурожаати ўчирилди`,
+        deletedId: existingCase.id,
+        displayId: existingCase.displayId,
       });
     } catch (error) {
       next(error);

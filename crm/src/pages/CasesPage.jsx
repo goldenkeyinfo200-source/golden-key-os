@@ -8,6 +8,9 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Pencil,
+  Trash2,
+  Save,
   X,
 } from 'lucide-react';
 
@@ -959,6 +962,402 @@ function NewCaseModal({ open, onClose, onCreated }) {
   );
 }
 
+
+function toDateInputValue(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function plainAmount(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  return String(value).replace(/\.00$/, '');
+}
+
+function EditCaseModal({
+  item,
+  onClose,
+  onSaved,
+}) {
+  const [form, setForm] = useState(() => ({
+    fullName: item?.applicant?.fullName || '',
+    phone: item?.applicant?.phone || '',
+    pinfl: item?.applicant?.pinfl || '',
+    passportSeries: item?.applicant?.passportSeries || '',
+    passportNumber: item?.applicant?.passportNumber || '',
+    birthDate: toDateInputValue(item?.applicant?.birthDate),
+    address: item?.applicant?.address || '',
+    serviceType: item?.serviceType || 'SECONDARY_MORTGAGE',
+    requestedAmount: plainAmount(item?.requestedAmount),
+    serviceFee: plainAmount(item?.serviceFee),
+    bankName: item?.bankName || '',
+    nextAction: item?.nextAction || '',
+  }));
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !saving) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [saving, onClose]);
+
+  const update = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: undefined,
+    }));
+
+    setError('');
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setFieldErrors({});
+
+    try {
+      const data = await apiRequest(`/cases/${item.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          fullName: form.fullName.trim(),
+          phone: form.phone.trim(),
+          pinfl: form.pinfl.trim(),
+          passportSeries: form.passportSeries.trim(),
+          passportNumber: form.passportNumber.trim(),
+          birthDate: form.birthDate || '',
+          address: form.address.trim(),
+          serviceType: form.serviceType,
+          requestedAmount: form.requestedAmount
+            ? form.requestedAmount.replace(/\s/g, '')
+            : null,
+          serviceFee: form.serviceFee
+            ? form.serviceFee.replace(/\s/g, '')
+            : null,
+          bankName: form.bankName.trim(),
+          nextAction: form.nextAction.trim(),
+        }),
+      });
+
+      await onSaved?.(data.item);
+      onClose();
+    } catch (requestError) {
+      const details = requestError.details || {};
+      const firstFieldMessage = Object.values(details)
+        .flat()
+        .find(Boolean);
+
+      setFieldErrors(details);
+      setError(
+        firstFieldMessage ||
+          requestError.message ||
+          'Мурожаатни сақлашда хато юз берди.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          !saving
+        ) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        className="case-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-case-title"
+      >
+        <div className="modal-header">
+          <div>
+            <span className="section-kicker">
+              МУРОЖААТНИ ТАҲРИРЛАШ
+            </span>
+            <h2 id="edit-case-title">
+              {item.displayId}
+            </h2>
+            <p>
+              Нотўғри киритилган асосий маълумотларни тузатинг.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Ойнани ёпиш"
+          >
+            <X size={21} />
+          </button>
+        </div>
+
+        <form className="case-form" onSubmit={submit}>
+          <div className="form-section">
+            <div className="form-section-title">
+              <strong>Мижоз маълумотлари</strong>
+              <span>Шахсий маълумотлар</span>
+            </div>
+
+            <div className="form-grid">
+              <label className="field field-wide">
+                <span>Ф.И.Ш. *</span>
+                <input
+                  value={form.fullName}
+                  onChange={(event) =>
+                    update('fullName', event.target.value)
+                  }
+                  disabled={saving}
+                />
+                {fieldErrors.fullName?.[0] ? (
+                  <small>{fieldErrors.fullName[0]}</small>
+                ) : null}
+              </label>
+
+              <label className="field">
+                <span>Телефон *</span>
+                <input
+                  value={form.phone}
+                  onChange={(event) =>
+                    update('phone', event.target.value)
+                  }
+                  disabled={saving}
+                />
+                {fieldErrors.phone?.[0] ? (
+                  <small>{fieldErrors.phone[0]}</small>
+                ) : null}
+              </label>
+
+              <label className="field">
+                <span>ЖШШИР</span>
+                <input
+                  value={form.pinfl}
+                  onChange={(event) =>
+                    update(
+                      'pinfl',
+                      event.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 14)
+                    )
+                  }
+                  disabled={saving}
+                />
+                {fieldErrors.pinfl?.[0] ? (
+                  <small>{fieldErrors.pinfl[0]}</small>
+                ) : null}
+              </label>
+
+              <label className="field">
+                <span>Паспорт серияси</span>
+                <input
+                  value={form.passportSeries}
+                  onChange={(event) =>
+                    update(
+                      'passportSeries',
+                      event.target.value
+                        .replace(/[^a-zA-Z]/g, '')
+                        .toUpperCase()
+                        .slice(0, 3)
+                    )
+                  }
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field">
+                <span>Паспорт рақами</span>
+                <input
+                  value={form.passportNumber}
+                  onChange={(event) =>
+                    update(
+                      'passportNumber',
+                      event.target.value
+                        .replace(/\D/g, '')
+                        .slice(0, 12)
+                    )
+                  }
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field">
+                <span>Туғилган сана</span>
+                <input
+                  type="date"
+                  value={form.birthDate}
+                  onChange={(event) =>
+                    update('birthDate', event.target.value)
+                  }
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field field-wide">
+                <span>Яшаш манзили</span>
+                <input
+                  value={form.address}
+                  onChange={(event) =>
+                    update('address', event.target.value)
+                  }
+                  disabled={saving}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <div className="form-section-title">
+              <strong>Мурожаат маълумотлари</strong>
+              <span>
+                Хизмат тури, сумма ва кейинги ҳаракат
+              </span>
+            </div>
+
+            <div className="form-grid">
+              <label className="field">
+                <span>Хизмат тури *</span>
+                <select
+                  value={form.serviceType}
+                  onChange={(event) =>
+                    update('serviceType', event.target.value)
+                  }
+                  disabled={saving}
+                >
+                  {SERVICE_OPTIONS.map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.serviceType?.[0] ? (
+                  <small>{fieldErrors.serviceType[0]}</small>
+                ) : null}
+              </label>
+
+              <label className="field">
+                <span>Сумма</span>
+                <input
+                  value={form.requestedAmount}
+                  onChange={(event) =>
+                    update(
+                      'requestedAmount',
+                      event.target.value.replace(/[^\d\s]/g, '')
+                    )
+                  }
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field">
+                <span>Хизмат ҳақи</span>
+                <input
+                  value={form.serviceFee}
+                  onChange={(event) =>
+                    update(
+                      'serviceFee',
+                      event.target.value.replace(/[^\d\s]/g, '')
+                    )
+                  }
+                  inputMode="numeric"
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field">
+                <span>Танланган банк</span>
+                <input
+                  value={form.bankName}
+                  onChange={(event) =>
+                    update('bankName', event.target.value)
+                  }
+                  disabled={saving}
+                />
+              </label>
+
+              <label className="field field-wide">
+                <span>Кейинги ҳаракат</span>
+                <textarea
+                  value={form.nextAction}
+                  onChange={(event) =>
+                    update('nextAction', event.target.value)
+                  }
+                  disabled={saving}
+                  rows={4}
+                />
+              </label>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="form-error">{error}</div>
+          ) : null}
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Бекор қилиш
+            </button>
+
+            <button
+              type="submit"
+              className="primary"
+              disabled={saving}
+            >
+              {saving ? (
+                <LoaderCircle className="spin" size={17} />
+              ) : (
+                <Save size={17} />
+              )}
+              Сақлаш
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 export function CasesPage({
   openCreateSignal = 0,
   onStatsChange,
@@ -982,6 +1381,8 @@ export function CasesPage({
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
+  const [editingCase, setEditingCase] = useState(null);
+  const [deletingCaseId, setDeletingCaseId] = useState(null);
 
   useEffect(() => {
     if (openCreateSignal > 0) {
@@ -1090,6 +1491,46 @@ export function CasesPage({
 
   const handleCaseChanged = async () => {
     await Promise.all([loadCases(), loadStats()]);
+  };
+
+
+  const deleteCase = async (item) => {
+    const confirmed = window.confirm(
+      `${item.displayId} мурожаатини бутунлай ўчиришни тасдиқлайсизми?\n\nБу амални орқага қайтариб бўлмайди.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const typed = window.prompt(
+      `Хавфсизлик учун мурожаат рақамини киритинг:\n${item.displayId}`
+    );
+
+    if (typed?.trim() !== item.displayId) {
+      if (typed !== null) {
+        window.alert('Мурожаат рақами мос келмади. Ўчириш бекор қилинди.');
+      }
+      return;
+    }
+
+    setDeletingCaseId(item.id);
+    setPageError('');
+
+    try {
+      await apiRequest(`/cases/${item.id}`, {
+        method: 'DELETE',
+      });
+
+      await Promise.all([loadCases(), loadStats()]);
+    } catch (requestError) {
+      setPageError(
+        requestError.message ||
+          'Мурожаатни ўчиришда хато юз берди.'
+      );
+    } finally {
+      setDeletingCaseId(null);
+    }
   };
 
   const openCase = (caseId) => {
@@ -1257,6 +1698,7 @@ export function CasesPage({
                     <th>Ҳолати</th>
                     <th>Масъул ходим</th>
                     <th>Сана</th>
+                    <th>Амаллар</th>
                   </tr>
                 </thead>
 
@@ -1352,6 +1794,77 @@ export function CasesPage({
                       </td>
 
                       <td>{formatDate(item.createdAt)}</td>
+
+                      <td
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            minWidth: 118,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setEditingCase(item)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              padding: '7px 10px',
+                              borderRadius: 8,
+                              border: '1px solid #93c5fd',
+                              background: '#ffffff',
+                              color: '#2563eb',
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <Pencil size={14} />
+                            Таҳрирлаш
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteCase(item)}
+                            disabled={deletingCaseId === item.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                              padding: '7px 10px',
+                              borderRadius: 8,
+                              border: '1px solid #fca5a5',
+                              background: '#ffffff',
+                              color: '#dc2626',
+                              cursor:
+                                deletingCaseId === item.id
+                                  ? 'wait'
+                                  : 'pointer',
+                              fontWeight: 700,
+                              opacity:
+                                deletingCaseId === item.id
+                                  ? 0.6
+                                  : 1,
+                            }}
+                          >
+                            {deletingCaseId === item.id ? (
+                              <LoaderCircle
+                                className="spin"
+                                size={14}
+                              />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                            Ўчириш
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1409,6 +1922,14 @@ export function CasesPage({
         onClose={() => setModalOpen(false)}
         onCreated={handleCreated}
       />
+
+      {editingCase ? (
+        <EditCaseModal
+          item={editingCase}
+          onClose={() => setEditingCase(null)}
+          onSaved={handleCaseChanged}
+        />
+      ) : null}
     </>
   );
 }
