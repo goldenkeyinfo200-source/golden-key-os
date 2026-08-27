@@ -12,7 +12,10 @@ import {
   realtorContractHtml,
   salePurchaseContractHtml,
 } from '../services/contract-template.js';
-import { createSignedFileUrl } from '../services/supabaseStorage.js';
+import {
+  createSignedFileUrl,
+  deleteStorageFile,
+} from '../services/supabaseStorage.js';
 
 const router = Router();
 
@@ -456,6 +459,122 @@ router.get(
           total,
           totalPages: Math.max(1, Math.ceil(total / limit)),
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/**
+ * DELETE /api/contracts/:contractId
+ *
+ * Тест ёки нотўғри яратилган шартномани тўлиқ ўчириш.
+ * Фақат SUPER_ADMIN ва DIRECTOR.
+ *
+ * - Contract'га боғланган Invitation'лар аввал ўчирилади
+ * - QR экранда шу шартнома очиқ бўлса, экран IDLE ҳолатига қайтарилади
+ * - Contract базадан ўчирилади
+ * - PDF Supabase Storage'дан best-effort тарзда ўчирилади
+ * - AuditLog'да ўчириш қайди қолади
+ */
+router.delete(
+  '/:contractId',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const contract = await prisma.contract.findUnique({
+        where: {
+          id: req.params.contractId,
+        },
+        select: {
+          id: true,
+          displayId: true,
+          caseId: true,
+          status: true,
+          pdfUrl: true,
+        },
+      });
+
+      if (!contract) {
+        return res.status(404).json({
+          error: 'Шартнома топилмади',
+        });
+      }
+
+      const storagePath =
+        contract.pdfUrl &&
+        !/^https?:\/\//i.test(contract.pdfUrl)
+          ? contract.pdfUrl
+          : null;
+
+      await prisma.$transaction(async (tx) => {
+        // KioskDevice.currentContractId schema'да relation эмас,
+        // шунинг учун ўчиришдан олдин қўлда тозалаймиз.
+        await tx.kioskDevice.updateMany({
+          where: {
+            currentContractId: contract.id,
+          },
+          data: {
+            currentContractId: null,
+            currentQrDataUrl: null,
+            currentSignUrl: null,
+            qrExpiresAt: null,
+            displayStatus: 'IDLE',
+          },
+        });
+
+        // Invitation.contract relation'да onDelete: Cascade йўқ.
+        await tx.invitation.deleteMany({
+          where: {
+            contractId: contract.id,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Contract',
+            entityId: contract.id,
+            action: 'CONTRACT_DELETED',
+            metadata: {
+              displayId: contract.displayId,
+              caseId: contract.caseId,
+              previousStatus: contract.status,
+              pdfStoragePath: storagePath,
+              deletedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        await tx.contract.delete({
+          where: {
+            id: contract.id,
+          },
+        });
+      });
+
+      let storageDeleted = false;
+      let storageWarning = null;
+
+      if (storagePath) {
+        try {
+          await deleteStorageFile(storagePath);
+          storageDeleted = true;
+        } catch (storageError) {
+          storageWarning =
+            storageError?.message ||
+            'PDF файлни Storage дан ўчиришда хатолик юз берди';
+        }
+      }
+
+      return res.json({
+        message: `${contract.displayId} шартномаси ўчирилди`,
+        deletedId: contract.id,
+        displayId: contract.displayId,
+        storageDeleted,
+        storageWarning,
       });
     } catch (error) {
       next(error);

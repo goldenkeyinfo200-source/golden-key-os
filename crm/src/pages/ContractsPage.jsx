@@ -11,8 +11,10 @@ import {
   Building2,
   Download,
   ExternalLink,
+  Trash2,
+  LoaderCircle,
 } from 'lucide-react';
-import { apiRequest } from '../services/api.js';
+import { apiRequest, USER_KEY } from '../services/api.js';
 
 const STATUS_LABELS = {
   DRAFT: 'Қоралама',
@@ -52,6 +54,17 @@ function formatDate(value, withTime = false) {
   }).format(date);
 }
 
+
+function readCurrentUserRole() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    const user = raw ? JSON.parse(raw) : null;
+    return user?.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export function ContractsPage() {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({
@@ -66,6 +79,10 @@ export function ContractsPage() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
+
+  const currentRole = useMemo(() => readCurrentUserRole(), []);
+  const canDelete = ['SUPER_ADMIN', 'DIRECTOR'].includes(currentRole);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,6 +136,72 @@ export function ContractsPage() {
       ).length,
     };
   }, [items, pagination.total]);
+
+
+  const deleteContract = async (contract) => {
+    if (!canDelete || deletingId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${contract.displayId} шартномасини бутунлай ўчиришни тасдиқлайсизми?\n\nБу амални орқага қайтариб бўлмайди.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const typed = window.prompt(
+      `Хавфсизлик учун шартнома рақамини қайта киритинг:\n${contract.displayId}`
+    );
+
+    if (typed === null) {
+      return;
+    }
+
+    if (typed.trim() !== contract.displayId) {
+      window.alert(
+        'Шартнома рақами мос келмади. Ўчириш бекор қилинди.'
+      );
+      return;
+    }
+
+    setDeletingId(contract.id);
+    setError('');
+
+    try {
+      const result = await apiRequest(
+        `/contracts/${contract.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (result.storageWarning) {
+        window.alert(
+          `Шартнома базадан ўчирилди, лекин PDF файл Storage дан ўчирилмади:\n${result.storageWarning}`
+        );
+      }
+
+      const nextPage =
+        items.length === 1 && page > 1
+          ? page - 1
+          : page;
+
+      if (nextPage !== page) {
+        setPage(nextPage);
+      } else {
+        await load();
+      }
+    } catch (requestError) {
+      setError(
+        requestError.message ||
+          'Шартномани ўчиришда хато юз берди.'
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const submitSearch = (event) => {
     event.preventDefault();
@@ -335,6 +418,23 @@ export function ContractsPage() {
                     PDF ҳали тайёр эмас
                   </span>
                 )}
+
+                {canDelete ? (
+                  <button
+                    type="button"
+                    className="contracts-page-delete"
+                    onClick={() => deleteContract(contract)}
+                    disabled={deletingId === contract.id}
+                    title="Тест ёки нотўғри шартномани ўчириш"
+                  >
+                    {deletingId === contract.id ? (
+                      <LoaderCircle size={16} className="spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    Ўчириш
+                  </button>
+                ) : null}
               </div>
             </article>
           ))}
@@ -584,6 +684,31 @@ export function ContractsPage() {
           text-decoration: none;
           font-size: 12px;
           font-weight: 800;
+        }
+
+        .contracts-page-delete {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          border: 1px solid #fecaca;
+          border-radius: 9px;
+          padding: 9px 11px;
+          background: #fff;
+          color: #dc2626;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .contracts-page-delete:hover:not(:disabled) {
+          border-color: #fca5a5;
+          background: #fff5f5;
+        }
+
+        .contracts-page-delete:disabled {
+          opacity: .55;
+          cursor: not-allowed;
         }
 
         .contracts-page-muted {
