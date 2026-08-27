@@ -7,6 +7,7 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  ScanLine,
   Trash2,
   UploadCloud,
   X,
@@ -37,6 +38,8 @@ const DELETE_ROLES = [
 ];
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const SCANNER_AGENT_URL =
+  import.meta.env.VITE_SCANNER_AGENT_URL || 'http://127.0.0.1:17831';
 
 function readUser() {
   try {
@@ -49,9 +52,7 @@ function readUser() {
 
 function formatDate(value) {
   if (!value) return '—';
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return '—';
 
   return new Intl.DateTimeFormat('uz-UZ', {
@@ -65,12 +66,8 @@ function formatDate(value) {
 
 function fileSizeLabel(file) {
   if (!file?.size) return '';
-
   const mb = file.size / (1024 * 1024);
-
-  if (mb >= 1) return `${mb.toFixed(1)} MB`;
-
-  return `${Math.ceil(file.size / 1024)} KB`;
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.ceil(file.size / 1024)} KB`;
 }
 
 function isImage(document) {
@@ -92,6 +89,11 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  const [scannerAvailable, setScannerAvailable] = useState(false);
+  const [scannerChecking, setScannerChecking] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
   const [deletingId, setDeletingId] = useState('');
 
   const loadDocuments = useCallback(async () => {
@@ -110,15 +112,35 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
     }
   }, [caseId]);
 
+  const checkScannerAgent = useCallback(async () => {
+    setScannerChecking(true);
+    try {
+      const response = await fetch(`${SCANNER_AGENT_URL}/health`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      setScannerAvailable(response.ok);
+    } catch {
+      setScannerAvailable(false);
+    } finally {
+      setScannerChecking(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
 
   useEffect(() => {
+    checkScannerAgent();
+  }, [checkScannerAgent]);
+
+  useEffect(() => {
     if (!modalOpen) return undefined;
 
     const handleEscape = (event) => {
-      if (event.key === 'Escape' && !uploading) {
+      if (event.key === 'Escape' && !uploading && !scanning) {
         closeModal();
       }
     };
@@ -130,17 +152,18 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [modalOpen, uploading]);
+  }, [modalOpen, uploading, scanning]);
 
   const openModal = () => {
     setDocumentType('PASSPORT_FRONT');
     setSelectedFile(null);
     setUploadError('');
     setModalOpen(true);
+    checkScannerAgent();
   };
 
   const closeModal = () => {
-    if (uploading) return;
+    if (uploading || scanning) return;
 
     setModalOpen(false);
     setSelectedFile(null);
@@ -182,11 +205,54 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
     setSelectedFile(file);
   };
 
+  const scanFromComputer = async () => {
+    setScanning(true);
+    setUploadError('');
+
+    try {
+      const response = await fetch(`${SCANNER_AGENT_URL}/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dpi: 300,
+          colorMode: 'color',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Сканерлаш амалга ошмади.');
+      }
+
+      const blob = await response.blob();
+
+      if (blob.size > MAX_FILE_SIZE) {
+        throw new Error('Скан қилинган файл 20 MBдан катта.');
+      }
+
+      const scannedFile = new File(
+        [blob],
+        `scan-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`,
+        { type: blob.type || 'image/jpeg' }
+      );
+
+      setSelectedFile(scannedFile);
+    } catch (error) {
+      setScannerAvailable(false);
+      setUploadError(
+        error.message ||
+          'Scanner Agent билан боғланиб бўлмади. Компьютерда Golden Key Scanner Agent ишлаётганини текширинг.'
+      );
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const uploadDocument = async (event) => {
     event.preventDefault();
 
     if (!selectedFile) {
-      setUploadError('Аввал файл танланг.');
+      setUploadError('Аввал файл танланг ёки сканердан олинг.');
       return;
     }
 
@@ -207,7 +273,13 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
         body: formData,
       });
 
-      closeModal();
+      setModalOpen(false);
+      setSelectedFile(null);
+      setUploadError('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
       await loadDocuments();
       await onChanged?.();
     } catch (error) {
@@ -290,10 +362,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
           <div className="documents-empty">
             <FileText size={36} />
             <strong>Ҳужжатлар юкланмаган</strong>
-            <span>
-              Паспорт, кадастр, банк ҳужжатлари ва PDF файлларни шу ерга
-              юкланг.
-            </span>
+            <span>Паспорт, кадастр, банк ҳужжатлари ва PDF файлларни шу ерга юкланг.</span>
             <button type="button" onClick={openModal}>
               <UploadCloud size={16} />
               Биринчи ҳужжатни юклаш
@@ -304,22 +373,13 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
             {items.map((document) => (
               <article className="document-card" key={document.id}>
                 <div className="document-card-icon">
-                  {isImage(document) ? (
-                    <FileImage size={22} />
-                  ) : (
-                    <FileText size={22} />
-                  )}
+                  {isImage(document) ? <FileImage size={22} /> : <FileText size={22} />}
                 </div>
 
                 <div className="document-card-content">
-                  <strong>
-                    {document.fileName ||
-                      TYPE_LABELS[document.type] ||
-                      document.type}
-                  </strong>
+                  <strong>{document.fileName || TYPE_LABELS[document.type] || document.type}</strong>
                   <span>
-                    {TYPE_LABELS[document.type] || document.type} ·{' '}
-                    {formatDate(document.createdAt)}
+                    {TYPE_LABELS[document.type] || document.type} · {formatDate(document.createdAt)}
                   </span>
                 </div>
 
@@ -375,9 +435,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
         <div
           className="document-modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeModal();
-            }
+            if (event.target === event.currentTarget) closeModal();
           }}
         >
           <section
@@ -389,13 +447,13 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
             <div className="document-modal-head">
               <div>
                 <span>Янги ҳужжат</span>
-                <h3 id="document-modal-title">Файлни юклаш</h3>
+                <h3 id="document-modal-title">Файлни юклаш ёки сканерлаш</h3>
               </div>
 
               <button
                 type="button"
                 onClick={closeModal}
-                disabled={uploading}
+                disabled={uploading || scanning}
                 aria-label="Ойнани ёпиш"
               >
                 <X size={20} />
@@ -408,7 +466,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
                 <select
                   value={documentType}
                   onChange={(event) => setDocumentType(event.target.value)}
-                  disabled={uploading}
+                  disabled={uploading || scanning}
                 >
                   {DOCUMENT_TYPES.map(([value, label]) => (
                     <option value={value} key={value}>
@@ -418,29 +476,102 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
                 </select>
               </label>
 
-              <label className="document-file-picker">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-                  onChange={chooseFile}
-                  disabled={uploading}
-                />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 10,
+                }}
+              >
+                <label
+                  className="document-file-picker"
+                  style={{ minHeight: 145 }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={chooseFile}
+                    disabled={uploading || scanning}
+                  />
 
-                <UploadCloud size={34} />
+                  <UploadCloud size={30} />
 
-                {selectedFile ? (
-                  <>
-                    <strong>{selectedFile.name}</strong>
-                    <span>{fileSizeLabel(selectedFile)}</span>
-                  </>
-                ) : (
-                  <>
-                    <strong>Файл танлаш учун босинг</strong>
-                    <span>JPG, PNG, WEBP ёки PDF · 20 MB гача</span>
-                  </>
-                )}
-              </label>
+                  {selectedFile ? (
+                    <>
+                      <strong>{selectedFile.name}</strong>
+                      <span>{fileSizeLabel(selectedFile)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Файл танлаш</strong>
+                      <span>JPG, PNG, WEBP ёки PDF · 20 MB гача</span>
+                    </>
+                  )}
+                </label>
+
+                <button
+                  type="button"
+                  onClick={scanFromComputer}
+                  disabled={!scannerAvailable || scannerChecking || scanning || uploading}
+                  style={{
+                    minHeight: 145,
+                    border: '1px dashed #d9dde3',
+                    borderRadius: 12,
+                    background: '#fff',
+                    display: 'grid',
+                    placeItems: 'center',
+                    alignContent: 'center',
+                    gap: 7,
+                    cursor: scannerAvailable ? 'pointer' : 'not-allowed',
+                    opacity: scannerAvailable ? 1 : 0.55,
+                  }}
+                >
+                  {scannerChecking || scanning ? (
+                    <LoaderCircle className="spin" size={30} />
+                  ) : (
+                    <ScanLine size={30} />
+                  )}
+
+                  <strong>
+                    {scanning ? 'Сканерланмоқда...' : 'Сканердан олиш'}
+                  </strong>
+
+                  <span style={{ fontSize: 11, color: '#7b7f86' }}>
+                    {scannerAvailable
+                      ? 'Windows Scanner Agent тайёр'
+                      : 'Scanner Agent топилмади'}
+                  </span>
+                </button>
+              </div>
+
+              {!scannerAvailable && !scannerChecking ? (
+                <div
+                  style={{
+                    padding: '9px 10px',
+                    borderRadius: 9,
+                    background: '#fff8e8',
+                    color: '#8a6500',
+                    fontSize: 11,
+                  }}
+                >
+                  Сканердан олиш учун ушбу компьютерда Golden Key Scanner Agent ишлаётган бўлиши керак.
+                </div>
+              ) : null}
+
+              {selectedFile ? (
+                <div
+                  style={{
+                    padding: '9px 10px',
+                    borderRadius: 9,
+                    background: '#effaf3',
+                    color: '#176b35',
+                    fontSize: 11,
+                  }}
+                >
+                  Тайёр файл: <strong>{selectedFile.name}</strong> · {fileSizeLabel(selectedFile)}
+                </div>
+              ) : null}
 
               {uploadError ? (
                 <div className="document-upload-error">{uploadError}</div>
@@ -451,7 +582,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
                   type="button"
                   className="document-cancel"
                   onClick={closeModal}
-                  disabled={uploading}
+                  disabled={uploading || scanning}
                 >
                   Бекор қилиш
                 </button>
@@ -459,7 +590,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
                 <button
                   type="submit"
                   className="document-save"
-                  disabled={uploading || !selectedFile}
+                  disabled={uploading || scanning || !selectedFile}
                 >
                   {uploading ? (
                     <>
@@ -469,7 +600,7 @@ export function DocumentsSection({ caseId, applicantClientId, onChanged }) {
                   ) : (
                     <>
                       <UploadCloud size={16} />
-                      Юклаш
+                      CRMга юклаш
                     </>
                   )}
                 </button>

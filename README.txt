@@ -1,16 +1,29 @@
-Golden Key OS — Ҳужжат юклаш лимитини 20 MB қилиш
+Golden Key OS — Windows Scanner Integration (v0.1)
 
-Алмаштирилади:
-1) crm/src/components/documents/DocumentsSection.jsx
-2) backend/src/routes/documents.js
+Қўшилди:
+1) CRM ҳужжат ойнасида «Файл танлаш» ва «Сканердан олиш».
+2) Компьютерда ишлайдиган Golden Key Scanner Agent.
+3) Windows WIA орқали USB/WIA scanner'ни чақириш.
+4) Скан қилинган JPG файлни мавжуд CRM upload API орқали юклаш.
+5) 20 MB лимит сақланади.
 
-Тузатилди:
-- Frontend текшируви: 15 MB → 20 MB
-- Modal матни: «JPG, PNG, WEBP ёки PDF · 20 MB гача»
-- Backend multer fileSize: 15 MB → 20 MB
+CRM файл:
+crm/src/components/documents/DocumentsSection.jsx
 
-Deploy тартиби:
-1) backend файлни алмаштиринг → push/deploy
-2) CRM файлни алмаштиринг → push/deploy
+Scanner Agent:
+scanner-agent/
 
-Бошқа логика ўзгартирилмаган.
+Ўрнатиш:
+1. Windows компьютерда Node.js LTS бўлиши керак.
+2. scanner-agent папкасини компьютерга кўчиринг.
+3. PowerShell очиб scanner-agent ичига киринг.
+4. .\install.ps1
+5. Кейин start-agent.bat ни ишга туширинг.
+6. CRM'ни қайта очинг.
+7. «Ҳужжат юклаш» → «Сканердан олиш».
+
+Муҳим:
+- Бу биринчи версия Windows WIA билан бир саҳифани JPG қилиб скан қилади.
+- Windows scanner driver WIA'ни қўллаши керак.
+- Кейинги версияда кўп саҳифали PDF, preview ва scanner танлашни UIга қўшиш мумкин.
+- Local agent фақат 127.0.0.1:17831 да ишлайди ва CRM origin whitelist билан чекланган.
