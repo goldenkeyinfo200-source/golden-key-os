@@ -126,7 +126,7 @@ router.get('/', async (req, res, next) => {
         not: null,
       },
       status: {
-        notIn: ['REJECTED', 'CANCELLED'],
+        notIn: ['REJECTED', 'CANCELLED', 'ARCHIVED'],
       },
     };
 
@@ -370,6 +370,12 @@ router.post('/payments', async (req, res, next) => {
     if (!caseItem) {
       return res.status(404).json({
         error: 'Мурожаат топилмади',
+      });
+    }
+
+    if (['REJECTED', 'CANCELLED', 'ARCHIVED'].includes(caseItem.status)) {
+      return res.status(409).json({
+        error: 'Рад этилган, бекор қилинган ёки архивланган мурожаатга тўлов киритиб бўлмайди',
       });
     }
 
