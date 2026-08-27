@@ -26,6 +26,7 @@ import { ContractsSection } from '../components/contracts/ContractsSection.jsx';
 import { MultiBankAssignmentsSection } from '../components/banks/MultiBankAssignmentsSection.jsx';
 import { ParticipantsSection } from '../components/cases/ParticipantsSection.jsx';
 import { ClientDocumentsActsSection } from '../components/case-acts/ClientDocumentsActsSection.jsx';
+import { AppraisalSection } from '../components/appraisals/AppraisalSection.jsx';
 
 const SERVICE_NAMES = {
   PRIMARY_MORTGAGE: 'Бирламчи ипотека',
@@ -1234,6 +1235,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             applicantClientId={item.applicantClientId}
             onChanged={loadCase}
           />
+
+          <AppraisalSection caseId={item.id} />
 
           <ClientDocumentsActsSection
             caseId={item.id}

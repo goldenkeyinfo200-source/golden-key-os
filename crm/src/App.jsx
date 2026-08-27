@@ -5,6 +5,7 @@ import {
   Bell,
   BriefcaseBusiness,
   Building2,
+  ClipboardCheck,
   CircleDollarSign,
   Eye,
   EyeOff,
@@ -35,6 +36,7 @@ import { FinancePage } from './pages/FinancePage.jsx';
 import { DebtorsPage } from './pages/DebtorsPage.jsx';
 import { ArchivePage } from './pages/ArchivePage.jsx';
 import { MarketingStatsPage } from './pages/MarketingStatsPage.jsx';
+import { AppraisalsPage } from './pages/AppraisalsPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -47,6 +49,7 @@ const menu = [
   ['Мурожаатлар', FileText],
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
+  ['Баҳолаш', ClipboardCheck],
   ['Филиаллар', Building2],
   ['QR экранлар', MonitorSmartphone],
   ['Ходимлар', Users],
@@ -81,6 +84,7 @@ const MENU_ACCESS = {
   EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
   LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
   ACCOUNTANT: ['Бош панель', 'Молия', 'Қарздорлар', 'Архив'],
+  APPRAISAL_EMPLOYEE: ['Баҳолаш'],
 };
 
 const roleNames = {
@@ -90,6 +94,7 @@ const roleNames = {
   RECEPTION_MANAGER: 'Қабул менежери',
   EXECUTOR: 'Ижрочи',
   BANK_EMPLOYEE: 'Банк ходими',
+  APPRAISAL_EMPLOYEE: 'Баҳолаш компанияси ходими',
   LAWYER: 'Ҳуқуқшунос',
   ACCOUNTANT: 'Ҳисобчи',
   CLIENT: 'Мижоз',
@@ -532,7 +537,9 @@ function LoginPage({ onLogin }) {
 }
 
 function Dashboard({ user, onLogout }) {
-  const [activeMenu, setActiveMenu] = useState('Бош панель');
+  const [activeMenu, setActiveMenu] = useState(
+    user?.role === 'APPRAISAL_EMPLOYEE' ? 'Баҳолаш' : 'Бош панель'
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createCaseSignal, setCreateCaseSignal] = useState(0);
 
@@ -850,6 +857,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Банклар') {
       return <BanksPage />;
+    }
+
+    if (activeMenu === 'Баҳолаш') {
+      return <AppraisalsPage />;
     }
 
     if (activeMenu === 'Филиаллар') {
@@ -1213,6 +1224,10 @@ export function App() {
 
   if (!user) {
     return <LoginPage onLogin={setUser} />;
+  }
+
+  if (user.role === 'APPRAISAL_EMPLOYEE') {
+    return <Dashboard user={user} onLogout={() => setUser(null)} />;
   }
 
   if (user.role === 'BANK_EMPLOYEE') {

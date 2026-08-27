@@ -1,0 +1,14 @@
+CURRENT backend/src/routes/index.js ИЧИГА ҚЎШИНГ:
+
+1) importлар қисмига:
+import appraisalsRouter from './appraisals.js';
+
+2) router.use лар қисмига:
+router.use('/appraisals', appraisalsRouter);
+
+Агар API info modules объекти бор бўлса, ихтиёрий:
+appraisals: '/api/appraisals',
+
+ВАЖ: index.js ни ZIP ичида тайёр replacement қилмадик, чунки сиздаги current index.jsда
+contracts/public/acts/finance каби кейин қўшилган маршрутлар бўлиши мумкин.
+Шу икки қаторни current файлга қўшиш хавфсиз.

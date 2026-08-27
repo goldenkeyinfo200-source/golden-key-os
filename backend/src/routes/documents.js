@@ -22,6 +22,7 @@ const DOCUMENT_ROLES = [
   'RECEPTION_MANAGER',
   'EXECUTOR',
   'BANK_EMPLOYEE',
+  'APPRAISAL_EMPLOYEE',
   'LAWYER',
 ];
 
@@ -55,7 +56,7 @@ const ALLOWED_MIME_TYPES = [
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 15 * 1024 * 1024,
+    fileSize: 20 * 1024 * 1024,
     files: 1,
   },
   fileFilter(_req, file, callback) {

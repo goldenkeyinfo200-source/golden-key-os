@@ -14,6 +14,7 @@ enum UserRole {
   RECEPTION_MANAGER
   EXECUTOR
   BANK_EMPLOYEE
+  APPRAISAL_EMPLOYEE
   LAWYER
   ACCOUNTANT
   CLIENT
@@ -131,6 +132,22 @@ enum InvitationPurpose {
   SERVICE_COMPLETION_CONFIRM
 }
 
+
+enum AppraisalRequestStatus {
+  SENT
+  ACCEPTED
+  IN_PROGRESS
+  REPORT_READY
+  COMPLETED
+  CANCELLED
+}
+
+enum AppraisalFileKind {
+  PROPERTY_PHOTO
+  SUPPORTING_DOCUMENT
+  REPORT
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -187,6 +204,7 @@ model User {
   companyId          String?
   branchId           String?
   bankId             String?
+  appraisalCompanyId String?
   bankPosition       String?
   fullName           String
   phone              String?
@@ -207,6 +225,9 @@ model User {
 
   bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
 
+  appraisalCompany AppraisalCompany? @relation(fields: [appraisalCompanyId], references: [id], onDelete: SetNull)
+  appraisalRequestsHandled AppraisalRequest[] @relation("AppraisalAssignedEmployee")
+
   managedCases    Case[]               @relation("ReceptionManagerCases")
   executedCases   Case[]               @relation("ExecutorCases")
   auditLogs       AuditLog[]
@@ -217,6 +238,7 @@ model User {
   @@index([companyId])
   @@index([branchId])
   @@index([bankId])
+  @@index([appraisalCompanyId])
   @@index([role])
   @@index([isActive])
 }
@@ -342,6 +364,7 @@ model Case {
   clientDocumentItems   ClientDocumentItem[]
   documentHandovers     DocumentHandover[]
   serviceCompletionActs ServiceCompletionAct[]
+  appraisalRequests      AppraisalRequest[]
 
   @@index([branchId])
   @@index([applicantClientId])
@@ -459,6 +482,8 @@ model Document {
   case Case? @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  appraisalRequests AppraisalRequestDocument[]
 
   @@index([caseId])
   @@index([clientId])
@@ -748,4 +773,85 @@ model MarketingVisit {
   @@index([funnelStep])
   @@index([abandonedAt])
   @@index([createdAt])
+}
+
+
+model AppraisalCompany {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  inn       String?
+  license   String?
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees User[]
+  requests  AppraisalRequest[]
+
+  @@index([isActive])
+}
+
+model AppraisalRequest {
+  id                 String                 @id @default(cuid())
+  displayId          String                 @unique
+  caseId             String
+  companyId          String
+  assignedEmployeeId String?
+  status             AppraisalRequestStatus @default(SENT)
+  note               String?
+  acceptedAt         DateTime?
+  startedAt          DateTime?
+  reportReadyAt      DateTime?
+  completedAt        DateTime?
+  appraisalValue     Decimal?               @db.Decimal(18, 2)
+  reportNumber       String?
+  reportDate         DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  company AppraisalCompany @relation(fields: [companyId], references: [id])
+  assignedEmployee User? @relation("AppraisalAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  documents AppraisalRequestDocument[]
+  files     AppraisalFile[]
+
+  @@index([caseId])
+  @@index([companyId])
+  @@index([assignedEmployeeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AppraisalRequestDocument {
+  id         String   @id @default(cuid())
+  requestId  String
+  documentId String
+  createdAt  DateTime @default(now())
+
+  request  AppraisalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, documentId])
+  @@index([requestId])
+  @@index([documentId])
+}
+
+model AppraisalFile {
+  id        String            @id @default(cuid())
+  requestId String
+  kind      AppraisalFileKind
+  fileUrl   String
+  fileName  String?
+  mimeType  String?
+  sizeBytes Int?
+  createdAt DateTime          @default(now())
+
+  request AppraisalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([kind])
 }

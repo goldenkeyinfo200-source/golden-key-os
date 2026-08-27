@@ -1,31 +1,50 @@
-Golden Key OS — Шартномаларни ўчириш функцияси
+Golden Key OS — Баҳолаш компаниялари модули v1
 
-Алмаштириладиган файллар:
-1) backend/src/routes/contracts.js
-2) crm/src/pages/ContractsPage.jsx
+ҚЎШИЛДИ:
+- APPRAISAL_EMPLOYEE роли.
+- Баҳолаш компаниялари (AppraisalCompany).
+- Баҳолаш заявкалари (AppraisalRequest), ID: GK-AV-YYYY-000001.
+- Мурожаат карточкасида "Баҳолаш компаниясига заявка".
+- Мавжуд ҳужжатларни checkbox билан танлаб баҳоловчига юбориш.
+- Мулк расмларини алоҳида юклаш.
+- Баҳолаш компанияси учун алоҳида логин/пароль аккаунти.
+- Баҳоловчи: Қабул қилиш → Иш жараёнида → PDF ҳисобот юклаш.
+- Баҳоланган қиймат, ҳисобот рақами ва санаси.
+- Тайёр PDF Golden Key ходимига мурожаат карточкасида кўринади.
+- Ҳар бир файл учун 20 МБ лимит.
+- Мавжуд documents.js лимити 15 МБдан 20 МБга кўтарилди.
+- AuditLog қайдлари.
 
-Қўшилди:
-- Шартнома карточкасида "Ўчириш" тугмаси.
-- Тугма фақат SUPER_ADMIN ва DIRECTOR учун кўринади.
-- Ўчириш икки босқичли:
-  1) confirm
-  2) шартнома рақамини қайта киритиш
-- Backend: DELETE /api/contracts/:contractId
-- Contract'га боғланган Invitation'лар ўчирилади.
-- QR экранда ўша шартнома очиқ бўлса, экран IDLE ҳолатига қайтарилади.
-- PDF storage path мавжуд бўлса, Supabase Storage'дан ҳам ўчиришга ҳаракат қилинади.
-- AuditLog'да CONTRACT_DELETED қайди қолади.
+ФАЙЛЛАР:
+backend/prisma/schema.prisma                    ALMASHTIRISH
+backend/src/routes/appraisals.js               YANGI
+backend/src/routes/documents.js                ALMASHTIRISH
+crm/src/components/appraisals/AppraisalSection.jsx  YANGI
+crm/src/pages/AppraisalsPage.jsx               YANGI
+crm/src/pages/CaseDetails.jsx                  ALMASHTIRISH
+crm/src/App.jsx                                ALMASHTIRISH
+ROUTES-INDEX-PATCH.txt                         2 qatorlik patch
 
-Муҳим:
-- Бу hard delete. Фақат тест ёки нотўғри яратилган шартномалар учун ишлатинг.
-- Мурожаатнинг ўзи ўчирилмайди; фақат танланган шартнома ўчади.
-- Шартнома ўчирилгандан кейин унинг public verify саҳифаси ҳам топилмайди.
-- Олдин қўшилган GET /api/contracts рўйхат маршрути сақланган.
+ЎРНАТИШ ТАРТИБИ:
+1) Файлларни папкалари бўйича қўйинг.
+2) ROUTES-INDEX-PATCH.txt даги 2 қаторни current backend/src/routes/index.js га қўшинг.
+3) GitHub commit/push.
+4) Backend Railway deploy олдидан schema ўзгаргани учун:
+   npx prisma db push
+5) Deploy тугасин.
+6) CRM deploy тугасин.
+7) Super Admin билан "Баҳолаш" менюсини очинг.
+8) Компания қўшинг.
+9) Шу компания учун баҳоловчи аккаунт яратинг.
+10) Мурожаат карточкаси → Баҳолашга юбориш.
+11) Баҳоловчи аккаунти билан кириб заявкани қабул қилинг ва PDF ҳисобот юкланг.
 
-Қўллаш:
-1) Икки файлни тегишли жойига алмаштиринг.
-2) GitHub commit/push қилинг.
-3) Railway backend ва CRM deploy тугашини кутинг.
-4) Шартномалар бўлимида тест шартномани ўчириб текширинг.
+20 МБ:
+- documents.js: 20 МБ
+- appraisal property photo/supporting file/report: 20 МБ
+- report фақат PDF
+- property photo: JPG/PNG/WEBP
 
-Prisma db push керак эмас.
+ЭҲТИЁТ:
+schema.prisma ўзгарган, шунинг учун бу пакетда prisma db push КЕРАК.
+Current routes/index.js ни тўлиқ алмаштирманг; фақат ROUTES-INDEX-PATCH.txt даги 2 қаторни қўшинг.
