@@ -11,6 +11,7 @@ import {
   CreditCard,
   LoaderCircle,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   UserRound,
@@ -64,6 +65,138 @@ function todayInputValue() {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60 * 1000);
   return local.toISOString().slice(0, 16);
+}
+
+
+function escapeReceiptHtml(value) {
+  return String(value ?? '—')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function printPaymentReceipt(item, payment) {
+  const receiptWindow = window.open('', '_blank', 'width=420,height=760');
+
+  if (!receiptWindow) {
+    window.alert('Квитанция ойнасини очиб бўлмади. Браузерда popup ойнага рухсат беринг.');
+    return;
+  }
+
+  const receiptNo = `GK-${String(payment.id || '').slice(-8).toUpperCase() || 'RECEIPT'}`;
+  const clientName = item.applicant?.fullName || 'Мижоз';
+  const clientPhone = item.applicant?.phone || '—';
+  const service = SERVICE_LABELS[item.serviceType] || item.serviceType || '—';
+  const branch = item.branch?.name || '—';
+  const paidAt = formatDate(payment.paidAt || payment.createdAt);
+  const method = payment.method || '—';
+  const reference = payment.reference || '—';
+  const amount = formatAmount(payment.amount);
+
+  receiptWindow.document.write(`<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeReceiptHtml(receiptNo)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f2f2f2;
+      color: #111;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      padding: 12px;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+    }
+    .toolbar button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .print { background: #ef233c; color: #fff; }
+    .close { background: #eee; color: #111; }
+    .receipt {
+      width: 80mm;
+      margin: 16px auto;
+      padding: 5mm;
+      background: #fff;
+      box-shadow: 0 2px 16px rgba(0,0,0,.12);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .brand { text-align: center; margin-bottom: 10px; }
+    .brand strong { display: block; font-size: 18px; }
+    .brand span { font-size: 10px; }
+    .dash { border-top: 1px dashed #111; margin: 9px 0; }
+    .title { text-align: center; font-size: 14px; font-weight: 800; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; gap: 10px; margin: 5px 0; }
+    .row span:first-child { color: #555; }
+    .row strong, .row span:last-child { text-align: right; overflow-wrap: anywhere; }
+    .amount {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+      margin: 10px 0;
+    }
+    .footer { text-align: center; font-size: 10px; margin-top: 12px; }
+    @page { size: 80mm auto; margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none !important; }
+      .receipt {
+        width: 80mm;
+        margin: 0;
+        padding: 4mm;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print" onclick="window.print()">Чоп этиш</button>
+    <button class="close" onclick="window.close()">Ёпиш</button>
+  </div>
+  <main class="receipt">
+    <div class="brand">
+      <strong>GOLDEN KEY INFO</strong>
+      <span>ТЎЛОВ КВИТАНЦИЯСИ</span>
+    </div>
+    <div class="dash"></div>
+    <div class="title">${escapeReceiptHtml(receiptNo)}</div>
+    <div class="row"><span>Мурожаат:</span><strong>${escapeReceiptHtml(item.displayId)}</strong></div>
+    <div class="row"><span>Мижоз:</span><strong>${escapeReceiptHtml(clientName)}</strong></div>
+    <div class="row"><span>Телефон:</span><strong>${escapeReceiptHtml(clientPhone)}</strong></div>
+    <div class="row"><span>Филиал:</span><strong>${escapeReceiptHtml(branch)}</strong></div>
+    <div class="row"><span>Хизмат:</span><strong>${escapeReceiptHtml(service)}</strong></div>
+    <div class="dash"></div>
+    <div class="row"><span>Тўлов санаси:</span><strong>${escapeReceiptHtml(paidAt)}</strong></div>
+    <div class="row"><span>Тўлов усули:</span><strong>${escapeReceiptHtml(method)}</strong></div>
+    <div class="row"><span>Чек / транзакция:</span><strong>${escapeReceiptHtml(reference)}</strong></div>
+    <div class="amount">${escapeReceiptHtml(amount)}</div>
+    <div class="dash"></div>
+    <div class="footer">
+      Golden Key OS орқали шакллантирилди.<br/>
+      Квитанцияни сақлаб қўйинг.
+    </div>
+  </main>
+</body>
+</html>`);
+  receiptWindow.document.close();
+  receiptWindow.focus();
 }
 
 export function FinancePage() {
@@ -517,6 +650,15 @@ export function FinancePage() {
                             )}
                           </span>
                           <span>{payment.reference || '—'}</span>
+                          <button
+                            type="button"
+                            className="finance-receipt-button"
+                            onClick={() => printPaymentReceipt(item, payment)}
+                            title="Квитанцияни очиш ва чоп этиш"
+                          >
+                            <Printer size={14} />
+                            Квитанция
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1006,11 +1148,33 @@ export function FinancePage() {
 
         .finance-payment-history-row {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr;
+          grid-template-columns: 1fr 1fr 1fr 1fr auto;
           gap: 10px;
+          align-items: center;
           padding: 9px 0;
           border-top: 1px solid #e8ebee;
           font-size: 11px;
+        }
+
+        .finance-receipt-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          border: 1px solid #dfe3e8;
+          border-radius: 8px;
+          padding: 7px 9px;
+          background: #fff;
+          color: #111827;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .finance-receipt-button:hover {
+          border-color: #ef233c;
+          color: #ef233c;
         }
 
         .finance-state {
@@ -1191,6 +1355,10 @@ export function FinancePage() {
 
           .finance-payment-history-row {
             grid-template-columns: 1fr 1fr;
+          }
+
+          .finance-receipt-button {
+            width: 100%;
           }
         }
       `}</style>
