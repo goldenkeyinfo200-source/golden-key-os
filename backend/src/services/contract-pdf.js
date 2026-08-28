@@ -77,6 +77,341 @@ function findExistingFile(candidates) {
   );
 }
 
+
+/* =========================================================
+   HANDWRITTEN SIGNATURE HELPERS
+========================================================= */
+
+/*
+  Телефон экранида чизилган имзо турли версияларда
+  signatureDataUrl / signatureBase64 / signature / signatureImage
+  майдонларидан бири орқали келиши мумкин.
+
+  Бу helper шу форматларнинг барчасини қабул қилади.
+*/
+function signatureBufferFromValue(value) {
+  if (!value) return null;
+
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const source = value.trim();
+
+  if (!source) return null;
+
+  const dataUrlMatch = source.match(
+    /^data:image\/(?:png|jpe?g|webp);base64,(.+)$/i
+  );
+
+  try {
+    if (dataUrlMatch) {
+      return Buffer.from(dataUrlMatch[1], 'base64');
+    }
+
+    // URL эмас, оддий base64 бўлса.
+    if (
+      !/^https?:\/\//i.test(source) &&
+      /^[A-Za-z0-9+/=\r\n]+$/.test(source) &&
+      source.replace(/\s/g, '').length > 100
+    ) {
+      return Buffer.from(
+        source.replace(/\s/g, ''),
+        'base64'
+      );
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getSignatureBuffer(item) {
+  if (!item) return null;
+
+  const candidates = [
+    item.signatureDataUrl,
+    item.signatureBase64,
+    item.signatureImage,
+    item.signature,
+    item.handSignature,
+    item.drawnSignature,
+  ];
+
+  for (const value of candidates) {
+    const buffer = signatureBufferFromValue(value);
+
+    if (buffer?.length) {
+      return buffer;
+    }
+  }
+
+  return null;
+}
+
+function signatureLabel(item, fallback = 'Буюртмачи / Мижоз') {
+  if (!item) return fallback;
+
+  if (item.label) return item.label;
+
+  if (item.role === 'BUYER') return 'Олувчи';
+  if (item.role === 'SELLER') return 'Сотувчи';
+  if (item.role === 'INVESTOR') return 'Инвестор';
+
+  return fallback;
+}
+
+function drawSignatureBox(doc, {
+  x,
+  y,
+  width,
+  title,
+  confirmation,
+}) {
+  const height = 155;
+  const signatureBuffer = getSignatureBuffer(confirmation);
+
+  doc
+    .roundedRect(x, y, width, height, 8)
+    .fillAndStroke('#FAFAFA', '#D8D8D8');
+
+  doc
+    .font('Bold')
+    .fontSize(10.5)
+    .fillColor('#111111')
+    .text(
+      title,
+      x + 12,
+      y + 12,
+      {
+        width: width - 24,
+        align: 'center',
+      }
+    );
+
+  if (signatureBuffer) {
+    try {
+      doc.image(
+        signatureBuffer,
+        x + 20,
+        y + 38,
+        {
+          fit: [width - 40, 70],
+          align: 'center',
+          valign: 'center',
+        }
+      );
+    } catch {
+      doc
+        .font('Regular')
+        .fontSize(8.5)
+        .fillColor('#A00000')
+        .text(
+          'Имзо расмини PDFга жойлаштириб бўлмади',
+          x + 15,
+          y + 67,
+          {
+            width: width - 30,
+            align: 'center',
+          }
+        );
+    }
+  } else {
+    doc
+      .font('Regular')
+      .fontSize(8.5)
+      .fillColor('#777777')
+      .text(
+        'Қўл имзоси маълумоти топилмади',
+        x + 15,
+        y + 67,
+        {
+          width: width - 30,
+          align: 'center',
+        }
+      );
+  }
+
+  doc
+    .strokeColor('#BDBDBD')
+    .lineWidth(0.6)
+    .moveTo(x + 22, y + 116)
+    .lineTo(x + width - 22, y + 116)
+    .stroke();
+
+  doc
+    .font('Regular')
+    .fontSize(7.8)
+    .fillColor('#555555')
+    .text(
+      `Электрон тасдиқ: ${formatDateTime(confirmation?.signedAt)}`,
+      x + 12,
+      y + 125,
+      {
+        width: width - 24,
+        align: 'center',
+      }
+    );
+}
+
+function drawHandSignaturePage(
+  doc,
+  {
+    caseItem,
+    confirmation,
+    confirmations = [],
+  }
+) {
+  const normalized =
+    confirmations.length > 0
+      ? confirmations
+      : [
+          {
+            ...confirmation,
+            role: confirmation?.role || 'CLIENT',
+            label: confirmation?.label || 'Буюртмачи / Мижоз',
+          },
+        ];
+
+  /*
+    Имзо confirmation объектида алоҳида келган бўлса,
+    confirmations ичидаги мос объектга қўшиб қўямиз.
+  */
+  const merged = normalized.map((item) => {
+    if (
+      !getSignatureBuffer(item) &&
+      getSignatureBuffer(confirmation)
+    ) {
+      const sameInvitation =
+        !item?.invitationId ||
+        !confirmation?.invitationId ||
+        item.invitationId === confirmation.invitationId;
+
+      if (sameInvitation) {
+        return {
+          ...item,
+          signatureDataUrl:
+            confirmation.signatureDataUrl ||
+            confirmation.signatureBase64 ||
+            confirmation.signatureImage ||
+            confirmation.signature ||
+            confirmation.handSignature ||
+            confirmation.drawnSignature,
+        };
+      }
+    }
+
+    return item;
+  });
+
+  const withSignature = merged.filter((item) =>
+    getSignatureBuffer(item)
+  );
+
+  /*
+    Телефонда имзо чизилмаган эски шартномалар учун
+    ортиқча бўш саҳифа қўшмаймиз.
+  */
+  if (withSignature.length === 0) {
+    return false;
+  }
+
+  doc.addPage();
+
+  doc
+    .font('Bold')
+    .fontSize(16)
+    .fillColor('#111111')
+    .text(
+      'ТОМОНЛАРНИНГ ҚЎЛ ИМЗОЛАРИ',
+      60,
+      115,
+      {
+        width: 475,
+        align: 'center',
+      }
+    )
+    .font('Regular')
+    .fontSize(9)
+    .fillColor('#666666')
+    .text(
+      'Қуйидаги имзо QR орқали очилган тасдиқлаш саҳифасида телефон экранида қўл билан чизилган.',
+      75,
+      148,
+      {
+        width: 445,
+        align: 'center',
+      }
+    );
+
+  if (caseItem.serviceType === 'SALE_PURCHASE') {
+    const buyer =
+      withSignature.find((item) => item.role === 'BUYER') || null;
+    const seller =
+      withSignature.find((item) => item.role === 'SELLER') || null;
+
+    if (buyer && seller) {
+      drawSignatureBox(doc, {
+        x: 55,
+        y: 215,
+        width: 235,
+        title: signatureLabel(buyer, 'Олувчи'),
+        confirmation: buyer,
+      });
+
+      drawSignatureBox(doc, {
+        x: 305,
+        y: 215,
+        width: 235,
+        title: signatureLabel(seller, 'Сотувчи'),
+        confirmation: seller,
+      });
+    } else {
+      const one = buyer || seller || withSignature[0];
+
+      drawSignatureBox(doc, {
+        x: 130,
+        y: 215,
+        width: 335,
+        title: signatureLabel(one),
+        confirmation: one,
+      });
+    }
+  } else {
+    const one = withSignature[0];
+
+    drawSignatureBox(doc, {
+      x: 130,
+      y: 215,
+      width: 335,
+      title: signatureLabel(one),
+      confirmation: one,
+    });
+  }
+
+  doc
+    .font('Regular')
+    .fontSize(8)
+    .fillColor('#666666')
+    .text(
+      'Имзо ушбу электрон шартноманинг тасдиқ маълумотлари билан бирга Golden Key OS тизимида сақланади.',
+      85,
+      420,
+      {
+        width: 425,
+        align: 'center',
+        lineGap: 2,
+      }
+    );
+
+  return true;
+}
+
 /* =========================================================
    FORMAT HELPERS
 ========================================================= */
@@ -1396,7 +1731,20 @@ export async function generateContractPdf({
       );
 
       /* ===============================================
-         3. VERIFICATION PAGE
+         3. HANDWRITTEN SIGNATURE PAGE
+      =============================================== */
+
+      drawHandSignaturePage(
+        doc,
+        {
+          caseItem,
+          confirmation,
+          confirmations,
+        }
+      );
+
+      /* ===============================================
+         4. VERIFICATION PAGE
       =============================================== */
 
       drawVerificationPage(
@@ -1413,7 +1761,7 @@ export async function generateContractPdf({
       );
 
       /* ===============================================
-         4. HEADER + FOOTER FOR ALL PAGES
+         5. HEADER + FOOTER FOR ALL PAGES
       =============================================== */
 
       const pageRange =
