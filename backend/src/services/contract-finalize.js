@@ -10,11 +10,9 @@ function safeFileName(displayId) {
   return `${String(displayId).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 }
 
-
-function confirmationLabel(role, serviceType) {
+function confirmationLabel(role) {
   if (role === 'SELLER') return 'Сотувчи';
   if (role === 'BUYER') return 'Олувчи';
-  if (serviceType === 'INVESTOR_PARTNERSHIP') return 'Инвестор';
   return 'Мижоз';
 }
 
@@ -51,13 +49,15 @@ async function loadContractConfirmations({
 
     byRole.set(role, {
       role,
-      label: confirmationLabel(role, contract.case.serviceType),
+      label: confirmationLabel(role),
       invitationId: metadata.invitationId || null,
       signedAt: metadata.confirmedAt || log.createdAt,
       ip: metadata.ip || null,
       userAgent: metadata.userAgent || null,
       method: metadata.method || 'ONE_TIME_QR',
       accepted: metadata.accepted === true,
+      signatureDataUrl: metadata.signatureDataUrl || null,
+      signatureHash: metadata.signatureHash || null,
     });
   }
 
@@ -83,13 +83,22 @@ async function loadContractConfirmations({
     if (fallbackRole && !byRole.has(fallbackRole)) {
       byRole.set(fallbackRole, {
         role: fallbackRole,
-        label: confirmationLabel(fallbackRole, contract.case.serviceType),
+        label: confirmationLabel(fallbackRole),
         invitationId: fallbackConfirmation.invitationId || null,
-        signedAt: fallbackConfirmation.signedAt || contract.signedAt,
+        signedAt:
+          fallbackConfirmation.signedAt ||
+          contract.signedAt,
         ip: fallbackConfirmation.ip || null,
-        userAgent: fallbackConfirmation.userAgent || null,
-        method: 'ONE_TIME_QR',
+        userAgent:
+          fallbackConfirmation.userAgent || null,
+        method:
+          fallbackConfirmation.method ||
+          'ONE_TIME_QR_WITH_HANDWRITTEN_SIGNATURE',
         accepted: true,
+        signatureDataUrl:
+          fallbackConfirmation.signatureDataUrl || null,
+        signatureHash:
+          fallbackConfirmation.signatureHash || null,
       });
     }
   }
@@ -135,12 +144,17 @@ export async function finalizeSignedContract({
   });
 
   if (!contract) {
-    const error = new Error('PDF яратиш учун шартнома топилмади');
+    const error = new Error(
+      'PDF яратиш учун шартнома топилмади'
+    );
     error.status = 404;
     throw error;
   }
 
-  if (contract.status !== 'SIGNED' || !contract.signedAt) {
+  if (
+    contract.status !== 'SIGNED' ||
+    !contract.signedAt
+  ) {
     const error = new Error(
       'PDF фақат тасдиқланган шартнома учун яратилади'
     );
@@ -148,32 +162,21 @@ export async function finalizeSignedContract({
     throw error;
   }
 
-  if (
-    contract.pdfUrl &&
-    !/^https?:\/\//i.test(contract.pdfUrl)
-  ) {
-    return {
+  /*
+    Муҳим:
+    Имзо қўшилганидан кейин PDF қайта генерация қилиниши мумкин.
+    Шунинг учун аввалги "pdfUrl бўлса return" оптимизациясини
+    ишлатмаймиз. uploadStorageFile upsert:true бўлиши керак.
+  */
+
+  const selectedOffer =
+    contract.case.bankOffers[0] || null;
+
+  const confirmations =
+    await loadContractConfirmations({
       contract,
-      pdfStoragePath: contract.pdfUrl,
-      pdfUrl: await createSignedFileUrl(
-        contract.pdfUrl,
-        60 * 60 * 24
-      ),
-      telegram: {
-        sent: false,
-        skipped: true,
-        reason: 'PDF аввал яратилган',
-      },
-      reused: true,
-    };
-  }
-
-  const selectedOffer = contract.case.bankOffers[0] || null;
-
-  const confirmations = await loadContractConfirmations({
-    contract,
-    fallbackConfirmation: confirmation,
-  });
+      fallbackConfirmation: confirmation,
+    });
 
   const pdf = await generateContractPdf({
     contract,
@@ -183,7 +186,9 @@ export async function finalizeSignedContract({
     confirmations,
   });
 
-  const fileName = safeFileName(contract.displayId);
+  const fileName =
+    safeFileName(contract.displayId);
+
   const storagePath = [
     'contracts',
     new Date(contract.signedAt).getFullYear(),
@@ -197,51 +202,73 @@ export async function finalizeSignedContract({
     mimeType: 'application/pdf',
   });
 
-  const updatedContract = await prisma.$transaction(
-    async (tx) => {
-      const item = await tx.contract.update({
-        where: {
-          id: contract.id,
-        },
-        data: {
-          pdfUrl: storagePath,
-        },
-      });
+  const updatedContract =
+    await prisma.$transaction(
+      async (tx) => {
+        const item =
+          await tx.contract.update({
+            where: {
+              id: contract.id,
+            },
+            data: {
+              pdfUrl: storagePath,
+            },
+          });
 
-      await tx.auditLog.create({
-        data: {
-          userId: null,
-          entityType: 'Contract',
-          entityId: contract.id,
-          action: 'CONTRACT_PDF_GENERATED',
-          metadata: {
-            caseId: contract.caseId,
-            storagePath,
-            fileName,
-            verificationHash: pdf.verificationHash,
-            confirmations: confirmations.map((item) => ({
-              role: item.role,
-              label: item.label,
-              invitationId: item.invitationId,
-              signedAt: item.signedAt,
-            })),
+        await tx.auditLog.create({
+          data: {
+            userId: null,
+            entityType: 'Contract',
+            entityId: contract.id,
+            action: 'CONTRACT_PDF_GENERATED',
+            metadata: {
+              caseId: contract.caseId,
+              storagePath,
+              fileName,
+              verificationHash:
+                pdf.verificationHash,
+              hasHandwrittenSignature:
+                confirmations.some(
+                  (item) =>
+                    Boolean(
+                      item.signatureDataUrl
+                    )
+                ),
+              confirmations:
+                confirmations.map(
+                  (item) => ({
+                    role: item.role,
+                    label: item.label,
+                    invitationId:
+                      item.invitationId,
+                    signedAt:
+                      item.signedAt,
+                    signatureHash:
+                      item.signatureHash ||
+                      null,
+                  })
+                ),
+            },
           },
-        },
-      });
+        });
 
-      return item;
-    }
-  );
+        return item;
+      }
+    );
 
   let telegramResult;
 
   try {
-    telegramResult = await sendContractPdfToClient({
-      telegramId: contract.case.applicant?.telegramId,
-      pdfBuffer: pdf.buffer,
-      fileName,
-      contractDisplayId: contract.displayId,
-    });
+    telegramResult =
+      await sendContractPdfToClient({
+        telegramId:
+          contract.case.applicant
+            ?.telegramId,
+        pdfBuffer: pdf.buffer,
+        fileName,
+        contractDisplayId:
+          contract.displayId,
+      });
 
     await prisma.auditLog.create({
       data: {
@@ -254,7 +281,8 @@ export async function finalizeSignedContract({
         metadata: {
           caseId: contract.caseId,
           telegramId:
-            contract.case.applicant?.telegramId || null,
+            contract.case.applicant
+              ?.telegramId || null,
           ...telegramResult,
         },
       },
@@ -271,12 +299,15 @@ export async function finalizeSignedContract({
         userId: null,
         entityType: 'Contract',
         entityId: contract.id,
-        action: 'CONTRACT_PDF_TELEGRAM_FAILED',
+        action:
+          'CONTRACT_PDF_TELEGRAM_FAILED',
         metadata: {
           caseId: contract.caseId,
           telegramId:
-            contract.case.applicant?.telegramId || null,
-          error: telegramError.message,
+            contract.case.applicant
+              ?.telegramId || null,
+          error:
+            telegramError.message,
         },
       },
     });
@@ -285,12 +316,14 @@ export async function finalizeSignedContract({
   return {
     contract: updatedContract,
     pdfStoragePath: storagePath,
-    pdfUrl: await createSignedFileUrl(
-      storagePath,
-      60 * 60 * 24
-    ),
+    pdfUrl:
+      await createSignedFileUrl(
+        storagePath,
+        60 * 60 * 24
+      ),
     telegram: telegramResult,
-    verificationHash: pdf.verificationHash,
+    verificationHash:
+      pdf.verificationHash,
     reused: false,
   };
 }
