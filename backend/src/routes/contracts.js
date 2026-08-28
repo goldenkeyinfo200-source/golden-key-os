@@ -231,6 +231,117 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 
 router.use(auth);
 
+
+router.get(
+  '/',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+      const search = String(req.query.search || '').trim();
+      const status = String(req.query.status || '').trim();
+
+      const where = {};
+      if (status) where.status = status;
+
+      if (search) {
+        where.OR = [
+          { displayId: { contains: search, mode: 'insensitive' } },
+          { case: { is: { displayId: { contains: search, mode: 'insensitive' } } } },
+          { case: { is: { applicant: { is: { fullName: { contains: search, mode: 'insensitive' } } } } } },
+          { case: { is: { applicant: { is: { phone: { contains: search, mode: 'insensitive' } } } } } },
+        ];
+      }
+
+      const [total, items] = await prisma.$transaction([
+        prisma.contract.count({ where }),
+        prisma.contract.findMany({
+          where,
+          include: {
+            template: { select: { id: true, name: true, version: true } },
+            case: {
+              include: {
+                applicant: true,
+                branch: { select: { id: true, name: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+      ]);
+
+      const itemsWithPdf = await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          pdfUrl: item.pdfUrl
+            ? await createSignedFileUrl(item.pdfUrl, 60 * 60 * 24)
+            : null,
+        }))
+      );
+
+      return res.json({
+        items: itemsWithPdf,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.delete(
+  '/:contractId',
+  allowRoles('SUPER_ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const contract = await prisma.contract.findUnique({
+        where: { id: req.params.contractId },
+        select: { id: true, displayId: true, caseId: true, pdfUrl: true },
+      });
+
+      if (!contract) {
+        return res.status(404).json({ error: 'Шартнома топилмади' });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.invitation.deleteMany({ where: { contractId: contract.id } });
+        await tx.contract.delete({ where: { id: contract.id } });
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Contract',
+            entityId: contract.id,
+            action: 'CONTRACT_DELETED',
+            metadata: {
+              caseId: contract.caseId,
+              displayId: contract.displayId,
+              pdfUrl: contract.pdfUrl || null,
+            },
+          },
+        });
+      });
+
+      return res.json({
+        message: 'Шартнома ўчирилди',
+        storageWarning: contract.pdfUrl
+          ? 'PDF Storage да сақланиб қолиши мумкин. База ёзуви ўчирилди.'
+          : null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
 router.get(
   '/case/:caseId',
   allowRoles(...MANAGE_ROLES),
