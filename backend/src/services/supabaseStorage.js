@@ -15,7 +15,7 @@ export async function uploadStorageFile({
     .upload(storagePath, buffer, {
       contentType: mimeType,
       cacheControl: '3600',
-      upsert: false,
+      upsert: true,
     });
 
   if (error) {
