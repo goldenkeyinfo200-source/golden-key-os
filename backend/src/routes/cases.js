@@ -596,10 +596,15 @@ router.get('/stats', async (req, res, next) => {
   try {
     const where = {};
 
-    if (
-      req.user.role === 'RECEPTION_MANAGER'
-    ) {
-      where.receptionManagerId = req.user.id;
+    if (req.user.role === 'RECEPTION_MANAGER') {
+      // Қабул менежери: ўзи қабул қилган + ҳали ҳеч ким қабул қилмаган мурожаатлар.
+      where.OR = [
+        { receptionManagerId: req.user.id },
+        {
+          receptionManagerId: null,
+          ...(req.user.branchId ? { branchId: req.user.branchId } : {}),
+        },
+      ];
     }
 
     if (req.user.role === 'EXECUTOR') {
@@ -829,10 +834,22 @@ router.get('/', async (req, res, next) => {
       ];
     }
 
-    if (
-      req.user.role === 'RECEPTION_MANAGER'
-    ) {
-      where.receptionManagerId = req.user.id;
+    if (req.user.role === 'RECEPTION_MANAGER') {
+      // Умумий навбат: ҳали қабул қилинмаган мурожаатлар ҳам кўринади.
+      // Филиал белгиланган бўлса, фақат шу филиалнинг умумий мурожаатлари.
+      const receptionVisibility = [
+        { receptionManagerId: req.user.id },
+        {
+          receptionManagerId: null,
+          ...(req.user.branchId ? { branchId: req.user.branchId } : {}),
+        },
+      ];
+
+      // Қидирув аллақачон where.OR ишлатиши мумкин, шунинг учун AND орқали қўшамиз.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { OR: receptionVisibility },
+      ];
     }
 
     if (req.user.role === 'EXECUTOR') {
@@ -1272,6 +1289,11 @@ router.get('/:id', async (req, res, next) => {
     const canView =
       VIEW_ALL_ROLES.includes(req.user.role) ||
       item.receptionManagerId === req.user.id ||
+      (
+        req.user.role === 'RECEPTION_MANAGER' &&
+        item.receptionManagerId === null &&
+        (!req.user.branchId || item.branchId === req.user.branchId)
+      ) ||
       item.executorId === req.user.id ||
       (
         req.user.role === 'BRANCH_MANAGER' &&
@@ -1595,6 +1617,120 @@ router.post(
   }
 );
 
+
+
+/**
+ * PATCH /api/cases/:id/claim
+ *
+ * Қабул менежери умумий навбатдаги мурожаатни ўзига қабул қилади.
+ * updateMany + receptionManagerId:null шарти race condition'ни ёпади:
+ * бир вақтда икки менежер босса, фақат биттаси қабул қилади.
+ */
+router.patch(
+  '/:id/claim',
+  allowRoles('RECEPTION_MANAGER'),
+  async (req, res, next) => {
+    try {
+      const existingCase = await prisma.case.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          displayId: true,
+          branchId: true,
+          receptionManagerId: true,
+          status: true,
+        },
+      });
+
+      if (!existingCase) {
+        return res.status(404).json({ error: 'Мурожаат топилмади' });
+      }
+
+      if (
+        req.user.branchId &&
+        existingCase.branchId &&
+        existingCase.branchId !== req.user.branchId
+      ) {
+        return res.status(403).json({
+          error: 'Бошқа филиал мурожаатини қабул қилиш мумкин эмас',
+        });
+      }
+
+      if (existingCase.receptionManagerId === req.user.id) {
+        const item = await prisma.case.findUnique({
+          where: { id: existingCase.id },
+          include: caseInclude,
+        });
+        return res.json({
+          message: 'Мурожаат аввалдан сизга бириктирилган',
+          item,
+        });
+      }
+
+      if (existingCase.receptionManagerId) {
+        return res.status(409).json({
+          error: 'Бу мурожаатни бошқа қабул менежери қабул қилиб бўлган',
+        });
+      }
+
+      const claimed = await prisma.$transaction(async (tx) => {
+        const result = await tx.case.updateMany({
+          where: {
+            id: existingCase.id,
+            receptionManagerId: null,
+            ...(req.user.branchId ? { branchId: req.user.branchId } : {}),
+          },
+          data: {
+            receptionManagerId: req.user.id,
+            nextAction: 'Мижоз билан боғланиш ва маълумотларни текшириш',
+          },
+        });
+
+        if (result.count !== 1) return null;
+
+        await tx.caseHistory.create({
+          data: {
+            caseId: existingCase.id,
+            fromStatus: existingCase.status,
+            toStatus: existingCase.status,
+            note: `Мурожаат қабул менежери ${req.user.fullName || req.user.id} томонидан қабул қилинди`,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Case',
+            entityId: existingCase.id,
+            action: 'RECEPTION_MANAGER_CLAIMED',
+            metadata: {
+              displayId: existingCase.displayId,
+              receptionManagerId: req.user.id,
+            },
+          },
+        });
+
+        return tx.case.findUnique({
+          where: { id: existingCase.id },
+          include: caseInclude,
+        });
+      });
+
+      if (!claimed) {
+        return res.status(409).json({
+          error: 'Бу мурожаатни бошқа қабул менежери сиздан олдин қабул қилди',
+        });
+      }
+
+      return res.json({
+        message: 'Мурожаат сизга бириктирилди',
+        item: claimed,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 
 /**
