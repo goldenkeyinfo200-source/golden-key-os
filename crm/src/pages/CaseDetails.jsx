@@ -214,6 +214,8 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState('');
 
   const [statusValue, setStatusValue] = useState('');
   const [statusNote, setStatusNote] = useState('');
@@ -365,6 +367,45 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
 
     return MAIN_TIMELINE.indexOf(item.status);
   }, [item]);
+
+  const claimCase = async () => {
+    if (!item || item.receptionManagerId) {
+      return;
+    }
+
+    setClaiming(true);
+    setClaimError('');
+
+    try {
+      const data = await apiRequest(`/cases/${item.id}/claim`, {
+        method: 'PATCH',
+      });
+
+      const claimedItem = data.item || null;
+
+      if (claimedItem) {
+        setItem(claimedItem);
+        setStatusValue(claimedItem.status || '');
+      } else {
+        await loadCase();
+      }
+
+      await onChanged?.(claimedItem || undefined);
+    } catch (error) {
+      setClaimError(
+        error.message ||
+          'Мурожаатни қабул қилиб бўлмади. Қайта уриниб кўринг.'
+      );
+
+      // Агар бошқа менежер аввал қабул қилган бўлса,
+      // карточкани янгилаб ҳақиқий ҳолатни кўрсатамиз.
+      if (error.status === 409) {
+        await loadCase();
+      }
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   const changeStatus = async (event) => {
     event.preventDefault();
@@ -610,6 +651,61 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           cursor: not-allowed;
         }
 
+        .claim-case-panel {
+          margin-bottom: 16px;
+          border: 1px solid #fecaca;
+          border-radius: 14px;
+          padding: 16px 18px;
+          background: #fff7f7;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .claim-case-copy {
+          display: grid;
+          gap: 4px;
+        }
+
+        .claim-case-copy strong {
+          color: #17191c;
+          font-size: 15px;
+        }
+
+        .claim-case-copy span {
+          color: #6b7280;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .claim-case-button {
+          min-height: 44px;
+          flex: 0 0 auto;
+          border: 0;
+          border-radius: 11px;
+          padding: 0 18px;
+          background: #e5232f;
+          color: #fff;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+
+        .claim-case-button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        .claim-case-error {
+          margin-top: 10px;
+        }
+
         .executor-assign-panel {
           border: 1px solid #e1e5e9;
           border-radius: 12px;
@@ -713,6 +809,15 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
         }
 
         @media (max-width: 900px) {
+          .claim-case-panel {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .claim-case-button {
+            width: 100%;
+          }
+
           .finance-collateral-form button.primary {
             width: 100%;
           }
@@ -734,6 +839,43 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
           <RefreshCw size={18} />
         </button>
       </section>
+
+      {!item.receptionManagerId ? (
+        <>
+          <section className="claim-case-panel">
+            <div className="claim-case-copy">
+              <strong>Янги мурожаат ҳали қабул қилинмаган</strong>
+              <span>
+                Ишни бошлаш учун мурожаатни ўзингизга бириктиринг. Қабул
+                қилингач банклар, ҳужжатлар ва бошқа амаллар очилади.
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="claim-case-button"
+              onClick={claimCase}
+              disabled={claiming}
+            >
+              {claiming ? (
+                <>
+                  <LoaderCircle className="spin" size={18} />
+                  Қабул қилинмоқда...
+                </>
+              ) : (
+                <>
+                  <UserCheck size={18} />
+                  Мурожаатни қабул қилиш
+                </>
+              )}
+            </button>
+          </section>
+
+          {claimError ? (
+            <div className="form-error claim-case-error">{claimError}</div>
+          ) : null}
+        </>
+      ) : null}
 
       <section className="panel case-hero">
         <div className="case-hero-main">
@@ -959,7 +1101,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             )}
           </section>
 
-          {isMortgageService ? (
+          {isMortgageService && item.receptionManagerId ? (
             <ParticipantsSection
               caseItem={item}
               onChanged={async () => {
@@ -969,7 +1111,7 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             />
           ) : null}
 
-          {isMortgageService ? (
+          {isMortgageService && item.receptionManagerId ? (
             <>
           <section className="panel details-section">
               <div className="details-section-head">
@@ -1230,24 +1372,36 @@ export function CaseDetails({ caseId, onBack, onChanged }) {
             </>
           ) : null}
 
-          <DocumentsSection
-            caseId={item.id}
-            applicantClientId={item.applicantClientId}
-            onChanged={loadCase}
-          />
+          {item.receptionManagerId ? (
+            <>
+              <DocumentsSection
+                caseId={item.id}
+                applicantClientId={item.applicantClientId}
+                onChanged={loadCase}
+              />
 
-          <AppraisalSection caseId={item.id} />
+              <AppraisalSection caseId={item.id} />
 
-          <ClientDocumentsActsSection
-            caseId={item.id}
-            caseItem={item}
-            onChanged={loadCase}
-          />
+              <ClientDocumentsActsSection
+                caseId={item.id}
+                caseItem={item}
+                onChanged={loadCase}
+              />
 
-          <ContractsSection
-            caseId={item.id}
-            onChanged={loadCase}
-          />
+              <ContractsSection
+                caseId={item.id}
+                onChanged={loadCase}
+              />
+            </>
+          ) : (
+            <section className="panel details-section">
+              <EmptyBlock
+                icon={UserCheck}
+                title="Аввал мурожаатни қабул қилинг"
+                text="Ҳужжатлар, баҳолаш ва шартнома бўлимлари мурожаат қабул қилингач очилади."
+              />
+            </section>
+          )}
         </div>
 
         <aside className="case-details-side-column">
