@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   MonitorSmartphone,
+  Stamp,
   ShieldCheck,
   UserRound,
   Users,
@@ -37,6 +38,7 @@ import { DebtorsPage } from './pages/DebtorsPage.jsx';
 import { ArchivePage } from './pages/ArchivePage.jsx';
 import { MarketingStatsPage } from './pages/MarketingStatsPage.jsx';
 import { AppraisalsPage } from './pages/AppraisalsPage.jsx';
+import { NotariesPage } from './pages/NotariesPage.jsx';
 import {
   API_URL,
   TOKEN_KEY,
@@ -50,6 +52,7 @@ const menu = [
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
   ['Баҳолаш', ClipboardCheck],
+  ['Нотариуслар', Stamp],
   ['Филиаллар', Building2],
   ['QR экранлар', MonitorSmartphone],
   ['Ходимлар', Users],
@@ -80,11 +83,12 @@ const MENU_ACCESS = {
     'Қарздорлар',
     'Архив',
   ],
-  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'QR экранлар', 'Қарздорлар', 'Архив'],
+  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'Нотариуслар', 'QR экранлар', 'Қарздорлар', 'Архив'],
   EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
   LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
   ACCOUNTANT: ['Бош панель', 'Молия', 'Қарздорлар', 'Архив'],
   APPRAISAL_EMPLOYEE: ['Баҳолаш'],
+  NOTARY: ['Нотариуслар'],
 };
 
 const roleNames = {
@@ -95,6 +99,7 @@ const roleNames = {
   EXECUTOR: 'Ижрочи',
   BANK_EMPLOYEE: 'Банк ходими',
   APPRAISAL_EMPLOYEE: 'Баҳолаш компанияси ходими',
+  NOTARY: 'Нотариус',
   LAWYER: 'Ҳуқуқшунос',
   ACCOUNTANT: 'Ҳисобчи',
   CLIENT: 'Мижоз',
@@ -538,7 +543,11 @@ function LoginPage({ onLogin }) {
 
 function Dashboard({ user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState(
-    user?.role === 'APPRAISAL_EMPLOYEE' ? 'Баҳолаш' : 'Бош панель'
+    user?.role === 'APPRAISAL_EMPLOYEE'
+      ? 'Баҳолаш'
+      : user?.role === 'NOTARY'
+        ? 'Нотариуслар'
+        : 'Бош панель'
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createCaseSignal, setCreateCaseSignal] = useState(0);
@@ -861,6 +870,10 @@ function Dashboard({ user, onLogout }) {
 
     if (activeMenu === 'Баҳолаш') {
       return <AppraisalsPage />;
+    }
+
+    if (activeMenu === 'Нотариуслар') {
+      return <NotariesPage />;
     }
 
     if (activeMenu === 'Филиаллар') {
