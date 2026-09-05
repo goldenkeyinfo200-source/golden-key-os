@@ -133,6 +133,7 @@ enum InvitationPurpose {
   SERVICE_COMPLETION_CONFIRM
 }
 
+
 enum AppraisalRequestStatus {
   SENT
   ACCEPTED
@@ -224,7 +225,7 @@ model User {
   branchId           String?
   bankId             String?
   appraisalCompanyId String?
-  notaryOfficeId     String?
+  notaryOfficeId      String?
   bankPosition       String?
   fullName           String
   phone              String?
@@ -245,10 +246,10 @@ model User {
 
   bank Bank? @relation(fields: [bankId], references: [id], onDelete: SetNull)
 
-  appraisalCompany         AppraisalCompany?  @relation(fields: [appraisalCompanyId], references: [id], onDelete: SetNull)
+  appraisalCompany AppraisalCompany? @relation(fields: [appraisalCompanyId], references: [id], onDelete: SetNull)
   appraisalRequestsHandled AppraisalRequest[] @relation("AppraisalAssignedEmployee")
 
-  notaryOffice          NotaryOffice?   @relation(fields: [notaryOfficeId], references: [id], onDelete: SetNull)
+  notaryOffice NotaryOffice? @relation(fields: [notaryOfficeId], references: [id], onDelete: SetNull)
   notaryRequestsHandled NotaryRequest[] @relation("NotaryAssignedEmployee")
 
   managedCases    Case[]               @relation("ReceptionManagerCases")
@@ -388,8 +389,8 @@ model Case {
   clientDocumentItems   ClientDocumentItem[]
   documentHandovers     DocumentHandover[]
   serviceCompletionActs ServiceCompletionAct[]
-  appraisalRequests     AppraisalRequest[]
-  notaryRequests        NotaryRequest[]
+  appraisalRequests      AppraisalRequest[]
+  notaryRequests         NotaryRequest[]
 
   @@index([branchId])
   @@index([applicantClientId])
@@ -801,6 +802,7 @@ model MarketingVisit {
   @@index([createdAt])
 }
 
+
 model AppraisalCompany {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -837,9 +839,9 @@ model AppraisalRequest {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
-  case             Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  company          AppraisalCompany @relation(fields: [companyId], references: [id])
-  assignedEmployee User?            @relation("AppraisalAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  company AppraisalCompany @relation(fields: [companyId], references: [id])
+  assignedEmployee User? @relation("AppraisalAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
 
   documents AppraisalRequestDocument[]
   files     AppraisalFile[]
@@ -908,27 +910,27 @@ model NotaryRequest {
   assignedEmployeeId String?
   status             NotaryRequestStatus @default(SENT)
 
-  note           String?
-  deficiencyNote String?
-  visitNote      String?
-  visitAt        DateTime?
+  note               String?
+  deficiencyNote     String?
+  visitNote          String?
+  visitAt            DateTime?
 
-  sentAt           DateTime  @default(now())
-  acceptedAt       DateTime?
-  reviewStartedAt  DateTime?
-  deficiencyAt     DateTime?
-  resubmittedAt    DateTime?
-  documentsReadyAt DateTime?
-  readyForVisitAt  DateTime?
-  completedAt      DateTime?
-  cancelledAt      DateTime?
+  sentAt             DateTime            @default(now())
+  acceptedAt         DateTime?
+  reviewStartedAt    DateTime?
+  deficiencyAt       DateTime?
+  resubmittedAt      DateTime?
+  documentsReadyAt   DateTime?
+  readyForVisitAt    DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
-  case             Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  office           NotaryOffice @relation(fields: [officeId], references: [id])
-  assignedEmployee User?        @relation("NotaryAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  office NotaryOffice @relation(fields: [officeId], references: [id])
+  assignedEmployee User? @relation("NotaryAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
 
   documents NotaryRequestDocument[]
   files     NotaryFile[]
@@ -971,3 +973,4 @@ model NotaryFile {
   @@index([requestId])
   @@index([kind])
 }
+

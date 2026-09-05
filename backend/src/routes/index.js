@@ -13,6 +13,7 @@ import debtorsRouter from './debtors.js';
 import financeRouter from './finance.js';
 import healthRouter from './health.js';
 import kiosksRouter from './kiosks.js';
+import notariesRouter from './notaries.js';
 import telegramRouter from './telegram.js';
 import usersRouter from './users.js';
 
@@ -91,6 +92,12 @@ router.use('/public', publicContractsRouter);
 router.use('/kiosks', kiosksRouter);
 
 /* =========================================================
+   NOTARIES
+========================================================= */
+
+router.use('/notaries', notariesRouter);
+
+/* =========================================================
    TELEGRAM
 ========================================================= */
 
@@ -136,6 +143,7 @@ router.get('/', (_req, res) => {
       publicContract: '/api/public/contracts/:token',
       publicContractConfirm: '/api/public/contracts/:token/confirm',
       kiosks: '/api/kiosks',
+      notaries: '/api/notaries',
       kioskDisplay: '/api/kiosks/display/:deviceCode?token=...',
       telegram: '/api/telegram',
     },

@@ -38,6 +38,14 @@ const publicUserSelect = {
   branchId: true,
   bankId: true,
   bankPosition: true,
+  notaryOfficeId: true,
+  notaryOffice: {
+    select: {
+      id: true,
+      name: true,
+      officeNumber: true,
+    },
+  },
   bank: {
     select: {
       id: true,
@@ -106,6 +114,13 @@ router.post('/login', async (req, res, next) => {
             id: true,
             name: true,
             city: true,
+          },
+        },
+        notaryOffice: {
+          select: {
+            id: true,
+            name: true,
+            officeNumber: true,
           },
         },
         bank: {
