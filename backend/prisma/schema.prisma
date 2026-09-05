@@ -15,6 +15,7 @@ enum UserRole {
   EXECUTOR
   BANK_EMPLOYEE
   APPRAISAL_EMPLOYEE
+  NOTARY
   LAWYER
   ACCOUNTANT
   CLIENT
@@ -148,6 +149,25 @@ enum AppraisalFileKind {
   REPORT
 }
 
+enum NotaryRequestStatus {
+  SENT
+  ACCEPTED
+  IN_REVIEW
+  NEEDS_CORRECTION
+  RESUBMITTED
+  DOCUMENTS_READY
+  READY_FOR_VISIT
+  COMPLETED
+  CANCELLED
+}
+
+enum NotaryFileKind {
+  SUPPORTING_DOCUMENT
+  PREPARED_DOCUMENT
+  RESULT_DOCUMENT
+  OTHER
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -205,6 +225,7 @@ model User {
   branchId           String?
   bankId             String?
   appraisalCompanyId String?
+  notaryOfficeId      String?
   bankPosition       String?
   fullName           String
   phone              String?
@@ -228,6 +249,9 @@ model User {
   appraisalCompany AppraisalCompany? @relation(fields: [appraisalCompanyId], references: [id], onDelete: SetNull)
   appraisalRequestsHandled AppraisalRequest[] @relation("AppraisalAssignedEmployee")
 
+  notaryOffice NotaryOffice? @relation(fields: [notaryOfficeId], references: [id], onDelete: SetNull)
+  notaryRequestsHandled NotaryRequest[] @relation("NotaryAssignedEmployee")
+
   managedCases    Case[]               @relation("ReceptionManagerCases")
   executedCases   Case[]               @relation("ExecutorCases")
   auditLogs       AuditLog[]
@@ -239,6 +263,7 @@ model User {
   @@index([branchId])
   @@index([bankId])
   @@index([appraisalCompanyId])
+  @@index([notaryOfficeId])
   @@index([role])
   @@index([isActive])
 }
@@ -365,6 +390,7 @@ model Case {
   documentHandovers     DocumentHandover[]
   serviceCompletionActs ServiceCompletionAct[]
   appraisalRequests      AppraisalRequest[]
+  notaryRequests         NotaryRequest[]
 
   @@index([branchId])
   @@index([applicantClientId])
@@ -484,6 +510,7 @@ model Document {
   client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   appraisalRequests AppraisalRequestDocument[]
+  notaryRequests    NotaryRequestDocument[]
 
   @@index([caseId])
   @@index([clientId])
@@ -855,3 +882,95 @@ model AppraisalFile {
   @@index([requestId])
   @@index([kind])
 }
+
+model NotaryOffice {
+  id            String   @id @default(cuid())
+  name          String
+  officeNumber  String?
+  licenseNumber String?
+  address       String?
+  phone         String?
+  email         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employees User[]
+  requests  NotaryRequest[]
+
+  @@unique([name])
+  @@index([isActive])
+}
+
+model NotaryRequest {
+  id                 String              @id @default(cuid())
+  displayId          String              @unique
+  caseId             String
+  officeId           String
+  assignedEmployeeId String?
+  status             NotaryRequestStatus @default(SENT)
+
+  note               String?
+  deficiencyNote     String?
+  visitNote          String?
+  visitAt            DateTime?
+
+  sentAt             DateTime            @default(now())
+  acceptedAt         DateTime?
+  reviewStartedAt    DateTime?
+  deficiencyAt       DateTime?
+  resubmittedAt      DateTime?
+  documentsReadyAt   DateTime?
+  readyForVisitAt    DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  office NotaryOffice @relation(fields: [officeId], references: [id])
+  assignedEmployee User? @relation("NotaryAssignedEmployee", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  documents NotaryRequestDocument[]
+  files     NotaryFile[]
+
+  @@index([caseId])
+  @@index([officeId])
+  @@index([assignedEmployeeId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([visitAt])
+  @@index([createdAt])
+}
+
+model NotaryRequestDocument {
+  id         String   @id @default(cuid())
+  requestId  String
+  documentId String
+  createdAt  DateTime @default(now())
+
+  request  NotaryRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, documentId])
+  @@index([requestId])
+  @@index([documentId])
+}
+
+model NotaryFile {
+  id        String         @id @default(cuid())
+  requestId String
+  kind      NotaryFileKind
+  fileUrl   String
+  fileName  String?
+  mimeType  String?
+  sizeBytes Int?
+  createdAt DateTime       @default(now())
+
+  request NotaryRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([kind])
+}
+
