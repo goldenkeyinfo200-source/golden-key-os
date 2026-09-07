@@ -252,3 +252,70 @@ export async function notifyBankOfferSubmitted(offerId) {
 
   return notifyMany(recipients, text);
 }
+
+
+export async function notifyAppraisalAssignment(requestId) {
+  const request = await prisma.appraisalRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      displayId: true, companyId: true,
+      company: { select: { name: true } },
+      case: { select: { displayId: true, serviceType: true, applicant: { select: { fullName: true } } } },
+    },
+  });
+  if (!request) return { sent: false, skipped: true };
+
+  const employees = await prisma.user.findMany({
+    where: {
+      appraisalCompanyId: request.companyId,
+      role: 'APPRAISAL_EMPLOYEE',
+      isActive: true,
+      telegramId: { not: null },
+    },
+    select: { telegramId: true },
+  });
+
+  const text =
+    `🏠 <b>Янги баҳолаш заявкаси</b>\n` +
+    `Заявка: ${request.displayId}\n` +
+    `Мурожаат: ${request.case?.displayId || '-'}\n` +
+    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
+    `Компания: ${request.company?.name || '-'}\n` +
+    `Хизмат: ${request.case?.serviceType || '-'}\n\n` +
+    `CRM орқали заявкани кўриб чиқинг.`;
+
+  return notifyMany(employees.map((e) => e.telegramId), text);
+}
+
+export async function notifyNotaryAssignment(requestId) {
+  const request = await prisma.notaryRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      displayId: true, officeId: true,
+      office: { select: { name: true } },
+      case: { select: { displayId: true, serviceType: true, applicant: { select: { fullName: true } } } },
+    },
+  });
+  if (!request) return { sent: false, skipped: true };
+
+  const employees = await prisma.user.findMany({
+    where: {
+      notaryOfficeId: request.officeId,
+      role: 'NOTARY',
+      isActive: true,
+      telegramId: { not: null },
+    },
+    select: { telegramId: true },
+  });
+
+  const text =
+    `⚖️ <b>Янги нотариал заявка</b>\n` +
+    `Заявка: ${request.displayId}\n` +
+    `Мурожаат: ${request.case?.displayId || '-'}\n` +
+    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
+    `Нотариал идора: ${request.office?.name || '-'}\n` +
+    `Хизмат: ${request.case?.serviceType || '-'}\n\n` +
+    `CRM орқали ҳужжатларни кўриб чиқинг.`;
+
+  return notifyMany(employees.map((e) => e.telegramId), text);
+}

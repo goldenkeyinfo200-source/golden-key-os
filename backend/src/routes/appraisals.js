@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
+import { notifyAppraisalAssignment } from '../services/notify.js';
 import {
   createSignedFileUrl,
   deleteStorageFile,
@@ -457,6 +458,10 @@ router.post(
         });
 
         return request;
+      });
+
+      notifyAppraisalAssignment(item.id).catch((error) => {
+        console.error('Баҳолашга Telegram хабар юборишда хато:', error);
       });
 
       return res.status(201).json({

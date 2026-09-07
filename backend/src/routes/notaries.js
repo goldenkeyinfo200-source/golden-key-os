@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
+import { notifyNotaryAssignment } from '../services/notify.js';
 import {
   createSignedFileUrl,
   deleteStorageFile,
@@ -269,6 +270,9 @@ router.post('/case/:caseId', allowRoles(...SEND_ROLES), async (req, res, next) =
       return item;
     });
     const item = await loadRequest(created.id);
+    notifyNotaryAssignment(created.id).catch((error) => {
+      console.error('Нотариусга Telegram хабар юборишда хато:', error);
+    });
     res.status(201).json({ message: `${created.displayId} нотариусга юборилди`, item: await serialize(item) });
   } catch (e) { next(e); }
 });
