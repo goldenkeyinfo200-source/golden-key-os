@@ -93,6 +93,15 @@ const PROPERTY_TYPE_OPTIONS = [
   ['COMMERCIAL', 'Нотурар жой'],
 ];
 
+const getServiceOptions = (allowedServiceTypes) => {
+  if (!Array.isArray(allowedServiceTypes) || allowedServiceTypes.length === 0) {
+    return SERVICE_OPTIONS;
+  }
+
+  const allowed = new Set(allowedServiceTypes);
+  return SERVICE_OPTIONS.filter(([value]) => allowed.has(value));
+};
+
 const serviceNames = Object.fromEntries(SERVICE_OPTIONS);
 const statusNames = Object.fromEntries(STATUS_OPTIONS);
 
@@ -189,7 +198,7 @@ function getStatusClass(status) {
   return 'status-new';
 }
 
-function NewCaseModal({ open, onClose, onCreated }) {
+function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -197,11 +206,20 @@ function NewCaseModal({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (open) {
-      setForm(INITIAL_FORM);
+      const options = getServiceOptions(allowedServiceTypes);
+      const defaultServiceType =
+        options.some(([value]) => value === INITIAL_FORM.serviceType)
+          ? INITIAL_FORM.serviceType
+          : options[0]?.[0] || 'REALTOR_SERVICE';
+
+      setForm({
+        ...INITIAL_FORM,
+        serviceType: defaultServiceType,
+      });
       setError('');
       setFieldErrors({});
     }
-  }, [open]);
+  }, [open, allowedServiceTypes]);
 
   useEffect(() => {
     if (!open) {
@@ -615,7 +633,7 @@ function NewCaseModal({ open, onClose, onCreated }) {
                   }
                   disabled={saving}
                 >
-                  {SERVICE_OPTIONS.map(([value, label]) => (
+                  {getServiceOptions(allowedServiceTypes).map(([value, label]) => (
                     <option value={value} key={value}>
                       {label}
                     </option>
@@ -987,6 +1005,7 @@ function EditCaseModal({
   item,
   onClose,
   onSaved,
+  allowedServiceTypes,
 }) {
   const [form, setForm] = useState(() => ({
     fullName: item?.applicant?.fullName || '',
@@ -1259,7 +1278,7 @@ function EditCaseModal({
                   }
                   disabled={saving}
                 >
-                  {SERVICE_OPTIONS.map(([value, label]) => (
+                  {getServiceOptions(allowedServiceTypes).map(([value, label]) => (
                     <option value={value} key={value}>
                       {label}
                     </option>
@@ -1383,6 +1402,32 @@ export function CasesPage({
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [editingCase, setEditingCase] = useState(null);
   const [deletingCaseId, setDeletingCaseId] = useState(null);
+  const [allowedServiceTypes, setAllowedServiceTypes] = useState(
+    SERVICE_OPTIONS.map(([value]) => value)
+  );
+  const [branchAccess, setBranchAccess] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    apiRequest('/cases/capabilities')
+      .then((data) => {
+        if (cancelled) return;
+
+        if (Array.isArray(data?.allowedServiceTypes) && data.allowedServiceTypes.length) {
+          setAllowedServiceTypes(data.allowedServiceTypes);
+        }
+        setBranchAccess(data?.branch || null);
+      })
+      .catch((error) => {
+        console.error('Филиал хизмат рухсатларини олишда хато:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   useEffect(() => {
     if (openCreateSignal > 0) {
@@ -1605,7 +1650,7 @@ export function CasesPage({
           >
             <option value="">Барча хизматлар</option>
 
-            {SERVICE_OPTIONS.map(([value, label]) => (
+            {getServiceOptions(allowedServiceTypes).map(([value, label]) => (
               <option value={value} key={value}>
                 {label}
               </option>
@@ -1921,6 +1966,7 @@ export function CasesPage({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={handleCreated}
+        allowedServiceTypes={allowedServiceTypes}
       />
 
       {editingCase ? (
@@ -1928,6 +1974,7 @@ export function CasesPage({
           item={editingCase}
           onClose={() => setEditingCase(null)}
           onSaved={handleCaseChanged}
+          allowedServiceTypes={allowedServiceTypes}
         />
       ) : null}
     </>

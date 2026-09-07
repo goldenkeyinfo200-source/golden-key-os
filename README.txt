@@ -1,16 +1,27 @@
-Golden Key OS — Finance receipt update
+GOLDEN KEY OS — REALTOR_ONLY филиал
 
-1) crm/src/pages/FinancePage.jsx
-   Replace with included FinancePage.jsx.
+Алмаштирилади:
+1. backend/prisma/schema.prisma
+2. backend/src/routes/cases.js
+3. crm/src/pages/CasesPage.jsx
 
-2) backend/src/routes/finance.js
-   Included unchanged for reference/current backend compatibility.
+Янги филиал турлари:
+- MAIN — барча хизматлар
+- REALTOR_ONLY — фақат:
+  REALTOR_SERVICE
+  SALE_PURCHASE
+  CADASTRE_SERVICE
 
-What was added:
-- "Квитанция" button for every payment in "Тўловлар тарихи".
-- Opens an 80mm thermal-printer-ready receipt.
-- Includes client, case ID, branch, service, payment date/method/reference and amount.
-- Works with normal A4/A5 printers too through the browser print dialog.
-- No thermal printer connection is required yet.
+Ўрнатиш:
+1. Файлларни жойига алмаштиринг.
+2. Backend папкасида:
+   npx prisma format
+   npx prisma generate
+   npx prisma db push
+3. Backend deploy.
+4. Frontend deploy.
 
-After replacing FinancePage.jsx, commit/push and deploy the CRM frontend.
+Эслатма:
+- Мавжуд филиалларнинг branchType қиймати автоматик MAIN бўлади.
+- REALTOR_ONLY қилиш учун филиални база/API орқали REALTOR_ONLY га ўзгартириш керак.
+- Frontend хизматларни яширади, backend эса тақиқланган хизматни API орқали ҳам қабул қилмайди.

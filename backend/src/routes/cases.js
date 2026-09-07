@@ -36,6 +36,43 @@ const serviceTypes = [
   'OTHER',
 ];
 
+
+const REALTOR_ONLY_SERVICE_TYPES = [
+  'REALTOR_SERVICE',
+  'SALE_PURCHASE',
+  'CADASTRE_SERVICE',
+];
+
+const getAllowedServicesForBranch = (branch) =>
+  branch?.branchType === 'REALTOR_ONLY'
+    ? REALTOR_ONLY_SERVICE_TYPES
+    : serviceTypes;
+
+const loadBranchForAccess = async (branchId) => {
+  if (!branchId) return null;
+
+  return prisma.branch.findUnique({
+    where: { id: branchId },
+    select: {
+      id: true,
+      name: true,
+      branchType: true,
+    },
+  });
+};
+
+const ensureServiceAllowedForBranch = (branch, serviceType) => {
+  const allowed = getAllowedServicesForBranch(branch);
+
+  if (!allowed.includes(serviceType)) {
+    const error = new Error(
+      'Ушбу филиалда ипотека, микроқарз ва бошқа молиявий хизматлар ёпиқ. Фақат риэлторлик хизматларига рухсат берилган.'
+    );
+    error.status = 403;
+    throw error;
+  }
+};
+
 const caseStatuses = [
   'NEW',
   'DATA_COLLECTION',
@@ -510,6 +547,7 @@ const caseInclude = {
       id: true,
       name: true,
       city: true,
+      branchType: true,
     },
   },
 
@@ -905,6 +943,7 @@ router.get('/', async (req, res, next) => {
               id: true,
               name: true,
               city: true,
+              branchType: true,
             },
           },
 
@@ -1267,6 +1306,26 @@ router.get(
   }
 );
 
+
+/**
+ * GET /api/cases/capabilities
+ * Жорий ходим филиали учун рухсат этилган хизматлар.
+ */
+router.get('/capabilities', async (req, res, next) => {
+  try {
+    const branch = await loadBranchForAccess(req.user.branchId || null);
+
+    return res.json({
+      branch: branch
+        ? { id: branch.id, name: branch.name, branchType: branch.branchType }
+        : null,
+      allowedServiceTypes: getAllowedServicesForBranch(branch),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /**
  * GET /api/cases/:id
  */
@@ -1487,6 +1546,16 @@ router.post(
         req.user.role === 'RECEPTION_MANAGER'
           ? req.user.branchId
           : data.branchId || req.user.branchId || null;
+
+      const targetBranch = await loadBranchForAccess(branchId);
+
+      if (branchId && !targetBranch) {
+        return res.status(404).json({
+          error: 'Филиал топилмади',
+        });
+      }
+
+      ensureServiceAllowedForBranch(targetBranch, data.serviceType);
 
       const result = await prisma.$transaction(
         async (tx) => {
@@ -1797,6 +1866,9 @@ router.patch(
       }
 
       const data = parsed.data;
+
+      const caseBranch = await loadBranchForAccess(existingCase.branchId);
+      ensureServiceAllowedForBranch(caseBranch, data.serviceType);
 
       const requestedAmount = parseAmount(data.requestedAmount);
 
