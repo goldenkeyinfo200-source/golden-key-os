@@ -1,27 +1,21 @@
-GOLDEN KEY OS — REALTOR_ONLY филиал
+Golden Key OS — филиал турини CRM орқали бошқариш
 
-Алмаштирилади:
-1. backend/prisma/schema.prisma
-2. backend/src/routes/cases.js
-3. crm/src/pages/CasesPage.jsx
+Алмаштиринг:
+backend/src/routes/branches.js
+crm/src/pages/BranchesPage.jsx
 
-Янги филиал турлари:
-- MAIN — барча хизматлар
-- REALTOR_ONLY — фақат:
-  REALTOR_SERVICE
-  SALE_PURCHASE
-  CADASTRE_SERVICE
+Нима қўшилди:
+- Янги филиал/таҳрирлаш формасида «Филиал тури»
+- MAIN = Асосий филиал — барча хизматлар
+- REALTOR_ONLY = Риэлторлик филиали — фақат риэлторлик хизматлари
+- Филиал карточкасида тури кўринади
+- Backend branchType ни create/update да қабул қилади ва GET рўйхатда қайтаради
 
-Ўрнатиш:
-1. Файлларни жойига алмаштиринг.
-2. Backend папкасида:
-   npx prisma format
-   npx prisma generate
-   npx prisma db push
-3. Backend deploy.
-4. Frontend deploy.
+schema.prisma аввалги босқичда янгилангани учун бу ZIPда йўқ.
+Prisma db push қайта қилиш шарт эмас.
 
-Эслатма:
-- Мавжуд филиалларнинг branchType қиймати автоматик MAIN бўлади.
-- REALTOR_ONLY қилиш учун филиални база/API орқали REALTOR_ONLY га ўзгартириш керак.
-- Frontend хизматларни яширади, backend эса тақиқланган хизматни API орқали ҳам қабул қилмайди.
+Тартиб:
+1) Икки файлни алмаштиринг
+2) Git commit + push
+3) backend ва crm deploy тугашини кутинг
+4) Филиаллар → Таҳрирлаш → Филиал тури → Риэлторлик филиали

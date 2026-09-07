@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   city: '',
   address: '',
   phone: '',
+  branchType: 'MAIN',
 };
 
 const ROLE_LABELS = {
@@ -90,6 +91,7 @@ export function BranchesPage({ user }) {
       city: branch.city || '',
       address: branch.address || '',
       phone: branch.phone || '',
+      branchType: branch.branchType || 'MAIN',
     });
     setFormError('');
     setModalOpen(true);
@@ -120,6 +122,7 @@ export function BranchesPage({ user }) {
         city: form.city.trim(),
         address: form.address.trim(),
         phone: form.phone.trim(),
+        branchType: form.branchType || 'MAIN',
       };
 
       if (editing) {
@@ -368,6 +371,22 @@ export function BranchesPage({ user }) {
                     <span style={{ color: '#858b94', fontSize: 11 }}>
                       {branch.city || '—'}
                     </span>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        width: 'fit-content',
+                        padding: '3px 7px',
+                        borderRadius: 999,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        background: branch.branchType === 'REALTOR_ONLY' ? '#fff3cd' : '#eef6ff',
+                        color: branch.branchType === 'REALTOR_ONLY' ? '#8a5a00' : '#245b8a',
+                      }}
+                    >
+                      {branch.branchType === 'REALTOR_ONLY'
+                        ? 'Фақат риэлторлик'
+                        : 'Асосий филиал'}
+                    </span>
                   </div>
                 </div>
 
@@ -500,6 +519,23 @@ export function BranchesPage({ user }) {
                       placeholder="Масалан: Қўқон"
                       disabled={saving}
                     />
+                  </label>
+
+                  <label className="field field-wide">
+                    <span>Филиал тури *</span>
+                    <select
+                      value={form.branchType}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          branchType: event.target.value,
+                        }))
+                      }
+                      disabled={saving}
+                    >
+                      <option value="MAIN">Асосий филиал — барча хизматлар</option>
+                      <option value="REALTOR_ONLY">Риэлторлик филиали — фақат риэлторлик хизматлари</option>
+                    </select>
                   </label>
 
                   <label className="field field-wide">

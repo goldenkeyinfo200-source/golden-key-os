@@ -36,6 +36,10 @@ const branchSchema = z.object({
     .max(30, 'Телефон рақами жуда узун')
     .optional()
     .or(z.literal('')),
+
+  branchType: z
+    .enum(['MAIN', 'REALTOR_ONLY'])
+    .default('MAIN'),
 });
 
 
@@ -269,6 +273,7 @@ router.get(
         city: branch.city,
         address: branch.address,
         phone: branch.phone,
+        branchType: branch.branchType || 'MAIN',
 
         employeesCount: branch._count.users,
         casesCount: branch._count.cases,
@@ -441,6 +446,8 @@ router.post(
           phone: normalizeOptional(
             parsed.data.phone
           ),
+
+          branchType: parsed.data.branchType || 'MAIN',
         },
 
         include: {
@@ -573,6 +580,10 @@ router.patch(
           normalizeOptional(
             parsed.data.phone
           );
+      }
+
+      if (parsed.data.branchType !== undefined) {
+        data.branchType = parsed.data.branchType;
       }
 
       const item =
