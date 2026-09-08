@@ -1064,14 +1064,14 @@ function drawCover(
       .fontSize(10)
       .fillColor('#222222')
       .text(
-        '«KAFOLAT» Суғурта компанияси АЖ',
+        '«KAFOLAT sug‘urta kompaniyasi» АЖ',
         {
           width: 365,
           align: 'center',
         }
       )
       .text(
-        'Суғурта полиси № 0077162 · 29.08.2025',
+        'Электрон суғурта полиси EKFD № 0180321 · 08.09.2026–07.09.2027',
         {
           width: 365,
           align: 'center',
