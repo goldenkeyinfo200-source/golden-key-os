@@ -15,6 +15,8 @@ import { createSignedFileUrl } from '../services/supabaseStorage.js';
 
 const router = Router();
 
+const CURRENT_INSURANCE_POLICY_MARKER = 'EKFD № 0180321';
+
 const MANAGE_ROLES = [
   'SUPER_ADMIN',
   'DIRECTOR',
@@ -125,7 +127,7 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
   }
 
   if (caseItem.serviceType === 'REALTOR_SERVICE') {
-    const marker = 'data-gk-template="realtor-service-v1"';
+    const marker = 'data-gk-template="realtor-service-v3"';
 
     const current = await tx.contractTemplate.findFirst({
       where: {
@@ -137,7 +139,10 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
       },
     });
 
-    if (current?.htmlBody?.includes(marker)) {
+    if (
+      current?.htmlBody?.includes(marker) &&
+      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER)
+    ) {
       return current;
     }
 
@@ -177,7 +182,10 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
       },
     });
 
-    if (current?.htmlBody?.includes(marker)) {
+    if (
+      current?.htmlBody?.includes(marker) &&
+      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER)
+    ) {
       return current;
     }
 
@@ -204,7 +212,7 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     });
   }
 
-  let template = await tx.contractTemplate.findFirst({
+  const current = await tx.contractTemplate.findFirst({
     where: {
       serviceType: caseItem.serviceType,
       isActive: true,
@@ -214,19 +222,31 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     },
   });
 
-  if (!template) {
-    template = await tx.contractTemplate.create({
-      data: {
-        name: `${caseItem.serviceType} — асосий шаблон`,
-        serviceType: caseItem.serviceType,
-        version: 1,
-        htmlBody: defaultContractHtml(),
-        isActive: true,
-      },
-    });
+  if (current?.htmlBody?.includes(CURRENT_INSURANCE_POLICY_MARKER)) {
+    return current;
   }
 
-  return template;
+  const latest = await tx.contractTemplate.findFirst({
+    where: {
+      serviceType: caseItem.serviceType,
+    },
+    orderBy: {
+      version: 'desc',
+    },
+    select: {
+      version: true,
+    },
+  });
+
+  return tx.contractTemplate.create({
+    data: {
+      name: `${caseItem.serviceType} — асосий шаблон`,
+      serviceType: caseItem.serviceType,
+      version: (latest?.version || 0) + 1,
+      htmlBody: defaultContractHtml(),
+      isActive: true,
+    },
+  });
 }
 
 router.use(auth);
