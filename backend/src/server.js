@@ -88,7 +88,16 @@ app.use(
   })
 );
 
-app.use(cors(corsOptions));
+// Public QR act confirmation is a same-backend HTML form.
+// Some browsers can submit it with Origin: "null", so CORS is not applied
+// to /api/public-acts. All other API routes keep the existing CORS policy.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/public-acts/')) {
+    return next();
+  }
+
+  return cors(corsOptions)(req, res, next);
+});
 
 app.use(
   express.json({
