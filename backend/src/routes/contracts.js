@@ -12,6 +12,7 @@ import {
   salePurchaseContractHtml,
 } from '../services/contract-template.js';
 import { createSignedFileUrl } from '../services/supabaseStorage.js';
+import { sendContractSigningLink } from '../services/notify.js';
 
 const router = Router();
 
@@ -34,6 +35,11 @@ const createSchema = z.object({
 const qrSchema = z.object({
   expiresInMinutes: z.coerce.number().int().min(2).max(60).default(15),
   kioskId: z.string().trim().min(1).optional().nullable(),
+  signerRole: z.enum(['CLIENT', 'SELLER', 'BUYER']).optional().default('CLIENT'),
+});
+
+const sendSignLinkSchema = z.object({
+  expiresInMinutes: z.coerce.number().int().min(2).max(60).default(60),
   signerRole: z.enum(['CLIENT', 'SELLER', 'BUYER']).optional().default('CLIENT'),
 });
 
@@ -547,6 +553,190 @@ router.post(
       return res.status(201).json({
         message: 'Шартнома яратилди',
         item,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+router.post(
+  '/:contractId/send-sign-link',
+  allowRoles(...MANAGE_ROLES),
+  async (req, res, next) => {
+    try {
+      const parsed = sendSignLinkSchema.safeParse(req.body || {});
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Тасдиқлаш ҳаволаси маълумотлари нотўғри',
+        });
+      }
+
+      const contract = await prisma.contract.findUnique({
+        where: {
+          id: req.params.contractId,
+        },
+        include: {
+          case: {
+            select: {
+              id: true,
+              displayId: true,
+              serviceType: true,
+              sellerTelegramId: true,
+              applicant: {
+                select: {
+                  telegramId: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!contract) {
+        return res.status(404).json({
+          error: 'Шартнома топилмади',
+        });
+      }
+
+      if (contract.status === 'SIGNED') {
+        return res.status(409).json({
+          error: 'Шартнома аллақачон тасдиқланган',
+        });
+      }
+
+      if (contract.status === 'CANCELLED') {
+        return res.status(409).json({
+          error: 'Бекор қилинган шартнома учун ҳавола юбориб бўлмайди',
+        });
+      }
+
+      const isSalePurchase =
+        contract.case?.serviceType === 'SALE_PURCHASE';
+
+      const signerRole = isSalePurchase
+        ? parsed.data.signerRole === 'SELLER'
+          ? 'SELLER'
+          : 'BUYER'
+        : 'CLIENT';
+
+      const chatId =
+        signerRole === 'SELLER'
+          ? contract.case?.sellerTelegramId
+          : contract.case?.applicant?.telegramId;
+
+      if (!chatId) {
+        return res.status(409).json({
+          error:
+            signerRole === 'SELLER'
+              ? 'Сотувчининг Telegram ID рақами уланмаган'
+              : 'Мижознинг Telegram ID рақами уланмаган. Мижоз аввал Telegram ботга /start босиб, телефон рақамини боғлаши керак.',
+        });
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = hashToken(token);
+      const expiresAt = new Date(
+        Date.now() + parsed.data.expiresInMinutes * 60 * 1000
+      );
+
+      const invitation = await prisma.$transaction(async (tx) => {
+        await tx.invitation.deleteMany({
+          where: {
+            contractId: contract.id,
+            signerRole,
+            usedAt: null,
+          },
+        });
+
+        const created = await tx.invitation.create({
+          data: {
+            tokenHash,
+            signerRole,
+            caseId: contract.caseId,
+            contractId: contract.id,
+            expiresAt,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            entityType: 'Contract',
+            entityId: contract.id,
+            action: 'CONTRACT_SIGN_LINK_CREATED',
+            metadata: {
+              caseId: contract.caseId,
+              invitationId: created.id,
+              signerRole,
+              expiresAt: expiresAt.toISOString(),
+              channel: 'TELEGRAM',
+            },
+          },
+        });
+
+        return created;
+      });
+
+      const publicBaseUrl =
+        process.env.PUBLIC_SIGN_URL?.replace(/\/+$/, '') ||
+        process.env.CRM_PUBLIC_URL?.replace(/\/+$/, '') ||
+        'https://crm-production-eced.up.railway.app/sign';
+
+      const signUrl = `${publicBaseUrl}/${token}`;
+
+      const signerLabel =
+        signerRole === 'SELLER'
+          ? 'Сотувчи'
+          : signerRole === 'BUYER'
+            ? 'Харидор'
+            : 'Мижоз';
+
+      const telegram = await sendContractSigningLink({
+        chatId,
+        contractDisplayId: contract.displayId,
+        caseDisplayId: contract.case?.displayId || null,
+        signUrl,
+        expiresAt,
+        signerLabel,
+      });
+
+      if (!telegram?.sent) {
+        return res.status(502).json({
+          error:
+            telegram?.reason ||
+            telegram?.error ||
+            'Telegram орқали ҳаволани юбориб бўлмади',
+          invitationId: invitation.id,
+        });
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.id,
+          entityType: 'Contract',
+          entityId: contract.id,
+          action: 'CONTRACT_SIGN_LINK_SENT_TELEGRAM',
+          metadata: {
+            caseId: contract.caseId,
+            invitationId: invitation.id,
+            signerRole,
+            telegramMessageId: telegram.messageId || null,
+          },
+        },
+      });
+
+      return res.json({
+        message: 'Шартномани тасдиқлаш ҳаволаси Telegram орқали юборилди',
+        contractId: contract.id,
+        contractDisplayId: contract.displayId,
+        signerRole,
+        signerLabel,
+        expiresAt,
+        sent: true,
       });
     } catch (error) {
       next(error);

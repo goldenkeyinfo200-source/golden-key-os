@@ -13,7 +13,7 @@ function getBotToken() {
 /**
  * Битта фойдаланувчига Telegram орқали хабар юборади.
  */
-export async function sendTelegramMessage(chatId, text) {
+export async function sendTelegramMessage(chatId, text, options = {}) {
   const botToken = getBotToken();
 
   if (!botToken || !chatId) {
@@ -30,6 +30,12 @@ export async function sendTelegramMessage(chatId, text) {
           chat_id: String(chatId),
           text,
           parse_mode: 'HTML',
+          ...(options.replyMarkup
+            ? { reply_markup: options.replyMarkup }
+            : {}),
+          ...(options.disableWebPagePreview
+            ? { disable_web_page_preview: true }
+            : {}),
         }),
       }
     );
@@ -46,6 +52,58 @@ export async function sendTelegramMessage(chatId, text) {
     console.error('Telegram хабар юборишда хато:', error.message);
     return { sent: false, error: error.message };
   }
+}
+
+
+export async function sendContractSigningLink({
+  chatId,
+  contractDisplayId,
+  caseDisplayId,
+  signUrl,
+  expiresAt,
+  signerLabel = 'Мижоз',
+}) {
+  if (!chatId) {
+    return {
+      sent: false,
+      skipped: true,
+      reason: 'Мижознинг Telegram ID рақами уланмаган',
+    };
+  }
+
+  const expiresText = expiresAt
+    ? new Intl.DateTimeFormat('uz-UZ', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Tashkent',
+      }).format(new Date(expiresAt))
+    : '—';
+
+  const text =
+    `📄 <b>Шартномани кўриш ва тасдиқлаш</b>\n\n` +
+    `Шартнома: <b>${contractDisplayId}</b>\n` +
+    (caseDisplayId ? `Мурожаат: ${caseDisplayId}\n` : '') +
+    `Тасдиқловчи: ${signerLabel}\n` +
+    `Ҳавола амал қилади: ${expiresText} гача\n\n` +
+    `Қуйидаги тугмани босиб шартнома матни билан танишинг, ` +
+    `қўл имзосини киритинг ва тасдиқланг.`;
+
+  return sendTelegramMessage(chatId, text, {
+    disableWebPagePreview: true,
+    replyMarkup: {
+      inline_keyboard: [
+        [
+          {
+            text: '✍️ Шартномани кўриш ва тасдиқлаш',
+            url: signUrl,
+          },
+        ],
+      ],
+    },
+  });
 }
 
 async function notifyMany(chatIds, text) {
@@ -251,71 +309,4 @@ export async function notifyBankOfferSubmitted(offerId) {
     (offer.approvedAmount ? `\nСумма: ${offer.approvedAmount}` : '');
 
   return notifyMany(recipients, text);
-}
-
-
-export async function notifyAppraisalAssignment(requestId) {
-  const request = await prisma.appraisalRequest.findUnique({
-    where: { id: requestId },
-    select: {
-      displayId: true, companyId: true,
-      company: { select: { name: true } },
-      case: { select: { displayId: true, serviceType: true, applicant: { select: { fullName: true } } } },
-    },
-  });
-  if (!request) return { sent: false, skipped: true };
-
-  const employees = await prisma.user.findMany({
-    where: {
-      appraisalCompanyId: request.companyId,
-      role: 'APPRAISAL_EMPLOYEE',
-      isActive: true,
-      telegramId: { not: null },
-    },
-    select: { telegramId: true },
-  });
-
-  const text =
-    `🏠 <b>Янги баҳолаш заявкаси</b>\n` +
-    `Заявка: ${request.displayId}\n` +
-    `Мурожаат: ${request.case?.displayId || '-'}\n` +
-    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
-    `Компания: ${request.company?.name || '-'}\n` +
-    `Хизмат: ${request.case?.serviceType || '-'}\n\n` +
-    `CRM орқали заявкани кўриб чиқинг.`;
-
-  return notifyMany(employees.map((e) => e.telegramId), text);
-}
-
-export async function notifyNotaryAssignment(requestId) {
-  const request = await prisma.notaryRequest.findUnique({
-    where: { id: requestId },
-    select: {
-      displayId: true, officeId: true,
-      office: { select: { name: true } },
-      case: { select: { displayId: true, serviceType: true, applicant: { select: { fullName: true } } } },
-    },
-  });
-  if (!request) return { sent: false, skipped: true };
-
-  const employees = await prisma.user.findMany({
-    where: {
-      notaryOfficeId: request.officeId,
-      role: 'NOTARY',
-      isActive: true,
-      telegramId: { not: null },
-    },
-    select: { telegramId: true },
-  });
-
-  const text =
-    `⚖️ <b>Янги нотариал заявка</b>\n` +
-    `Заявка: ${request.displayId}\n` +
-    `Мурожаат: ${request.case?.displayId || '-'}\n` +
-    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
-    `Нотариал идора: ${request.office?.name || '-'}\n` +
-    `Хизмат: ${request.case?.serviceType || '-'}\n\n` +
-    `CRM орқали ҳужжатларни кўриб чиқинг.`;
-
-  return notifyMany(employees.map((e) => e.telegramId), text);
 }
