@@ -1697,7 +1697,12 @@ router.post(
  */
 router.patch(
   '/:id/claim',
-  allowRoles('RECEPTION_MANAGER'),
+  allowRoles(
+    'SUPER_ADMIN',
+    'DIRECTOR',
+    'BRANCH_MANAGER',
+    'RECEPTION_MANAGER'
+  ),
   async (req, res, next) => {
     try {
       const existingCase = await prisma.case.findUnique({
