@@ -1043,10 +1043,49 @@ function EditCaseModal({
   }, [saving, onClose]);
 
   const update = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm((current) => {
+      if (field === 'serviceType') {
+        const next = {
+          ...current,
+          serviceType: value,
+        };
+
+        const isMortgageService = [
+          'PRIMARY_MORTGAGE',
+          'SECONDARY_MORTGAGE',
+          'MICROLOAN',
+        ].includes(value);
+
+        const usesRequestedAmount = [
+          'PRIMARY_MORTGAGE',
+          'SECONDARY_MORTGAGE',
+          'MICROLOAN',
+          'REALTOR_SERVICE',
+          'SALE_PURCHASE',
+          'INVESTOR_PARTNERSHIP',
+        ].includes(value);
+
+        const usesServiceFee = [
+          'PRIMARY_MORTGAGE',
+          'SECONDARY_MORTGAGE',
+          'MICROLOAN',
+          'REALTOR_SERVICE',
+          'SALE_PURCHASE',
+          'CADASTRE_SERVICE',
+        ].includes(value);
+
+        if (!isMortgageService) next.bankName = '';
+        if (!usesRequestedAmount) next.requestedAmount = '';
+        if (!usesServiceFee) next.serviceFee = '';
+
+        return next;
+      }
+
+      return {
+        ...current,
+        [field]: value,
+      };
+    });
 
     setFieldErrors((current) => ({
       ...current,
@@ -1063,6 +1102,30 @@ function EditCaseModal({
     setFieldErrors({});
 
     try {
+      const isMortgageService = [
+        'PRIMARY_MORTGAGE',
+        'SECONDARY_MORTGAGE',
+        'MICROLOAN',
+      ].includes(form.serviceType);
+
+      const usesRequestedAmount = [
+        'PRIMARY_MORTGAGE',
+        'SECONDARY_MORTGAGE',
+        'MICROLOAN',
+        'REALTOR_SERVICE',
+        'SALE_PURCHASE',
+        'INVESTOR_PARTNERSHIP',
+      ].includes(form.serviceType);
+
+      const usesServiceFee = [
+        'PRIMARY_MORTGAGE',
+        'SECONDARY_MORTGAGE',
+        'MICROLOAN',
+        'REALTOR_SERVICE',
+        'SALE_PURCHASE',
+        'CADASTRE_SERVICE',
+      ].includes(form.serviceType);
+
       const data = await apiRequest(`/cases/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -1074,13 +1137,15 @@ function EditCaseModal({
           birthDate: form.birthDate || '',
           address: form.address.trim(),
           serviceType: form.serviceType,
-          requestedAmount: form.requestedAmount
-            ? form.requestedAmount.replace(/\s/g, '')
-            : null,
-          serviceFee: form.serviceFee
-            ? form.serviceFee.replace(/\s/g, '')
-            : null,
-          bankName: form.bankName.trim(),
+          requestedAmount:
+            usesRequestedAmount && form.requestedAmount
+              ? form.requestedAmount.replace(/\s/g, '')
+              : null,
+          serviceFee:
+            usesServiceFee && form.serviceFee
+              ? form.serviceFee.replace(/\s/g, '')
+              : null,
+          bankName: isMortgageService ? form.bankName.trim() : '',
           nextAction: form.nextAction.trim(),
         }),
       });
@@ -1264,7 +1329,21 @@ function EditCaseModal({
             <div className="form-section-title">
               <strong>Мурожаат маълумотлари</strong>
               <span>
-                Хизмат тури, сумма ва кейинги ҳаракат
+                {[
+                  'PRIMARY_MORTGAGE',
+                  'SECONDARY_MORTGAGE',
+                  'MICROLOAN',
+                ].includes(form.serviceType)
+                  ? 'Хизмат тури, кредит суммаси, банк ва кейинги ҳаракат'
+                  : form.serviceType === 'REALTOR_SERVICE'
+                    ? 'Риэлторлик хизмати, объект нархи ва хизмат ҳақи'
+                    : form.serviceType === 'SALE_PURCHASE'
+                      ? 'Олди-сотди нархи ва риэлторлик хизмати ҳақи'
+                      : form.serviceType === 'CADASTRE_SERVICE'
+                        ? 'Кадастр хизмати ҳақи ва кейинги ҳаракат'
+                        : form.serviceType === 'INVESTOR_PARTNERSHIP'
+                          ? 'Инвестиция суммаси ва кейинги ҳаракат'
+                          : 'Хизмат тури ва кейинги ҳаракат'}
               </span>
             </div>
 
@@ -1289,46 +1368,148 @@ function EditCaseModal({
                 ) : null}
               </label>
 
-              <label className="field">
-                <span>Сумма</span>
-                <input
-                  value={form.requestedAmount}
-                  onChange={(event) =>
-                    update(
-                      'requestedAmount',
-                      event.target.value.replace(/[^\d\s]/g, '')
-                    )
-                  }
-                  inputMode="numeric"
-                  disabled={saving}
-                />
-              </label>
+              {[
+                'PRIMARY_MORTGAGE',
+                'SECONDARY_MORTGAGE',
+                'MICROLOAN',
+              ].includes(form.serviceType) ? (
+                <>
+                  <label className="field">
+                    <span>Сўралаётган сумма</span>
+                    <input
+                      value={form.requestedAmount}
+                      onChange={(event) =>
+                        update(
+                          'requestedAmount',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
 
-              <label className="field">
-                <span>Хизмат ҳақи</span>
-                <input
-                  value={form.serviceFee}
-                  onChange={(event) =>
-                    update(
-                      'serviceFee',
-                      event.target.value.replace(/[^\d\s]/g, '')
-                    )
-                  }
-                  inputMode="numeric"
-                  disabled={saving}
-                />
-              </label>
+                  <label className="field">
+                    <span>Хизмат ҳақи</span>
+                    <input
+                      value={form.serviceFee}
+                      onChange={(event) =>
+                        update(
+                          'serviceFee',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
 
-              <label className="field">
-                <span>Танланган банк</span>
-                <input
-                  value={form.bankName}
-                  onChange={(event) =>
-                    update('bankName', event.target.value)
-                  }
-                  disabled={saving}
-                />
-              </label>
+                  <label className="field">
+                    <span>Танланган банк</span>
+                    <input
+                      value={form.bankName}
+                      onChange={(event) =>
+                        update('bankName', event.target.value)
+                      }
+                      disabled={saving}
+                    />
+                  </label>
+                </>
+              ) : form.serviceType === 'REALTOR_SERVICE' ? (
+                <>
+                  <label className="field">
+                    <span>Объект нархи</span>
+                    <input
+                      value={form.requestedAmount}
+                      onChange={(event) =>
+                        update(
+                          'requestedAmount',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Риэлторлик хизмати ҳақи</span>
+                    <input
+                      value={form.serviceFee}
+                      onChange={(event) =>
+                        update(
+                          'serviceFee',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
+                </>
+              ) : form.serviceType === 'SALE_PURCHASE' ? (
+                <>
+                  <label className="field">
+                    <span>Олди-сотди нархи</span>
+                    <input
+                      value={form.requestedAmount}
+                      onChange={(event) =>
+                        update(
+                          'requestedAmount',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Риэлторлик хизмати ҳақи</span>
+                    <input
+                      value={form.serviceFee}
+                      onChange={(event) =>
+                        update(
+                          'serviceFee',
+                          event.target.value.replace(/[^\d\s]/g, '')
+                        )
+                      }
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                  </label>
+                </>
+              ) : form.serviceType === 'CADASTRE_SERVICE' ? (
+                <label className="field">
+                  <span>Хизмат ҳақи</span>
+                  <input
+                    value={form.serviceFee}
+                    onChange={(event) =>
+                      update(
+                        'serviceFee',
+                        event.target.value.replace(/[^\d\s]/g, '')
+                      )
+                    }
+                    inputMode="numeric"
+                    disabled={saving}
+                  />
+                </label>
+              ) : form.serviceType === 'INVESTOR_PARTNERSHIP' ? (
+                <label className="field">
+                  <span>Инвестиция суммаси</span>
+                  <input
+                    value={form.requestedAmount}
+                    onChange={(event) =>
+                      update(
+                        'requestedAmount',
+                        event.target.value.replace(/[^\d\s]/g, '')
+                      )
+                    }
+                    inputMode="numeric"
+                    disabled={saving}
+                  />
+                </label>
+              ) : null}
 
               <label className="field field-wide">
                 <span>Кейинги ҳаракат</span>
