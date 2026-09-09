@@ -58,10 +58,21 @@ const SERVICE_TYPE_OPTIONS = [
   ['OTHER', '📋 Бошқа'],
 ];
 
+const ENTRY_MENU = Markup.keyboard([
+  ['👤 Мижоз сифатида кириш'],
+  ['💼 Ходим сифатида кириш'],
+]).resize();
+
 const MAIN_MENU = Markup.keyboard([
   ['🆕 Янги мурожаат'],
   ['📄 Аризам ҳолати'],
   ['📱 Телефонни юбориш'],
+  ['↩️ Кириш турини алмаштириш'],
+]).resize();
+
+const STAFF_LINK_MENU = Markup.keyboard([
+  ['📱 Телефонни юбориш'],
+  ['↩️ Кириш турини алмаштириш'],
 ]).resize();
 
 
@@ -198,12 +209,33 @@ bot.start(async (ctx) => {
   attributions.set(ctx.from.id, attribution);
 
   await ctx.reply(
-    `Ассалому алайкум, ${ctx.from.first_name}!\n\nGolden Key Info рақамли хизматлар ботига хуш келибсиз.\n\n` +
-      `🆕 — янги мурожаат (ипотека/микрокредит) қолдириш\n` +
-      `📄 — мавжуд аризангиз ҳолатини кўриш\n` +
-      `📱 — телефонингизни тизимга боғлаш`,
+    `Ассалому алайкум, ${ctx.from.first_name}!\n\nGolden Key Info рақамли хизматлар ботига хуш келибсиз.\n\nКириш турини танланг:`,
+    ENTRY_MENU
+  );
+});
+
+bot.hears('👤 Мижоз сифатида кириш', async (ctx) => {
+  clearSession(ctx.from.id);
+  await ctx.reply(
+    '👤 Мижоз режими танланди. Янги мурожаат қолдиришингиз ёки мавжуд аризангиз ҳолатини кўришингиз мумкин.',
     MAIN_MENU
   );
+});
+
+bot.hears('💼 Ходим сифатида кириш', async (ctx) => {
+  setSession(ctx.from.id, { step: 'staff_link', data: {} });
+  await ctx.reply(
+    '💼 Ходим режими танланди. CRMдаги ходим аккаунтингизни боғлаш учун телефон рақамингизни юборинг.',
+    Markup.keyboard([
+      [Markup.button.contactRequest('📲 Телефонни юбориш')],
+      ['↩️ Кириш турини алмаштириш'],
+    ]).resize()
+  );
+});
+
+bot.hears('↩️ Кириш турини алмаштириш', async (ctx) => {
+  clearSession(ctx.from.id);
+  await ctx.reply('Кириш турини танланг:', ENTRY_MENU);
 });
 
 /* =========================================================
@@ -278,7 +310,8 @@ bot.on('contact', async (ctx) => {
     return;
   }
 
-  // Оддий боғлаш (мавжуд ходим/мижоз учун — статус кўриш, хабар олиш)
+  // Оддий боғлаш ёки ходим режимида аккаунтни боғлаш
+  const isStaffLink = session?.step === 'staff_link';
   clearSession(telegramId);
 
   try {
@@ -286,6 +319,14 @@ bot.on('contact', async (ctx) => {
       method: 'POST',
       body: JSON.stringify({ phone, telegramId }),
     });
+
+    if (isStaffLink && data.type === 'client') {
+      await ctx.reply(
+        'Бу рақам CRMда ходим сифатида топилмади. Ходим профилига бириктирилган телефон рақамини юборинг.',
+        STAFF_LINK_MENU
+      );
+      return;
+    }
 
     let roleText = 'мижоз';
     if (data.type === 'bank_employee') roleText = 'банк ходими';
