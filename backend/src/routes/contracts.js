@@ -590,6 +590,12 @@ router.post(
                   fullName: true,
                 },
               },
+              receptionManager: {
+                select: {
+                  telegramId: true,
+                  fullName: true,
+                },
+              },
             },
           },
         },
@@ -622,14 +628,14 @@ router.post(
           : 'BUYER'
         : 'CLIENT';
 
-      // Case моделида sellerTelegramId мавжуд эмас.
-      // Telegram боғланиши мавжуд applicant (Client) орқали олинади.
-      const chatId = contract.case?.applicant?.telegramId;
+      // Тасдиқлаш ҳаволаси аввал қабул операторига юборилади.
+      // Оператор хабарни мижозга Telegram орқали forward қилади.
+      const chatId = contract.case?.receptionManager?.telegramId;
 
       if (!chatId) {
         return res.status(409).json({
           error:
-            'Мижознинг Telegram ID рақами уланмаган. Мижоз аввал Telegram ботга /start босиб, телефон рақамини боғлаши керак.',
+            'Ушбу мурожаатга бириктирилган операторнинг Telegram ID рақами уланмаган.',
         });
       }
 
@@ -726,11 +732,12 @@ router.post(
       });
 
       return res.json({
-        message: 'Шартномани тасдиқлаш ҳаволаси Telegram орқали юборилди',
+        message: 'Шартномани тасдиқлаш ҳаволаси оператор Telegramига юборилди',
         contractId: contract.id,
         contractDisplayId: contract.displayId,
         signerRole,
         signerLabel,
+        operatorName: contract.case?.receptionManager?.fullName || null,
         expiresAt,
         sent: true,
       });

@@ -1,19 +1,16 @@
-Golden Key OS — масофадан Telegram орқали шартнома тасдиқлаш
+Golden Key OS — оператор орқали шартнома тасдиқлаш
 
 Файллар:
-1) backend/src/routes/contracts.js
-2) backend/src/services/notify.js
-3) crm/src/components/cases/ContractsSection.jsx
+1. backend/src/routes/contracts.js
+2. crm/src/components/contracts/ContractsSection.jsx
 
-Нима қўшилди:
-- Шартнома карточкасида “Telegramга юбориш” тугмаси.
-- Мижозга 60 дақиқа амал қиладиган бир марталик шахсий тасдиқлаш ҳаволаси юборилади.
-- Telegram хабар ичида “Шартномани кўриш ва тасдиқлаш” inline тугмаси бор.
-- Мижоз ҳаволани босади, мавжуд /sign саҳифасида шартномани ўқийди, қўл имзоси қўяди ва тасдиқлайди.
-- QR функцияси резерв вариант сифатида сақланади.
-- Мижоз Telegram ID уланмаган бўлса, CRM аниқ хатолик кўрсатади.
+Нима ўзгарди:
+- "Telegramга юбориш" тугмаси "Операторга юбориш" деб ўзгарди.
+- Тасдиқлаш ҳаволаси мижозга эмас, мурожаатга бириктирилган қабул операторининг Telegram ID'сига юборилади.
+- Оператор хабарни мижозга Telegram орқали forward қилади.
+- Мижознинг CRM telegramId майдони шарт эмас.
+- QR функцияси сақланади.
 
 Муҳим:
-- TELEGRAM_BOT_TOKEN ёки BOT_TOKEN Railway backend Variables'да мавжуд бўлиши керак.
-- Мижоз аввал Telegram ботга /start босиб, телефон рақамини тизим билан боғлаган бўлиши керак.
-- PUBLIC_SIGN_URL ёки CRM_PUBLIC_URL аввалгидек ишлайди.
+- Операторнинг user.telegramId майдони тўлдирилган бўлиши керак.
+- Prisma schema ёки db push талаб қилинмайди.

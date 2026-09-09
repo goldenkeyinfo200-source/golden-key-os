@@ -222,14 +222,14 @@ export function ContractsSection({ caseId, onChanged }) {
 
       setTelegramMessage(
         data.message ||
-          'Шартномани тасдиқлаш ҳаволаси мижозга Telegram орқали юборилди.'
+          'Шартномани тасдиқлаш ҳаволаси оператор Telegramига юборилди.'
       );
 
       await loadContracts();
     } catch (error) {
       setTelegramError(
         error.message ||
-          'Telegram орқали тасдиқлаш ҳаволасини юбориб бўлмади.'
+          'Оператор Telegramига тасдиқлаш ҳаволасини юбориб бўлмади.'
       );
     } finally {
       setTelegramLoadingId('');
@@ -845,7 +845,7 @@ export function ContractsSection({ caseId, onChanged }) {
                           )}
                           {telegramLoadingId === contract.id
                             ? 'Юборилмоқда...'
-                            : 'Telegramга юбориш'}
+                            : 'Операторга юбориш'}
                         </button>
 
                         <button
