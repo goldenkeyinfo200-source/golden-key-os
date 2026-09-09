@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   QrCode,
   RefreshCw,
+  SendHorizontal,
   X,
 } from 'lucide-react';
 
@@ -47,7 +48,6 @@ function statusClass(status) {
 
 export function ContractsSection({ caseId, onChanged }) {
   const [items, setItems] = useState([]);
-  const [caseServiceType, setCaseServiceType] = useState('');
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -55,6 +55,10 @@ export function ContractsSection({ caseId, onChanged }) {
   const [qrModal, setQrModal] = useState(null);
   const [qrLoadingId, setQrLoadingId] = useState('');
   const [qrError, setQrError] = useState('');
+
+  const [telegramLoadingId, setTelegramLoadingId] = useState('');
+  const [telegramMessage, setTelegramMessage] = useState('');
+  const [telegramError, setTelegramError] = useState('');
 
   const [kiosks, setKiosks] = useState([]);
   const [kioskPicker, setKioskPicker] = useState(null);
@@ -71,8 +75,7 @@ export function ContractsSection({ caseId, onChanged }) {
     setPageError('');
 
     try {
-      const [data, caseData] = await Promise.all([apiRequest(`/contracts/case/${caseId}`), apiRequest(`/cases/${caseId}`)]);
-      setCaseServiceType(caseData.item?.serviceType || '');
+      const data = await apiRequest(`/contracts/case/${caseId}`);
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (error) {
       setPageError(error.message || 'Шартномаларни юклаб бўлмади.');
@@ -121,51 +124,19 @@ export function ContractsSection({ caseId, onChanged }) {
   const createContract = async () => {
     setCreating(true);
     setPageError('');
-    setQrError('');
 
     try {
-      const caseData = await apiRequest(`/cases/${caseId}`);
-      const caseItem = caseData.item || null;
-      const payload = {};
-
-      if (caseItem?.serviceType === 'REALTOR_SERVICE') {
-        let serviceFee = Number(caseItem.serviceFee || 0);
-
-        if (!(serviceFee > 0)) {
-          const feeText = window.prompt(
-            'Риэлторлик хизмати ҳақини сўмда киритинг. Масалан: 5000000'
-          );
-
-          if (feeText === null) {
-            return;
-          }
-
-          serviceFee = Number(
-            String(feeText).replace(/\s/g, '').replace(',', '.')
-          );
-
-          if (!Number.isFinite(serviceFee) || serviceFee <= 0) {
-            throw new Error('Хизмат ҳақи 0 дан катта рақам бўлиши керак.');
-          }
-        }
-
-        payload.serviceFee = serviceFee;
-      }
-
       const data = await apiRequest(`/contracts/case/${caseId}`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({}),
       });
 
-      if (data.item?.id && caseItem?.serviceType !== 'SALE_PURCHASE') {
-        /*
-          QR аввал чиқарилади. Parent onChanged ни QR дан олдин чақириш
-          ContractsSection'ни қайта mount қилиб, QR modal state'ини йўқотар эди.
-        */
+      await loadContracts();
+      await onChanged?.();
+
+      if (data.item?.id) {
         await createQr(data.item.id);
       }
-
-      await loadContracts();
     } catch (error) {
       setPageError(error.message || 'Шартномани яратиб бўлмади.');
     } finally {
@@ -173,7 +144,7 @@ export function ContractsSection({ caseId, onChanged }) {
     }
   };
 
-  const createQr = async (contractId, selectedKioskId = null, signerRole = 'CLIENT') => {
+  const createQr = async (contractId, selectedKioskId = null) => {
     setQrLoadingId(contractId);
     setQrError('');
 
@@ -196,7 +167,6 @@ export function ContractsSection({ caseId, onChanged }) {
         } else if (onlineKiosks.length > 1) {
           setKioskPicker({
             contractId,
-            signerRole,
             items: onlineKiosks,
           });
           return;
@@ -205,7 +175,6 @@ export function ContractsSection({ caseId, onChanged }) {
         } else if (availableKiosks.length > 1) {
           setKioskPicker({
             contractId,
-            signerRole,
             items: availableKiosks,
           });
           return;
@@ -221,7 +190,6 @@ export function ContractsSection({ caseId, onChanged }) {
         body: JSON.stringify({
           expiresInMinutes: 15,
           kioskId,
-          signerRole,
         }),
       });
 
@@ -234,6 +202,40 @@ export function ContractsSection({ caseId, onChanged }) {
       setQrLoadingId('');
     }
   };
+
+
+  const sendTelegramSignLink = async (contractId) => {
+    setTelegramLoadingId(contractId);
+    setTelegramMessage('');
+    setTelegramError('');
+
+    try {
+      const data = await apiRequest(
+        `/contracts/${contractId}/send-sign-link`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            expiresInMinutes: 60,
+          }),
+        }
+      );
+
+      setTelegramMessage(
+        data.message ||
+          'Шартномани тасдиқлаш ҳаволаси мижозга Telegram орқали юборилди.'
+      );
+
+      await loadContracts();
+    } catch (error) {
+      setTelegramError(
+        error.message ||
+          'Telegram орқали тасдиқлаш ҳаволасини юбориб бўлмади.'
+      );
+    } finally {
+      setTelegramLoadingId('');
+    }
+  };
+
 
   const createPdf = async (contractId) => {
     setPdfLoadingId(contractId);
@@ -271,14 +273,11 @@ export function ContractsSection({ caseId, onChanged }) {
 
   const latestInvitation = useMemo(() => {
     const map = new Map();
+
     items.forEach((item) => {
-      const invitations = item.invitations || [];
-      map.set(item.id, {
-        latest: invitations[0] || null,
-        seller: invitations.find((x) => x.signerRole === 'SELLER') || null,
-        buyer: invitations.find((x) => x.signerRole === 'BUYER') || null,
-      });
+      map.set(item.id, item.invitations?.[0] || null);
     });
+
     return map;
   }, [items]);
 
@@ -349,6 +348,12 @@ export function ContractsSection({ caseId, onChanged }) {
         .contract-qr-button {
           border: 1px solid #e5232f;
           background: #e5232f;
+          color: #fff;
+        }
+
+        .contract-telegram-button {
+          border: 1px solid #229ed9;
+          background: #229ed9;
           color: #fff;
         }
 
@@ -727,8 +732,8 @@ export function ContractsSection({ caseId, onChanged }) {
             <FileText size={36} />
             <strong>Шартнома ҳали яратилмаган</strong>
             <span>
-              Мурожаат турига қараб тегишли шартнома автоматик яратилади.
-              Риэлторлик хизмати учун банк таклифи талаб қилинмайди.
+              Мижоз маълумотлари ва танланган банк таклифи асосида шартнома
+              автоматик яратилади.
             </span>
             <button type="button" onClick={createContract} disabled={creating}>
               <FilePlus2 size={16} />
@@ -738,9 +743,7 @@ export function ContractsSection({ caseId, onChanged }) {
         ) : (
           <div className="contracts-list">
             {items.map((contract) => {
-              const invitationInfo = latestInvitation.get(contract.id) || {};
-              const invitation = invitationInfo.latest;
-              const isSalePurchase = caseServiceType === 'SALE_PURCHASE';
+              const invitation = latestInvitation.get(contract.id);
               const signed = contract.status === 'SIGNED';
 
               return (
@@ -777,13 +780,11 @@ export function ContractsSection({ caseId, onChanged }) {
                         Мижоз томонидан {formatDate(contract.signedAt, true)} да
                         тасдиқланган
                       </span>
-                    ) : isSalePurchase ? (
+                    ) : invitation ? (
                       <span className="contract-invitation-note">
                         <Clock3 size={14} />
-                        Сотувчи: {invitationInfo.seller?.usedAt ? '✅ тасдиқлади' : '⏳ кутилмоқда'} · Олувчи: {invitationInfo.buyer?.usedAt ? '✅ тасдиқлади' : '⏳ кутилмоқда'}
+                        Охирги QR: {formatDate(invitation.createdAt, true)}
                       </span>
-                    ) : invitation ? (
-                      <span className="contract-invitation-note"><Clock3 size={14} />Охирги QR: {formatDate(invitation.createdAt, true)}</span>
                     ) : null}
                   </div>
 
@@ -830,12 +831,37 @@ export function ContractsSection({ caseId, onChanged }) {
                     ) : null}
 
                     {!signed && contract.status !== 'CANCELLED' ? (
-                      isSalePurchase ? (<>
-                        <button type="button" className="contract-action contract-qr-button" onClick={() => createQr(contract.id, null, 'SELLER')} disabled={qrLoadingId === contract.id}><QrCode size={16}/> Сотувчи QR</button>
-                        <button type="button" className="contract-action contract-qr-button" onClick={() => createQr(contract.id, null, 'BUYER')} disabled={qrLoadingId === contract.id}><QrCode size={16}/> Олувчи QR</button>
-                      </>) : (
-                        <button type="button" className="contract-action contract-qr-button" onClick={() => createQr(contract.id)} disabled={qrLoadingId === contract.id}>{qrLoadingId === contract.id ? <LoaderCircle size={16} className="spin" /> : <QrCode size={16} />} QR чиқариш</button>
-                      )
+                      <>
+                        <button
+                          type="button"
+                          className="contract-action contract-telegram-button"
+                          onClick={() => sendTelegramSignLink(contract.id)}
+                          disabled={telegramLoadingId === contract.id}
+                        >
+                          {telegramLoadingId === contract.id ? (
+                            <LoaderCircle size={16} className="spin" />
+                          ) : (
+                            <SendHorizontal size={16} />
+                          )}
+                          {telegramLoadingId === contract.id
+                            ? 'Юборилмоқда...'
+                            : 'Telegramга юбориш'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="contract-action contract-qr-button"
+                          onClick={() => createQr(contract.id)}
+                          disabled={qrLoadingId === contract.id}
+                        >
+                          {qrLoadingId === contract.id ? (
+                            <LoaderCircle size={16} className="spin" />
+                          ) : (
+                            <QrCode size={16} />
+                          )}
+                          QR чиқариш
+                        </button>
+                      </>
                     ) : null}
                   </div>
                 </article>
@@ -845,6 +871,12 @@ export function ContractsSection({ caseId, onChanged }) {
         )}
 
         {qrError ? <div className="contract-inline-error">{qrError}</div> : null}
+        {telegramError ? (
+          <div className="contract-inline-error">{telegramError}</div>
+        ) : null}
+        {telegramMessage ? (
+          <div className="contract-inline-success">{telegramMessage}</div>
+        ) : null}
         {pdfError ? (
           <div className="contract-inline-error">{pdfError}</div>
         ) : null}
@@ -892,7 +924,7 @@ export function ContractsSection({ caseId, onChanged }) {
                   type="button"
                   className="contract-kiosk-option"
                   key={kiosk.id}
-                  onClick={() => createQr(kioskPicker.contractId, kiosk.id, kioskPicker.signerRole || 'CLIENT')}
+                  onClick={() => createQr(kioskPicker.contractId, kiosk.id)}
                 >
                   <div>
                     <strong>{kiosk.name}</strong>
@@ -953,7 +985,7 @@ export function ContractsSection({ caseId, onChanged }) {
               </div>
 
               <strong>
-                {qrModal.signerLabel || 'Мижоз'} QR-кодни махсус телефон экранидан ўз телефони билан сканерласин
+                Мижоз QR-кодни махсус телефон экранидан ўз телефони билан сканерласин
               </strong>
 
               {qrModal.kiosk?.name ? (
