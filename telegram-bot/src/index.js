@@ -371,18 +371,99 @@ bot.action(/^svc:(.+)$/, async (ctx) => {
   }
 
   session.data.serviceType = ctx.match[1];
-  session.step = 'amount';
-  setSession(telegramId, session);
+
+  const creditServices = new Set([
+    'PRIMARY_MORTGAGE',
+    'SECONDARY_MORTGAGE',
+    'MICROLOAN',
+  ]);
+
+  const realtorServices = new Set([
+    'REALTOR_SERVICE',
+    'SALE_PURCHASE',
+    'CADASTRE_SERVICE',
+  ]);
 
   await ctx.answerCbQuery();
   await ctx
     .editMessageText(`Танланди: ${serviceTypeLabel(session.data.serviceType)}`)
     .catch(() => {});
 
+  // Ипотека / микрокредит: кредит суммасини сўраймиз.
+  if (creditServices.has(session.data.serviceType)) {
+    session.step = 'amount';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Тахминий сўралаётган кредит суммаси қанча (сўмда)? Рақам билан ёзинг.\n\nБилмасангиз, пастдаги тугмани босинг.',
+      Markup.inlineKeyboard([
+        [Markup.button.callback('Кўрсатмайман', 'amount:skip')],
+      ])
+    );
+    return;
+  }
+
+  // Риелторлик йўналишлари: ипотека/кредит суммасига ўтмайди.
+  if (realtorServices.has(session.data.serviceType)) {
+    session.data.requestedAmount = null;
+    session.step = 'realtor_direction';
+    setSession(telegramId, session);
+
+    await ctx.reply(
+      'Риелторлик йўналишини танланг:',
+      Markup.inlineKeyboard([
+        [Markup.button.callback('🏠 Мулк сотмоқчиман', 'realtor:sell')],
+        [Markup.button.callback('🔑 Мулк сотиб олмоқчиман', 'realtor:buy')],
+        [Markup.button.callback('🏢 Ижарага бермоқчиман', 'realtor:rent_out')],
+        [Markup.button.callback('🔎 Ижарага олмоқчиман', 'realtor:rent_in')],
+      ])
+    );
+    return;
+  }
+
+  // Бошқа хизматлар: тўғридан-тўғри изоҳга ўтамиз.
+  session.data.requestedAmount = null;
+  session.step = 'comment';
+  setSession(telegramId, session);
+
   await ctx.reply(
-    'Тахминий сўралаётган сумма қанча (сўмда)? Рақам билан ёзинг.\n\nБилмасангиз, пастдаги тугмани босинг.',
+    'Қўшимча маълумот ёзмоқчимисиз? Бўлмаса, пастдаги тугмани босинг.',
     Markup.inlineKeyboard([
-      [Markup.button.callback('Кўрсатмайман', 'amount:skip')],
+      [Markup.button.callback('Изоҳсиз', 'comment:skip')],
+    ])
+  );
+});
+
+
+bot.action(/^realtor:(sell|buy|rent_out|rent_in)$/, async (ctx) => {
+  const telegramId = ctx.from.id;
+  const session = getSession(telegramId);
+
+  if (!session || session.step !== 'realtor_direction') {
+    await ctx.answerCbQuery();
+    return;
+  }
+
+  const directions = {
+    sell: 'Мулк сотиш',
+    buy: 'Мулк сотиб олиш',
+    rent_out: 'Мулкни ижарага бериш',
+    rent_in: 'Мулкни ижарага олиш',
+  };
+
+  const direction = directions[ctx.match[1]];
+  session.data.realtorDirection = ctx.match[1];
+  session.data.comment = `Риелторлик йўналиши: ${direction}`;
+  session.step = 'comment';
+  setSession(telegramId, session);
+
+  await ctx.answerCbQuery();
+  await ctx.editMessageText(`Танланди: ${direction}`).catch(() => {});
+
+  await ctx.reply(
+    'Мулк ҳақида қўшимча маълумот ёзинг: манзили, тури, хоналар сони, тахминий нархи ва бошқа маълумотлар.\\n\\nҲозир киритмасангиз, пастдаги тугмани босинг.',
+    Markup.inlineKeyboard([
+      [Markup.button.callback('Изоҳсиз давом этиш', 'comment:skip')],
     ])
   );
 });
@@ -420,7 +501,9 @@ bot.action('comment:skip', async (ctx) => {
     return;
   }
 
-  session.data.comment = null;
+  if (!session.data.realtorDirection) {
+    session.data.comment = null;
+  }
   session.step = 'fullname';
   setSession(telegramId, session);
 
@@ -654,7 +737,10 @@ bot.on('text', async (ctx, next) => {
   }
 
   if (session.step === 'comment') {
-    session.data.comment = text.slice(0, 500);
+    const prefix = session.data.realtorDirection && session.data.comment
+      ? `${session.data.comment}\n`
+      : '';
+    session.data.comment = (prefix + text).slice(0, 500);
     session.step = 'fullname';
     setSession(telegramId, session);
 

@@ -1,16 +1,13 @@
-Golden Key OS — оператор орқали шартнома тасдиқлаш
+Golden Key OS Telegram Bot — service flow fix
 
-Файллар:
-1. backend/src/routes/contracts.js
-2. crm/src/components/contracts/ContractsSection.jsx
+Алмаштирилади:
+telegram-bot/src/index.js
 
-Нима ўзгарди:
-- "Telegramга юбориш" тугмаси "Операторга юбориш" деб ўзгарди.
-- Тасдиқлаш ҳаволаси мижозга эмас, мурожаатга бириктирилган қабул операторининг Telegram ID'сига юборилади.
-- Оператор хабарни мижозга Telegram орқали forward қилади.
-- Мижознинг CRM telegramId майдони шарт эмас.
-- QR функцияси сақланади.
+Янги логика:
+- PRIMARY_MORTGAGE / SECONDARY_MORTGAGE / MICROLOAN -> кредит суммаси.
+- REALTOR_SERVICE / SALE_PURCHASE / CADASTRE_SERVICE -> риелторлик йўналиши.
+- Риелторликда ипотека/кредит суммаси сўралмайди.
+- Йўналишлар: сотиш, сотиб олиш, ижарага бериш, ижарага олиш.
+- OTHER -> қўшимча изоҳ.
 
-Муҳим:
-- Операторнинг user.telegramId майдони тўлдирилган бўлиши керак.
-- Prisma schema ёки db push талаб қилинмайди.
+Файлни алмаштириб GitHub'га push қилинг ва Railway telegram-bot'ни redeploy қилинг.
