@@ -310,3 +310,90 @@ export async function notifyBankOfferSubmitted(offerId) {
 
   return notifyMany(recipients, text);
 }
+
+
+/* =========================================================
+   БАҲОЛАШГА ЮБОРИЛДИ — баҳолаш компанияси ходимларига хабар
+========================================================= */
+export async function notifyAppraisalAssignment(requestId) {
+  const request = await prisma.appraisalRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      displayId: true,
+      companyId: true,
+      case: {
+        select: {
+          displayId: true,
+          applicant: { select: { fullName: true } },
+        },
+      },
+      company: { select: { name: true } },
+    },
+  });
+
+  if (!request) {
+    return { sent: false, skipped: true, reason: 'appraisal_request_not_found' };
+  }
+
+  const employees = await prisma.user.findMany({
+    where: {
+      appraisalCompanyId: request.companyId,
+      role: 'APPRAISAL_EMPLOYEE',
+      isActive: true,
+      telegramId: { not: null },
+    },
+    select: { telegramId: true },
+  });
+
+  const text =
+    `🏠 <b>Янги баҳолаш сўрови</b>\n` +
+    `Сўров: ${request.displayId || '-'}\n` +
+    `Мурожаат: ${request.case?.displayId || '-'}\n` +
+    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
+    `Компания: ${request.company?.name || '-'}`;
+
+  return notifyMany(employees.map((employee) => employee.telegramId), text);
+}
+
+/* =========================================================
+   НОТАРИУСГА ЮБОРИЛДИ — нотариал идора ходимларига хабар
+========================================================= */
+export async function notifyNotaryAssignment(requestId) {
+  const request = await prisma.notaryRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      displayId: true,
+      officeId: true,
+      case: {
+        select: {
+          displayId: true,
+          applicant: { select: { fullName: true } },
+        },
+      },
+      office: { select: { name: true } },
+    },
+  });
+
+  if (!request) {
+    return { sent: false, skipped: true, reason: 'notary_request_not_found' };
+  }
+
+  const employees = await prisma.user.findMany({
+    where: {
+      notaryOfficeId: request.officeId,
+      role: 'NOTARY',
+      isActive: true,
+      telegramId: { not: null },
+    },
+    select: { telegramId: true },
+  });
+
+  const text =
+    `🖋 <b>Янги нотариал сўров</b>\n` +
+    `Сўров: ${request.displayId || '-'}\n` +
+    `Мурожаат: ${request.case?.displayId || '-'}\n` +
+    `Мижоз: ${request.case?.applicant?.fullName || '-'}\n` +
+    `Нотариал идора: ${request.office?.name || '-'}`;
+
+  return notifyMany(employees.map((employee) => employee.telegramId), text);
+}
