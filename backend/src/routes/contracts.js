@@ -584,7 +584,6 @@ router.post(
               id: true,
               displayId: true,
               serviceType: true,
-              sellerTelegramId: true,
               applicant: {
                 select: {
                   telegramId: true,
@@ -623,17 +622,14 @@ router.post(
           : 'BUYER'
         : 'CLIENT';
 
-      const chatId =
-        signerRole === 'SELLER'
-          ? contract.case?.sellerTelegramId
-          : contract.case?.applicant?.telegramId;
+      // Case моделида sellerTelegramId мавжуд эмас.
+      // Telegram боғланиши мавжуд applicant (Client) орқали олинади.
+      const chatId = contract.case?.applicant?.telegramId;
 
       if (!chatId) {
         return res.status(409).json({
           error:
-            signerRole === 'SELLER'
-              ? 'Сотувчининг Telegram ID рақами уланмаган'
-              : 'Мижознинг Telegram ID рақами уланмаган. Мижоз аввал Telegram ботга /start босиб, телефон рақамини боғлаши керак.',
+            'Мижознинг Telegram ID рақами уланмаган. Мижоз аввал Telegram ботга /start босиб, телефон рақамини боғлаши керак.',
         });
       }
 
