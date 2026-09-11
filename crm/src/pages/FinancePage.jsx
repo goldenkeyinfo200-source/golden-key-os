@@ -78,7 +78,7 @@ function escapeReceiptHtml(value) {
 }
 
 function printPaymentReceipt(item, payment) {
-  const receiptWindow = window.open('', '_blank', 'width=420,height=760');
+  const receiptWindow = window.open('', '_blank', 'width=380,height=820');
 
   if (!receiptWindow) {
     window.alert('Квитанция ойнасини очиб бўлмади. Браузерда popup ойнага рухсат беринг.');
@@ -103,19 +103,22 @@ function printPaymentReceipt(item, payment) {
   <title>${escapeReceiptHtml(receiptNo)}</title>
   <style>
     * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
     body {
-      margin: 0;
-      background: #f2f2f2;
-      color: #111;
+      background: #ededed;
+      color: #000;
       font-family: Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .toolbar {
       position: sticky;
       top: 0;
+      z-index: 10;
       display: flex;
       gap: 8px;
       justify-content: center;
-      padding: 12px;
+      padding: 10px;
       background: #fff;
       border-bottom: 1px solid #ddd;
     }
@@ -123,45 +126,121 @@ function printPaymentReceipt(item, payment) {
       border: 0;
       border-radius: 8px;
       padding: 10px 16px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
     }
     .print { background: #ef233c; color: #fff; }
     .close { background: #eee; color: #111; }
+
     .receipt {
-      width: 80mm;
-      margin: 16px auto;
-      padding: 5mm;
+      width: 58mm;
+      margin: 12px auto;
+      padding: 2.5mm 2.4mm 3mm;
       background: #fff;
-      box-shadow: 0 2px 16px rgba(0,0,0,.12);
-      font-size: 12px;
-      line-height: 1.35;
+      box-shadow: 0 2px 14px rgba(0,0,0,.14);
+      font-size: 8.6px;
+      line-height: 1.25;
+      overflow: hidden;
     }
-    .brand { text-align: center; margin-bottom: 10px; }
-    .brand strong { display: block; font-size: 18px; }
-    .brand span { font-size: 10px; }
-    .dash { border-top: 1px dashed #111; margin: 9px 0; }
-    .title { text-align: center; font-size: 14px; font-weight: 800; margin: 8px 0; }
-    .row { display: flex; justify-content: space-between; gap: 10px; margin: 5px 0; }
-    .row span:first-child { color: #555; }
-    .row strong, .row span:last-child { text-align: right; overflow-wrap: anywhere; }
+    .brand {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .brand-logo {
+      display: block;
+      width: 42mm;
+      max-height: 19mm;
+      object-fit: contain;
+      margin: 0 auto 1.5mm;
+    }
+    .receipt-heading {
+      margin: 0;
+      font-size: 10.5px;
+      font-weight: 900;
+      letter-spacing: .15px;
+    }
+    .dash {
+      border-top: 1px dashed #000;
+      margin: 2.2mm 0;
+    }
+    .title {
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 900;
+      margin: 1.8mm 0 2mm;
+      letter-spacing: .2px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 18mm 1fr;
+      gap: 1.5mm;
+      align-items: start;
+      margin: 1.1mm 0;
+    }
+    .row span:first-child {
+      color: #111;
+      white-space: nowrap;
+    }
+    .row strong {
+      text-align: right;
+      overflow-wrap: anywhere;
+      font-weight: 800;
+    }
     .amount {
       text-align: center;
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 900;
-      margin: 10px 0;
+      margin: 3mm 0;
+      letter-spacing: .15px;
     }
-    .footer { text-align: center; font-size: 10px; margin-top: 12px; }
-    @page { size: 80mm auto; margin: 0; }
+    .footer {
+      text-align: center;
+      font-size: 7.5px;
+      line-height: 1.35;
+      margin-top: 1mm;
+    }
+    .qr-wrap {
+      text-align: center;
+      margin-top: 2mm;
+    }
+    .qr {
+      display: block;
+      width: 29mm;
+      height: 29mm;
+      object-fit: contain;
+      margin: 0 auto 1.5mm;
+      image-rendering: pixelated;
+    }
+    .qr-text {
+      font-size: 7.8px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+    .thanks {
+      text-align: center;
+      font-size: 9.5px;
+      line-height: 1.25;
+      font-weight: 900;
+      margin-top: 2mm;
+    }
+
+    @page {
+      size: 58mm auto;
+      margin: 0;
+    }
     @media print {
-      body { background: #fff; }
+      html, body {
+        width: 58mm;
+        background: #fff;
+      }
       .toolbar { display: none !important; }
       .receipt {
-        width: 80mm;
+        width: 58mm;
         margin: 0;
-        padding: 4mm;
+        padding: 2mm 2mm 3mm;
         box-shadow: none;
       }
+      .brand-logo { filter: grayscale(1) contrast(1.35); }
     }
   </style>
 </head>
@@ -170,31 +249,50 @@ function printPaymentReceipt(item, payment) {
     <button class="print" onclick="window.print()">Чоп этиш</button>
     <button class="close" onclick="window.close()">Ёпиш</button>
   </div>
+
   <main class="receipt">
     <div class="brand">
-      <strong>GOLDEN KEY INFO</strong>
-      <span>ТЎЛОВ КВИТАНЦИЯСИ</span>
+      <img class="brand-logo" src="/golden-key-info-logo.png" alt="GOLDEN KEY INFO" />
+      <div class="receipt-heading">ТЎЛОВ КВИТАНЦИЯСИ</div>
     </div>
+
     <div class="dash"></div>
     <div class="title">${escapeReceiptHtml(receiptNo)}</div>
+
     <div class="row"><span>Мурожаат:</span><strong>${escapeReceiptHtml(item.displayId)}</strong></div>
     <div class="row"><span>Мижоз:</span><strong>${escapeReceiptHtml(clientName)}</strong></div>
     <div class="row"><span>Телефон:</span><strong>${escapeReceiptHtml(clientPhone)}</strong></div>
     <div class="row"><span>Филиал:</span><strong>${escapeReceiptHtml(branch)}</strong></div>
     <div class="row"><span>Хизмат:</span><strong>${escapeReceiptHtml(service)}</strong></div>
+
     <div class="dash"></div>
+
     <div class="row"><span>Тўлов санаси:</span><strong>${escapeReceiptHtml(paidAt)}</strong></div>
     <div class="row"><span>Тўлов усули:</span><strong>${escapeReceiptHtml(method)}</strong></div>
     <div class="row"><span>Чек / транзакция:</span><strong>${escapeReceiptHtml(reference)}</strong></div>
+
     <div class="amount">${escapeReceiptHtml(amount)}</div>
     <div class="dash"></div>
+
     <div class="footer">
       Golden Key OS орқали шакллантирилди.<br/>
       Квитанцияни сақлаб қўйинг.
     </div>
+
+    <div class="qr-wrap">
+      <img class="qr" src="/taplink-qr.png" alt="QR code" />
+      <div class="qr-text">
+        Батафсил маълумотлар учун<br/>
+        QR кодни сканерланг
+      </div>
+    </div>
+
+    <div class="dash"></div>
+    <div class="thanks">ИШОНЧИНГИЗ УЧУН РАҲМАТ!</div>
   </main>
 </body>
 </html>`);
+
   receiptWindow.document.close();
   receiptWindow.focus();
 }
