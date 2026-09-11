@@ -1,0 +1,21 @@
+FinancePage.jsx га қўшилади:
+
+1) import:
+import { printGoldenKeyReceipt } from '../utils/receiptPrint.js';
+
+2) Квитанция тугмасидаги эски print/window.open функцияси ўрнига:
+
+onClick={() => printGoldenKeyReceipt({
+  caseItem: item,
+  payment,
+  receiptNumber: payment.receiptNumber,
+})}
+
+Агар сизда тугма payment map ичида бўлса, `item` ва `payment` тайёр бўлади.
+Backendдан receiptNumber payment объектида келмаса, функция payment.id дан GK-... кодини автомат ясайди.
+
+Public папкага қўйилади:
+frontend/public/golden-key-logo.png
+frontend/public/taplink-qr.png
+
+Натижа: 58 мм XP-58IIT учун логотип + тўлов маълумотлари + QR. QR остида Taplink URL матни ЙЎҚ.
