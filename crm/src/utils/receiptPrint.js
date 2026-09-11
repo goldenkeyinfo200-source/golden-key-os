@@ -106,8 +106,8 @@ export function printGoldenKeyReceipt({
       color: #000;
       font-family: Arial, Helvetica, sans-serif;
       font-synthesis: none;
-      -webkit-font-smoothing: none;
-      text-rendering: geometricPrecision;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     body {
@@ -131,7 +131,7 @@ export function printGoldenKeyReceipt({
       border-radius: 5px;
       padding: 7px 4px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
     }
 
@@ -147,21 +147,21 @@ export function printGoldenKeyReceipt({
 
     .receipt {
       width: 58mm;
-      padding: 2.6mm 2.5mm 3.5mm;
+      padding: 2.2mm 1.5mm 3mm;
       background: #fff;
     }
 
     .logo {
       display: block;
-      width: 34mm;
-      max-height: 17mm;
+      width: 31mm;
+      max-height: 15mm;
       object-fit: contain;
       margin: 0 auto 1.4mm;
     }
 
     .title {
       text-align: center;
-      font-size: 11.5px;
+      font-size: 14px;
       line-height: 1.2;
       font-weight: 700;
       margin: 0 0 1.8mm;
@@ -175,7 +175,7 @@ export function printGoldenKeyReceipt({
 
     .code {
       text-align: center;
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.2;
       font-weight: 700;
       margin: 1.8mm 0 2mm;
@@ -184,25 +184,25 @@ export function printGoldenKeyReceipt({
 
     .row {
       display: grid;
-      grid-template-columns: 19mm minmax(0, 1fr);
+      grid-template-columns: 17.5mm minmax(0, 1fr);
       column-gap: 1.2mm;
       align-items: start;
-      font-size: 9.2px;
-      line-height: 1.38;
+      font-size: 11px;
+      line-height: 1.45;
       margin: 1.25mm 0;
       font-weight: 400;
     }
 
     .row .v {
       text-align: right;
-      font-weight: 600;
+      font-weight: 500;
       overflow-wrap: anywhere;
       word-break: normal;
     }
 
     .amount {
       text-align: center;
-      font-size: 16px;
+      font-size: 18px;
       line-height: 1.2;
       font-weight: 700;
       margin: 2.5mm 0 2.2mm;
@@ -211,7 +211,7 @@ export function printGoldenKeyReceipt({
 
     .note {
       text-align: center;
-      font-size: 8px;
+      font-size: 10.5px;
       line-height: 1.4;
       font-weight: 400;
       margin: 1.8mm 0 1.4mm;
@@ -219,8 +219,8 @@ export function printGoldenKeyReceipt({
 
     .qr {
       display: block;
-      width: 30mm;
-      height: 30mm;
+      width: 27mm;
+      height: 27mm;
       object-fit: contain;
       margin: 1.6mm auto 1.2mm;
       image-rendering: pixelated;
@@ -228,7 +228,7 @@ export function printGoldenKeyReceipt({
 
     .qrnote {
       text-align: center;
-      font-size: 8.5px;
+      font-size: 10.5px;
       line-height: 1.3;
       font-weight: 500;
       margin-top: 0.7mm;
@@ -236,7 +236,7 @@ export function printGoldenKeyReceipt({
 
     .thanks {
       text-align: center;
-      font-size: 9.5px;
+      font-size: 10.5px;
       line-height: 1.25;
       font-weight: 700;
       margin-top: 2mm;
@@ -261,7 +261,7 @@ export function printGoldenKeyReceipt({
 
       .receipt {
         width: 58mm !important;
-        padding: 2.6mm 2.5mm 3.5mm !important;
+        padding: 2.2mm 1.5mm 3mm !important;
       }
 
       /*
@@ -269,11 +269,11 @@ export function printGoldenKeyReceipt({
        * чоп пайтида логотипни кучли монохром қиламиз.
        */
       .logo {
-        filter: grayscale(1) contrast(4);
+        filter: grayscale(1) contrast(2.2);
       }
 
       .qr {
-        filter: grayscale(1) contrast(2);
+        filter: grayscale(1) contrast(1.4);
       }
 
       .title,

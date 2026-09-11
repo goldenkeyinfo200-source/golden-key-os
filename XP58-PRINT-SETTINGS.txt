@@ -1,0 +1,24 @@
+XP-58IIT учун тавсия этилган созламалар
+
+Firefox Print:
+- Paper size: 58 mm
+- Scale: 100%
+- Margins: None
+- Headers and footers: OFF
+- Fit to page / Shrink to fit: OFF
+
+Windows:
+Control Panel -> Devices and Printers -> XP-58 -> Printing preferences
+Агар мавжуд бўлса:
+- Density / Darkness / Heat: Medium ёки Normal
+- Speed: Medium
+- Dithering: None ёки Text
+- Resolution: 203 dpi
+
+Ушбу версияда:
+- асосий матн 11px
+- қийматлар 500 weight
+- сарлавҳа 13px
+- сумма 18px
+- QR 27mm
+- ён padding 1.5mm
