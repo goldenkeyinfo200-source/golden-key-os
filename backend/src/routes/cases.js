@@ -32,6 +32,7 @@ const serviceTypes = [
   'REALTOR_SERVICE',
   'SALE_PURCHASE',
   'CADASTRE_SERVICE',
+  'APPRAISAL_SERVICE',
   'INVESTOR_PARTNERSHIP',
   'OTHER',
 ];
@@ -41,6 +42,7 @@ const REALTOR_ONLY_SERVICE_TYPES = [
   'REALTOR_SERVICE',
   'SALE_PURCHASE',
   'CADASTRE_SERVICE',
+  'APPRAISAL_SERVICE',
 ];
 
 const getAllowedServicesForBranch = (branch) =>
@@ -497,6 +499,7 @@ const generateCaseDisplayId = async (tx, serviceType) => {
     REALTOR_SERVICE: 'GK-RM',
     SALE_PURCHASE: 'GK-OS',
     CADASTRE_SERVICE: 'GK-KD',
+    APPRAISAL_SERVICE: 'GK-BH',
     INVESTOR_PARTNERSHIP: 'GK-IN',
     OTHER: 'GK-BS',
   };

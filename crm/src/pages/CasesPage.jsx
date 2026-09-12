@@ -24,6 +24,7 @@ const SERVICE_OPTIONS = [
   ['REALTOR_SERVICE', 'Риэлторлик хизмати'],
   ['SALE_PURCHASE', 'Олди-сотди'],
   ['CADASTRE_SERVICE', 'Кадастр хизмати'],
+  ['APPRAISAL_SERVICE', 'Баҳолаш хизмати'],
   ['INVESTOR_PARTNERSHIP', 'Инвестор билан ҳамкорлик'],
   ['OTHER', 'Бошқа'],
 ];
@@ -253,7 +254,7 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
           serviceType: value,
         };
 
-        if (['REALTOR_SERVICE', 'SALE_PURCHASE', 'INVESTOR_PARTNERSHIP'].includes(value)) {
+        if (['REALTOR_SERVICE', 'SALE_PURCHASE', 'APPRAISAL_SERVICE', 'INVESTOR_PARTNERSHIP'].includes(value)) {
           next.bankName = '';
           next.requestedAmount = '';
           next.nextAction = '';
@@ -287,6 +288,7 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
       const isRealtorService = form.serviceType === 'REALTOR_SERVICE';
       const isSalePurchase = form.serviceType === 'SALE_PURCHASE';
       const isInvestorPartnership = form.serviceType === 'INVESTOR_PARTNERSHIP';
+      const isAppraisalService = form.serviceType === 'APPRAISAL_SERVICE';
 
       const realtorDetails = isRealtorService
         ? [
@@ -311,6 +313,15 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
           ].join('\n')
         : form.nextAction.trim();
 
+      const appraisalDetails = isAppraisalService
+        ? [
+            `Объект тури: ${Object.fromEntries(PROPERTY_TYPE_OPTIONS)[form.propertyType] || '—'}`,
+            `Объект манзили: ${form.propertyAddress.trim() || '—'}`,
+            `Кадастр рақами: ${form.cadastralNumber.trim() || '—'}`,
+            `Баҳолаш мақсади: ${form.nextAction.trim() || '—'}`,
+          ].join('\n')
+        : '';
+
       const investorDetails = isInvestorPartnership
         ? [
             `Инвестиция суммаси: ${form.investorInvestmentAmount || '—'} сўм`,
@@ -330,7 +341,7 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
         birthDate: form.birthDate || '',
         address: form.address.trim(),
         serviceType: form.serviceType,
-        bankName: (isRealtorService || isSalePurchase || isInvestorPartnership) ? '' : form.bankName.trim(),
+        bankName: (isRealtorService || isSalePurchase || isAppraisalService || isInvestorPartnership) ? '' : form.bankName.trim(),
         nextAction: isSalePurchase
           ? 'Олди-сотди шартномасини тайёрлаш'
           : isInvestorPartnership
@@ -806,6 +817,31 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
                   <div className="field field-wide" style={{ fontSize: '13px', lineHeight: 1.6 }}>
                     <strong>Шартномага автоматик киритиладиган шартлар:</strong> харидор битимдан қайтса берилган закалат қайтарилмайди; сотувчи битимдан қайтса олган закалатни икки баравар миқдорда қайтаради; битимдан қайтган тараф риэлторлик хизмати бўйича белгиланган харажатларни қоплайди. Суғуртага оид стандарт шартлар ҳам шартнома шаблонида автоматик кўрсатилади.
                   </div>
+                </>
+              ) : form.serviceType === 'APPRAISAL_SERVICE' ? (
+                <>
+                  <label className="field">
+                    <span>Объект тури *</span>
+                    <select value={form.propertyType} onChange={(e) => updateField('propertyType', e.target.value)} disabled={saving}>
+                      {PROPERTY_TYPE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Кадастр рақами</span>
+                    <input value={form.cadastralNumber} onChange={(e) => updateField('cadastralNumber', e.target.value)} placeholder="Масалан: 15:16:..." disabled={saving} />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Объект манзили *</span>
+                    <input value={form.propertyAddress} onChange={(e) => updateField('propertyAddress', e.target.value)} placeholder="Вилоят, шаҳар, туман, кўча ва уй рақами" disabled={saving} />
+                  </label>
+                  <label className="field">
+                    <span>Хизмат ҳақи</span>
+                    <input value={form.realtorServiceFee} onChange={(e) => updateField('realtorServiceFee', e.target.value.replace(/[^\d]/g, ''))} placeholder="Масалан: 500000" inputMode="numeric" disabled={saving} />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Баҳолаш мақсади</span>
+                    <textarea value={form.nextAction} onChange={(e) => updateField('nextAction', e.target.value)} placeholder="Масалан: ипотека учун, олди-сотди учун" rows={3} disabled={saving} />
+                  </label>
                 </>
               ) : form.serviceType === 'INVESTOR_PARTNERSHIP' ? (
                 <>
@@ -1494,6 +1530,31 @@ function EditCaseModal({
                     disabled={saving}
                   />
                 </label>
+              ) : form.serviceType === 'APPRAISAL_SERVICE' ? (
+                <>
+                  <label className="field">
+                    <span>Объект тури *</span>
+                    <select value={form.propertyType} onChange={(e) => updateField('propertyType', e.target.value)} disabled={saving}>
+                      {PROPERTY_TYPE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Кадастр рақами</span>
+                    <input value={form.cadastralNumber} onChange={(e) => updateField('cadastralNumber', e.target.value)} placeholder="Масалан: 15:16:..." disabled={saving} />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Объект манзили *</span>
+                    <input value={form.propertyAddress} onChange={(e) => updateField('propertyAddress', e.target.value)} placeholder="Вилоят, шаҳар, туман, кўча ва уй рақами" disabled={saving} />
+                  </label>
+                  <label className="field">
+                    <span>Хизмат ҳақи</span>
+                    <input value={form.realtorServiceFee} onChange={(e) => updateField('realtorServiceFee', e.target.value.replace(/[^\d]/g, ''))} placeholder="Масалан: 500000" inputMode="numeric" disabled={saving} />
+                  </label>
+                  <label className="field field-wide">
+                    <span>Баҳолаш мақсади</span>
+                    <textarea value={form.nextAction} onChange={(e) => updateField('nextAction', e.target.value)} placeholder="Масалан: ипотека учун, олди-сотди учун" rows={3} disabled={saving} />
+                  </label>
+                </>
               ) : form.serviceType === 'INVESTOR_PARTNERSHIP' ? (
                 <label className="field">
                   <span>Инвестиция суммаси</span>

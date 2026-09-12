@@ -901,6 +901,13 @@ function coverTitle(caseItem) {
     };
   }
 
+  if (caseItem.serviceType === 'APPRAISAL_SERVICE') {
+    return {
+      main: 'БАҲОЛАШ ХИЗМАТИНИ ТАШКИЛ ЭТИШ БЎЙИЧА',
+      accent: 'ЭЛЕКТРОН ШАРТНОМА',
+    };
+  }
+
   if (caseItem.serviceType === 'INVESTOR_PARTNERSHIP') {
     return {
       main: 'ИНВЕСТОР БИЛАН ҲАМКОРЛИК ҚИЛИШ ТЎҒРИСИДА',
