@@ -346,7 +346,9 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
           ? 'Олди-сотди шартномасини тайёрлаш'
           : isInvestorPartnership
             ? investorDetails
-            : realtorDetails,
+            : isAppraisalService
+              ? appraisalDetails
+              : realtorDetails,
         sellerFullName: isSalePurchase ? form.sellerFullName.trim() : '',
         sellerPhone: isSalePurchase ? form.sellerPhone.trim() : '',
         sellerPinfl: isSalePurchase ? form.sellerPinfl.trim() : '',
@@ -378,7 +380,7 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
 
         serviceFee: isSalePurchase
           ? (form.saleServiceFee ? form.saleServiceFee.replace(/\s/g, '') : null)
-          : isRealtorService
+          : (isRealtorService || isAppraisalService)
           ? form.realtorServiceFee
             ? form.realtorServiceFee.replace(/\s/g, '')
             : null

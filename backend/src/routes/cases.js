@@ -1415,7 +1415,7 @@ router.post(
       );
 
       const serviceFee =
-        ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType)
+        ['REALTOR_SERVICE', 'SALE_PURCHASE', 'APPRAISAL_SERVICE'].includes(data.serviceType)
           ? parseAmount(data.serviceFee)
           : null;
 
@@ -1455,7 +1455,7 @@ router.post(
           : null;
 
       if (
-        ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType) &&
+        ['REALTOR_SERVICE', 'SALE_PURCHASE', 'APPRAISAL_SERVICE'].includes(data.serviceType) &&
         data.serviceFee !== undefined &&
         data.serviceFee !== null &&
         data.serviceFee !== '' &&
@@ -1594,7 +1594,7 @@ router.post(
                   ? investorAmount
                   : requestedAmount,
               serviceFee:
-                ['REALTOR_SERVICE', 'SALE_PURCHASE'].includes(data.serviceType)
+                ['REALTOR_SERVICE', 'SALE_PURCHASE', 'APPRAISAL_SERVICE'].includes(data.serviceType)
                   ? serviceFee
                   : null,
               sellerFullName: data.serviceType === 'SALE_PURCHASE' ? normalizeOptional(data.sellerFullName) : null,
