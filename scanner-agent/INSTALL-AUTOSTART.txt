@@ -1,0 +1,20 @@
+GOLDEN KEY SCANNER AGENT — AVTOMATIK ISHGA TUSHIRISH
+
+1. scanner-agent papkasini kompyuterda doimiy joyga qo'ying.
+   Masalan: C:\GoldenKey\scanner-agent
+2. install.ps1 faylini o'ng tugma bilan PowerShell orqali ishga tushiring.
+3. Agar Windows ruxsat so'rasa, ruxsat bering.
+4. O'rnatilgandan keyin "MUVAFFAQIYATLI" xabari chiqadi.
+
+Natija:
+- Windowsga kirilganda Scanner Agent avtomatik ishga tushadi.
+- Alohida qora CMD oynasini ochib yurish shart emas.
+- Agent kutilmaganda to'xtasa, Task Scheduler qayta ishga tushirishga urinadi.
+- CRM http://127.0.0.1:17831 orqali agentni ko'radi.
+
+Tekshirish:
+Brauzerda http://127.0.0.1:17831/health ni oching.
+{"ok":true,...} chiqsa agent ishlayapti.
+
+Autostartni olib tashlash:
+uninstall-autostart.ps1 faylini PowerShell orqali ishga tushiring.
