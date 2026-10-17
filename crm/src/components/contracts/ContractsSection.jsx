@@ -62,6 +62,7 @@ export function ContractsSection({ caseId, onChanged }) {
 
   const [kiosks, setKiosks] = useState([]);
   const [kioskPicker, setKioskPicker] = useState(null);
+  const [rolePicker, setRolePicker] = useState(null);
   const [kioskLoading, setKioskLoading] = useState(false);
 
   const [pdfLoadingId, setPdfLoadingId] = useState('');
@@ -135,7 +136,7 @@ export function ContractsSection({ caseId, onChanged }) {
       await onChanged?.();
 
       if (data.item?.id) {
-        await createQr(data.item.id);
+        setRolePicker({ contractId: data.item.id });
       }
     } catch (error) {
       setPageError(error.message || 'Шартномани яратиб бўлмади.');
@@ -144,7 +145,7 @@ export function ContractsSection({ caseId, onChanged }) {
     }
   };
 
-  const createQr = async (contractId, selectedKioskId = null) => {
+  const createQr = async (contractId, selectedKioskId = null, signerRole = 'CLIENT') => {
     setQrLoadingId(contractId);
     setQrError('');
 
@@ -167,6 +168,7 @@ export function ContractsSection({ caseId, onChanged }) {
         } else if (onlineKiosks.length > 1) {
           setKioskPicker({
             contractId,
+            signerRole,
             items: onlineKiosks,
           });
           return;
@@ -175,6 +177,7 @@ export function ContractsSection({ caseId, onChanged }) {
         } else if (availableKiosks.length > 1) {
           setKioskPicker({
             contractId,
+            signerRole,
             items: availableKiosks,
           });
           return;
@@ -190,10 +193,12 @@ export function ContractsSection({ caseId, onChanged }) {
         body: JSON.stringify({
           expiresInMinutes: 15,
           kioskId,
+          signerRole,
         }),
       });
 
       setKioskPicker(null);
+      setRolePicker(null);
       setQrModal(data);
       await loadKiosks();
     } catch (error) {
@@ -851,7 +856,7 @@ export function ContractsSection({ caseId, onChanged }) {
                         <button
                           type="button"
                           className="contract-action contract-qr-button"
-                          onClick={() => createQr(contract.id)}
+                          onClick={() => setRolePicker({ contractId: contract.id })}
                           disabled={qrLoadingId === contract.id}
                         >
                           {qrLoadingId === contract.id ? (
@@ -884,6 +889,31 @@ export function ContractsSection({ caseId, onChanged }) {
           <div className="contract-inline-success">{pdfMessage}</div>
         ) : null}
       </section>
+
+       {rolePicker ? (
+        <div className="contract-qr-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setRolePicker(null);
+        }}>
+          <section className="contract-kiosk-picker" role="dialog" aria-modal="true">
+            <div className="contract-qr-head">
+              <div><span>ТАСДИҚЛОВЧИНИ ТАНЛАНГ</span><h3>QR-код ким учун?</h3></div>
+              <button type="button" onClick={() => setRolePicker(null)} aria-label="Ойнани ёпиш"><X size={20}/></button>
+            </div>
+            <div className="contract-kiosk-list">
+              {[
+                ['CLIENT', 'Мижоз (оддий шартнома)'],
+                ['SELLER', 'Сотувчи (олди-сотди)'],
+                ['BUYER', 'Харидор (олди-сотди)'],
+              ].map(([role, label]) => (
+                <button type="button" key={role} className="contract-kiosk-option"
+                  onClick={() => { setRolePicker(null); createQr(rolePicker.contractId, null, role); }}>
+                  <strong>{label}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+       ) : null}
 
       {kioskPicker ? (
         <div
@@ -924,7 +954,7 @@ export function ContractsSection({ caseId, onChanged }) {
                   type="button"
                   className="contract-kiosk-option"
                   key={kiosk.id}
-                  onClick={() => createQr(kioskPicker.contractId, kiosk.id)}
+                  onClick={() => createQr(kioskPicker.contractId, kiosk.id, kioskPicker.signerRole)}
                 >
                   <div>
                     <strong>{kiosk.name}</strong>
