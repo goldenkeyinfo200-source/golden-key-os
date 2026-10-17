@@ -258,6 +258,8 @@ model User {
   notaryOffice          NotaryOffice?   @relation(fields: [notaryOfficeId], references: [id], onDelete: SetNull)
   notaryRequestsHandled NotaryRequest[] @relation("NotaryAssignedEmployee")
 
+  employeeProfile EmployeeProfile?
+
   managedCases    Case[]               @relation("ReceptionManagerCases")
   executedCases   Case[]               @relation("ExecutorCases")
   auditLogs       AuditLog[]
@@ -978,4 +980,60 @@ model NotaryFile {
 
   @@index([requestId])
   @@index([kind])
+}
+
+// HR data is separate from CRM account and customer contracts.
+model EmployeeProfile {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  passport String?
+  pinfl String?
+  address String?
+  jobTitle String?
+  hiredAt DateTime?
+  salaryType String? // FIXED, PERCENT, MIXED
+  monthlySalary Decimal? @db.Decimal(18,2)
+  commissionPercent Decimal? @db.Decimal(6,3)
+  commissionBasis String?
+  certificateRequired Boolean @default(false)
+  certificateNumber String?
+  certificateIssuedAt DateTime?
+  certificateExpiresAt DateTime?
+  certificateFileUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  laborContracts EmployeeLaborContract[]
+  trainings EmployeeTraining[]
+}
+
+model EmployeeLaborContract {
+  id String @id @default(cuid())
+  employeeId String
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  contractNumber String @unique
+  status String @default("DRAFT") // DRAFT only in stage 1
+  startDate DateTime?
+  endDate DateTime?
+  notes String?
+  termsSnapshot Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([employeeId, createdAt])
+}
+
+model EmployeeTraining {
+  id String @id @default(cuid())
+  employeeId String
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  description String
+  cost Decimal? @db.Decimal(18,2)
+  currency String @default("UZS")
+  startedAt DateTime?
+  completedAt DateTime?
+  serviceMonths Int @default(60)
+  status String @default("DRAFT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([employeeId])
 }
