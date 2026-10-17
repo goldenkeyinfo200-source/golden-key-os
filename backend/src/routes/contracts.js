@@ -17,6 +17,7 @@ import { sendContractSigningLink } from '../services/notify.js';
 const router = Router();
 
 const CURRENT_INSURANCE_POLICY_MARKER = 'EKFD № 0180321';
+const CURRENT_COMPANY_ADDRESS_MARKER = 'Туркистон кўчаси, 6-G';
 
 const MANAGE_ROLES = [
   'SUPER_ADMIN',
@@ -147,7 +148,8 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 
     if (
       current?.htmlBody?.includes(marker) &&
-      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER)
+      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER) &&
+      current.htmlBody.includes(CURRENT_COMPANY_ADDRESS_MARKER)
     ) {
       return current;
     }
@@ -190,7 +192,8 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
 
     if (
       current?.htmlBody?.includes(marker) &&
-      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER)
+      current.htmlBody.includes(CURRENT_INSURANCE_POLICY_MARKER) &&
+      current.htmlBody.includes(CURRENT_COMPANY_ADDRESS_MARKER)
     ) {
       return current;
     }
@@ -228,7 +231,10 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
     },
   });
 
-  if (current?.htmlBody?.includes(CURRENT_INSURANCE_POLICY_MARKER)) {
+  if (
+    current?.htmlBody?.includes(CURRENT_INSURANCE_POLICY_MARKER) &&
+    current.htmlBody.includes(CURRENT_COMPANY_ADDRESS_MARKER)
+  ) {
     return current;
   }
 
