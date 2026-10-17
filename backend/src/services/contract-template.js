@@ -500,7 +500,7 @@ export function realtorContractHtml() {
       <section>
         <h2>21. ИЖРОЧИ РЕКВИЗИТЛАРИ</h2>
         <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p>
-        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, А. Т. Ҳўқандий мавзеси, 132-О</p>
+        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, Туркистон кўчаси, 6-G</p>
         <p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p>
         <p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p>
         <p><strong>МФО:</strong> 00083</p>
@@ -659,7 +659,7 @@ export function salePurchaseContractHtml() {
       <section>
         <h2>19. РИЭЛТОР РЕКВИЗИТЛАРИ</h2>
         <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p>
-        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, А. Т. Ҳўқандий мавзеси, 132-О</p>
+        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, Туркистон кўчаси, 6-G</p>
         <p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p>
         <p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p>
         <p><strong>МФО:</strong> 00083</p>
@@ -925,7 +925,7 @@ export function investorPartnershipContractHtml() {
       <section>
         <h2>17. КОМПАНИЯ РЕКВИЗИТЛАРИ</h2>
         <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p>
-        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, А. Т. Ҳўқандий мавзеси, 132-О</p>
+        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, Туркистон кўчаси, 6-G</p>
         <p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p>
         <p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p>
         <p><strong>МФО:</strong> 00083</p>
@@ -998,7 +998,7 @@ export function appraisalContractHtml() {
       <section><h2>13. ЯКУНИЙ ҚОИДАЛАР</h2><p>13.1. Шартнома Буюртмачи электрон тасдиқ берган вақтдан кучга киради.</p><p>13.2. Электрон тасдиқ санаси, вақти ва шартномани текширишга оид техник маълумотлар Golden Key OS тизимида қайд этилади.</p></section>
       <section><h2>14. БУЮРТМАЧИ МАЪЛУМОТЛАРИ</h2><p><strong>Ф.И.Ш.:</strong> {{clientFullName}}</p><p><strong>Телефон:</strong> {{clientPhone}}</p><p><strong>ЖШШИР:</strong> {{clientPinfl}}</p><p><strong>Паспорт / ID:</strong> {{clientPassport}}</p><p><strong>Манзил:</strong> {{clientAddress}}</p></section>
       <section><h2>15. ИЖРОЧИ РЕКВИЗИТЛАРИ</h2>
-        <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p><p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, А. Т. Ҳўқандий мавзеси, 132-О</p><p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p><p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p><p><strong>МФО:</strong> 00083</p><p><strong>СТИР:</strong> 304692047</p><p><strong>Телефон:</strong> +998 99 999 79 73</p><p><strong>E-mail:</strong> goldenkeyinfo200@gmail.com</p><p><strong>Раҳбар:</strong> Таджибаев Азим Иркинджанович</p><p><strong>Суғурта:</strong> «KAFOLAT sug‘urta kompaniyasi» АЖ, электрон суғурта полиси EKFD № 0180321, суғурта шартномаси № 12-05/058/11/0000001, амал қилиш муддати 08.09.2026 йилдан 07.09.2027 йилгача.</p><p><strong>М.Ў.</strong> __________________ А. И. Таджибаев</p>
+        <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p><p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, Туркистон кўчаси, 6-G</p><p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p><p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p><p><strong>МФО:</strong> 00083</p><p><strong>СТИР:</strong> 304692047</p><p><strong>Телефон:</strong> +998 99 999 79 73</p><p><strong>E-mail:</strong> goldenkeyinfo200@gmail.com</p><p><strong>Раҳбар:</strong> Таджибаев Азим Иркинджанович</p><p><strong>Суғурта:</strong> «KAFOLAT sug‘urta kompaniyasi» АЖ, электрон суғурта полиси EKFD № 0180321, суғурта шартномаси № 12-05/058/11/0000001, амал қилиш муддати 08.09.2026 йилдан 07.09.2027 йилгача.</p><p><strong>М.Ў.</strong> __________________ А. И. Таджибаев</p>
       </section>
     </article>
   `.trim();
@@ -1115,7 +1115,7 @@ export function defaultContractHtml() {
       <section>
         <h2>13. ИЖРОЧИ РЕКВИЗИТЛАРИ</h2>
         <p><strong>Ташкилот:</strong> «GOLDEN KEY INFO» масъулияти чекланган жамияти</p>
-        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, А. Т. Ҳўқандий мавзеси, 132-О</p>
+        <p><strong>Манзил:</strong> Фарғона вилояти, Қўқон шаҳри, Туркистон кўчаси, 6-G</p>
         <p><strong>Банк:</strong> «Hamkorbank» АТБ Қўқон бўлими</p>
         <p><strong>Ҳисоб рақами:</strong> 2020 8000 8007 3423 9001</p>
         <p><strong>МФО:</strong> 00083</p>
