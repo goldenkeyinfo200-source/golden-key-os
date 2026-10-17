@@ -347,6 +347,7 @@ model Case {
   saleServiceFeePayer  String?
 
   // SALE_PURCHASE: закалат
+  salePenaltyAmount        Decimal?  @db.Decimal(18, 2)
   saleDepositAmount        Decimal?  @db.Decimal(18, 2)
   saleDepositPaidAt        DateTime?
   saleDepositDeadline      DateTime?

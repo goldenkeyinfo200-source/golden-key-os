@@ -167,6 +167,7 @@ const createCaseSchema = z.object({
   salePropertyArea: z.union([z.number(), z.string()]).optional().nullable(),
   saleServiceFeePayer: z.enum(['BUYER', 'SELLER', 'BOTH']).optional().nullable(),
   saleDepositAmount: z.union([z.number(), z.string()]).optional().nullable(),
+  salePenaltyAmount: z.union([z.number(), z.string()]).optional().nullable(),
   saleDepositPaidAt: z.string().trim().optional().or(z.literal('')),
   saleDepositDeadline: z.string().trim().optional().or(z.literal('')),
 
@@ -1424,6 +1425,11 @@ router.post(
           ? parseAmount(data.saleDepositAmount)
           : null;
 
+      const salePenaltyAmount =
+        data.serviceType === 'SALE_PURCHASE'
+          ? parseAmount(data.salePenaltyAmount)
+          : null;
+
       const saleDepositPaidAt =
         data.serviceType === 'SALE_PURCHASE'
           ? parseDate(data.saleDepositPaidAt)
@@ -1489,6 +1495,9 @@ router.post(
         }
         if (!(Number(saleDepositAmount) > 0)) {
           return res.status(400).json({ error: 'Закалат суммасини киритинг' });
+        }
+        if (salePenaltyAmount !== null && (!Number.isFinite(Number(salePenaltyAmount)) || Number(salePenaltyAmount) < 0)) {
+          return res.status(400).json({ error: 'Жарима суммаси манфий бўлиши мумкин эмас' });
         }
         if (!saleDepositPaidAt) {
           return res.status(400).json({ error: 'Закалат берилган санани киритинг' });
@@ -1609,6 +1618,7 @@ router.post(
               salePropertyArea: data.serviceType === 'SALE_PURCHASE' && data.salePropertyArea ? Number(data.salePropertyArea) : null,
               saleServiceFeePayer: data.serviceType === 'SALE_PURCHASE' ? (data.saleServiceFeePayer || 'BUYER') : null,
               saleDepositAmount: data.serviceType === 'SALE_PURCHASE' ? saleDepositAmount : null,
+              salePenaltyAmount: data.serviceType === 'SALE_PURCHASE' ? salePenaltyAmount : null,
               saleDepositPaidAt: data.serviceType === 'SALE_PURCHASE' ? saleDepositPaidAt : null,
               saleDepositDeadline: data.serviceType === 'SALE_PURCHASE' ? saleDepositDeadline : null,
               saleDepositTermsAccepted: data.serviceType === 'SALE_PURCHASE',

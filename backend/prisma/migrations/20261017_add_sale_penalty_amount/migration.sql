@@ -1,0 +1,2 @@
+ALTER TABLE "Case"
+ADD COLUMN IF NOT EXISTS "salePenaltyAmount" DECIMAL(18,2);

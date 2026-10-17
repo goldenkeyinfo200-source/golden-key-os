@@ -575,6 +575,7 @@ export function salePurchaseContractHtml() {
         <p>6.1. Агар асосий олди-сотди битими Олувчининг айби билан ёки Олувчи ушбу шартнома бўйича ўз зиммасига олган мажбуриятларни бажаришдан воз кечиши сабабли амалга ошмай қолса, Олувчи томонидан берилган закалат пули Сотувчида қолади ва Олувчига қайтарилмайди.</p>
         <p>6.2. Агар асосий олди-сотди битими Сотувчининг айби билан ёки Сотувчи ушбу шартнома бўйича ўз зиммасига олган мажбуриятларни бажаришдан воз кечиши сабабли амалга ошмай қолса, Сотувчи олган закалат пулини Олувчига <strong>икки баравар миқдорда</strong> қайтариши шарт.</p>
         <p>6.3. Агар мажбурият Тарафларнинг келишувига кўра ёки уни бажариш мумкин бўлмай қолганлиги сабабли Тарафларнинг жавобгарлигисиз бекор қилинса, закалат пули Олувчига қайтарилади.</p>
+        {{salePenaltyClause}}
       </section>
 
       <section>
@@ -1131,7 +1132,7 @@ export function defaultContractHtml() {
 }
 
 export function renderContractHtml(templateHtml, context) {
-  const rawHtmlKeys = new Set(['realtorDirectionScope']);
+  const rawHtmlKeys = new Set(['realtorDirectionScope', 'salePenaltyClause']);
   const effectiveTemplate =
     context?.serviceTypeCode === 'APPRAISAL_SERVICE'
       ? appraisalContractHtml()
@@ -1349,6 +1350,12 @@ export function buildContractContext({ contract, caseItem, selectedOffer }) {
         BOTH: 'Сотувчи ва Олувчи',
       })[caseItem.saleServiceFeePayer] || '—',
 
+    salePenaltyClause:
+      caseItem.salePenaltyAmount !== null &&
+      caseItem.salePenaltyAmount !== undefined &&
+      Number(caseItem.salePenaltyAmount) > 0
+        ? `<p>6.4. Тарафлардан бири ўз айби билан асосий олди-сотди битимини амалга оширишдан воз кечса, у иккинчи тарафга қўшимча келишилган жарима сифатида <strong>${escapeHtml(formatMoney(caseItem.salePenaltyAmount))}</strong> тўлайди. Ушбу жарима 6.1–6.3-бандларда назарда тутилган закалат оқибатларидан алоҳида ҳисобланади; бир хил зарар ёки тўловнинг икки марта ундирилишига йўл қўйилмайди.</p>`
+        : '',
     saleDepositAmount: formatMoney(caseItem.saleDepositAmount),
     saleDepositPaidAt: formatDate(caseItem.saleDepositPaidAt),
     saleDepositDeadline: formatDate(caseItem.saleDepositDeadline),

@@ -69,7 +69,7 @@ const INITIAL_FORM = {
   realtorServiceFee: '',
   sellerFullName: '', sellerPhone: '', sellerPinfl: '', sellerPassportSeries: '', sellerPassportNumber: '', sellerAddress: '',
   salePropertyType: 'APARTMENT', salePropertyAddress: '', saleCadastreNumber: '', salePropertyArea: '', salePrice: '', saleServiceFee: '', saleServiceFeePayer: 'BUYER',
-  saleDepositAmount: '', saleDepositPaidAt: '', saleDepositDeadline: '',
+  saleDepositAmount: '', saleDepositPaidAt: '', saleDepositDeadline: '', salePenaltyAmount: '',
   investorInvestmentAmount: '',
   investorProfitShare: '',
   investorContractStart: '',
@@ -365,6 +365,7 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
           : null,
         saleDepositPaidAt: isSalePurchase ? (form.saleDepositPaidAt || '') : '',
         saleDepositDeadline: isSalePurchase ? (form.saleDepositDeadline || '') : '',
+        salePenaltyAmount: isSalePurchase && form.salePenaltyAmount ? form.salePenaltyAmount.replace(/\s/g, '') : null,
 
         requestedAmount: isSalePurchase
           ? (form.salePrice ? form.salePrice.replace(/\s/g, '') : null)
@@ -813,6 +814,17 @@ function NewCaseModal({ open, onClose, onCreated, allowedServiceTypes }) {
                     {fieldErrors.saleDepositDeadline?.[0] ? <small>{fieldErrors.saleDepositDeadline[0]}</small> : null}
                   </label>
 
+                  <label className="field">
+                    <span>Жарима суммаси (сўм)</span>
+                    <input
+                      value={form.salePenaltyAmount}
+                      onChange={(e) => updateField('salePenaltyAmount', e.target.value.replace(/\D/g, ''))}
+                      placeholder="Масалан: 5000000 (ихтиёрий)"
+                      inputMode="numeric"
+                      disabled={saving}
+                    />
+                    {fieldErrors.salePenaltyAmount?.[0] ? <small>{fieldErrors.salePenaltyAmount[0]}</small> : null}
+                  </label>
                   <label className="field"><span>Риэлторлик хизмати ҳақи</span><input value={form.saleServiceFee} onChange={(e)=>updateField('saleServiceFee',e.target.value.replace(/\D/g,''))} inputMode="numeric" disabled={saving}/></label>
                   <label className="field"><span>Хизмат ҳақини ким тўлайди?</span><select value={form.saleServiceFeePayer} onChange={(e)=>updateField('saleServiceFeePayer',e.target.value)} disabled={saving}><option value="BUYER">Харидор</option><option value="SELLER">Сотувчи</option><option value="BOTH">Икки томон</option></select></label>
 
