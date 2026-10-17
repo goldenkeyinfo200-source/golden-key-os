@@ -16,6 +16,7 @@ import kiosksRouter from './kiosks.js';
 import notariesRouter from './notaries.js';
 import telegramRouter from './telegram.js';
 import usersRouter from './users.js';
+import employeeContractsRouter from './employee-contracts.js';
 
 const router = Router();
 
@@ -108,6 +109,7 @@ router.use('/telegram', telegramRouter);
 ========================================================= */
 
 router.use('/users', usersRouter);
+router.use('/employee-contracts', employeeContractsRouter);
 
 /* =========================================================
    BRANCHES

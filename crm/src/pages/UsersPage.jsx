@@ -44,6 +44,67 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [hrUser, setHrUser] = useState(null);
+  const [hrProfile, setHrProfile] = useState(null);
+  const [hrForm, setHrForm] = useState({jobTitle:'',salaryType:'FIXED',monthlySalary:'',commissionPercent:'',commissionBasis:'',certificateRequired:false,certificateNumber:''});
+  const [hrNumber, setHrNumber] = useState('');
+  const [hrError, setHrError] = useState('');
+  const [hrSaving, setHrSaving] = useState(false);
+  const openHr = async (user) => {
+    setHrUser(user);setHrError('');setHrProfile(null);
+    try {
+      const data = await apiRequest(`/employee-contracts/${user.id}`);
+      setHrProfile(data.profile);
+      const p=data.profile || {};
+      setHrForm({jobTitle:p.jobTitle||'',salaryType:p.salaryType||'FIXED',monthlySalary:p.monthlySalary??'',commissionPercent:p.commissionPercent??'',commissionBasis:p.commissionBasis||'',certificateRequired:!!p.certificateRequired,certificateNumber:p.certificateNumber||''});
+    } catch(e){setHrError(e.message)}
+  };
+  const saveHr = async (event) => {
+    event.preventDefault();setHrSaving(true);setHrError('');
+    try {
+      const body={...hrForm,monthlySalary:hrForm.monthlySalary===''?null:Number(hrForm.monthlySalary),commissionPercent:hrForm.commissionPercent===''?null:Number(hrForm.commissionPercent)};
+      const data=await apiRequest(`/employee-contracts/${hrUser.id}/profile`,{method:'PUT',body:JSON.stringify(body)});
+      setHrProfile(prev=>({...prev,...data.profile}));
+    }catch(e){setHrError(e.message)}finally{setHrSaving(false)}
+  };
+  const createHrDraft=async()=>{
+    setHrSaving(true);setHrError('');
+    try{
+      await apiRequest(`/employee-contracts/${hrUser.id}/contracts`,{method:'POST',body:JSON.stringify({contractNumber:hrNumber,startDate:hrStartDate?new Date(hrStartDate+'T12:00:00').toISOString():null,endDate:hrEndDate?new Date(hrEndDate+'T12:00:00').toISOString():null,notes:hrNotes||null})});
+      const data=await apiRequest(`/employee-contracts/${hrUser.id}`);setHrProfile(data.profile);setHrNumber('');setHrStartDate('');setHrEndDate('');setHrNotes('');
+    }catch(e){setHrError(e.message)}finally{setHrSaving(false)}
+  };
+
+  const [hrStartDate, setHrStartDate] = useState('');
+  const [hrEndDate, setHrEndDate] = useState('');
+  const [hrNotes, setHrNotes] = useState('');
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const printHrDraft = (contract) => {
+    const snapshot = contract.termsSnapshot || {};
+    const value = (v) => escapeHtml(v === null || v === undefined || v === '' ? '________________' : v);
+    const date = (v) => v ? new Date(v).toLocaleDateString('uz-UZ') : '________________';
+    const pay = snapshot.salaryType === 'FIXED' ? `Ойлик иш ҳақи: ${value(snapshot.monthlySalary)} сўм.`
+      : snapshot.salaryType === 'PERCENT' ? `Фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`
+      : `Ойлик: ${value(snapshot.monthlySalary)} сўм; фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`;
+    const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${value(contract.contractNumber)}</title><style>
+    @page{size:A4;margin:18mm}body{font:14px/1.55 Arial,sans-serif;color:#17202a;max-width:800px;margin:35px auto}h1{text-align:center;font-size:19px}h2{font-size:15px;margin-top:22px}.watermark{text-align:center;border:2px solid #aa6b00;color:#8b5c00;padding:9px;font-weight:bold}.meta{display:flex;justify-content:space-between}.sign{display:flex;gap:30px;margin-top:35px}.sign>div{flex:1}p{margin:8px 0}@media print{body{margin:0}.print-button{display:none}}</style></head><body>
+    <div class="watermark">ЛОЙИҲА — ИМЗОЛАНМАГАН, ЮРИДИК ТЕКШИРУВ ТАЛАБ ҚИЛИНАДИ</div>
+    <h1>МЕҲНАТ ШАРТНОМАСИ ЛОЙИҲАСИ</h1><div class="meta"><span>№ ${value(contract.contractNumber)}</span><span>Қўқон шаҳри · ${date(contract.createdAt)}</span></div>
+    <p>Иш берувчи: <b>«GOLDEN KEY INFO» МЧЖ</b> (ваколатли вакилнинг Ф.И.О. ва ваколати: ____________________) ва ходим <b>${value(hrUser?.fullName)}</b> ўртасида мазкур шартнома лойиҳаси тузилди.</p>
+    <h2>1. Меҳнат вазифаси</h2><p>Лавозим: <b>${value(snapshot.jobTitle)}</b>. Иш жойи ва аниқ вазифалар: ____________________.</p>
+    <h2>2. Муддат ва иш бошлаш санаси</h2><p>Иш бошлаш: ${date(contract.startDate)}. Тугаш санаси (агар муддатли бўлса): ${date(contract.endDate)}. Муддатли шартнома асоси: ____________________.</p>
+    <h2>3. Иш ҳақи</h2><p>${pay} Тўлаш муддатлари, солиқ ва бошқа қонуний ушланмалар амалдаги қонунчилик ва иш берувчининг тасдиқланган тартибига мувофиқ белгиланади.</p>
+    <h2>4. Иш вақти ва дам олиш</h2><p>Иш режими, ҳафталик иш соатлари, дам олиш кунлари, таътил ва танаффуслар: ____________________.</p>
+    <h2>5. Тарафларнинг ҳуқуқ ва мажбуриятлари</h2><p>Ходим меҳнат вазифаларини бажаради, иш берувчи хавфсиз меҳнат шароитларини таъминлайди ва иш ҳақини ўз вақтида тўлайди. Бошқа шартлар Ўзбекистон Республикасининг амалдаги меҳнат қонунчилигига мувофиқ белгиланади.</p>
+    <h2>6. Қўшимча шартлар</h2><p style="white-space:pre-wrap">${value(contract.notes)}</p>
+    <h2>7. Тарафларнинг реквизитлари ва имзолари</h2><div class="sign"><div><b>Иш берувчи</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>Вакил: ____________________</p><p>Имзо: ____________________</p></div><div><b>Ходим</b><p>${value(hrUser?.fullName)}</p><p>Паспорт/ЖШШИР: ____________________</p><p>Имзо: ____________________</p></div></div>
+    <p style="margin-top:35px;font-size:11px">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида шакллантирилган кўриб чиқиш нусхаси. Электрон имзо ёки тасдиқлаш амалга оширилмаган. Қонунчиликка мувофиқ барча мажбурий шартларни кадрлар мутахассиси текшириши керак.</p>
+    <button class="print-button" onclick="window.print()">Чоп этиш / PDF сифатида сақлаш</button></body></html>`;
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,6 +293,7 @@ export function UsersPage() {
 
               <div className="user-row-actions">
                 <strong>{user.isActive ? 'Фаол' : 'Блокланган'}</strong>
+                <button type="button" className="users-secondary" onClick={() => openHr(user)}>Меҳнат шартномаси</button>
                 <button
                   type="button"
                   className="users-secondary"
@@ -252,6 +314,33 @@ export function UsersPage() {
         </section>
       )}
 
+      {hrUser ? (
+        <div className="users-modal-backdrop">
+          <section className="users-modal">
+            <div className="users-modal-head"><div><h3>{hrUser.fullName} — кадрлар карточкаси</h3><p>Меҳнат шартномаси лойиҳаси</p></div><button type="button" onClick={()=>setHrUser(null)}><X size={20}/></button></div>
+            <form className="users-form" onSubmit={saveHr}>
+              {hrError ? <div className="users-error">{hrError}</div> : null}
+              <label><span>Расмий лавозим</span><input required value={hrForm.jobTitle} onChange={e=>setHrForm({...hrForm,jobTitle:e.target.value})}/></label>
+              <label><span>Иш ҳақи тартиби</span><select value={hrForm.salaryType} onChange={e=>setHrForm({...hrForm,salaryType:e.target.value})}><option value="FIXED">Ойлик</option><option value="PERCENT">Фоиз</option><option value="MIXED">Ойлик + фоиз</option></select></label>
+              {hrForm.salaryType!=='PERCENT' ? <label><span>Ойлик (сўм)</span><input type="number" min="0" value={hrForm.monthlySalary} onChange={e=>setHrForm({...hrForm,monthlySalary:e.target.value})}/></label> : null}
+              {hrForm.salaryType!=='FIXED' ? <><label><span>Фоиз (%)</span><input type="number" min="0" max="100" step="0.001" value={hrForm.commissionPercent} onChange={e=>setHrForm({...hrForm,commissionPercent:e.target.value})}/></label><label><span>Фоиз ҳисоблаш базаси</span><input value={hrForm.commissionBasis} onChange={e=>setHrForm({...hrForm,commissionBasis:e.target.value})}/></label></> : null}
+              <label><span><input type="checkbox" checked={hrForm.certificateRequired} onChange={e=>setHrForm({...hrForm,certificateRequired:e.target.checked})}/> Малака сертификати талаб қилинади</span></label>
+              {hrForm.certificateRequired ? <label><span>Сертификат рақами</span><input value={hrForm.certificateNumber} onChange={e=>setHrForm({...hrForm,certificateNumber:e.target.value})}/></label> : null}
+              <button className="users-primary" disabled={hrSaving}>Карточкани сақлаш</button>
+            </form>
+            <div className="users-form">
+              <strong>Меҳнат шартномаси лойиҳаси</strong>
+              <label><span>Шартнома рақами</span><input value={hrNumber} onChange={e=>setHrNumber(e.target.value)}/></label>
+              <label><span>Иш бошлаш санаси</span><input type="date" value={hrStartDate} onChange={e=>setHrStartDate(e.target.value)}/></label>
+              <label><span>Тугаш санаси (ихтиёрий)</span><input type="date" value={hrEndDate} onChange={e=>setHrEndDate(e.target.value)}/></label>
+              <label><span>Қўшимча шартлар (лойиҳа)</span><textarea rows={3} maxLength={4000} value={hrNotes} onChange={e=>setHrNotes(e.target.value)}/></label>
+              <button type="button" className="users-secondary" disabled={hrSaving||!hrNumber.trim()||!hrProfile} onClick={createHrDraft}>Лойиҳани сақлаш</button>
+              {(hrProfile?.laborContracts||[]).map(c=><div key={c.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:10}}><span>{c.contractNumber} — {c.status}</span><button type="button" className="users-secondary" onClick={()=>printHrDraft(c)}>Кўриш / PDF</button></div>)}
+              <p style={{fontSize:12,color:'#777'}}>«Кўриш / PDF» босилганда босмага мос лойиҳа очилади. Браузернинг «Чоп этиш → PDF сифатида сақлаш» функциясидан фойдаланинг. Бу имзоланган ёки ҳуқуқий жиҳатдан тўлиқ тасдиқланган шартнома эмас.</p>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {modalOpen ? (
         <div className="users-modal-backdrop">
           <section className="users-modal">
