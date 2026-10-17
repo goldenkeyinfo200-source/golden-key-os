@@ -520,7 +520,7 @@ export function realtorContractHtml() {
 
 export function salePurchaseContractHtml() {
   return `
-    <article class="contract-document" data-gk-template="sale-purchase-v2">
+    <article class="contract-document" data-gk-template="sale-purchase-v3">
       <header>
         <h1>КЎЧМАС МУЛК ОЛДИ-СОТДИСИНИ ТАШКИЛ ЭТИШ ВА РИЭЛТОРЛИК ХИЗМАТЛАРИ БЎЙИЧА УЧ ТОМОНЛАМА ШАРТНОМА</h1>
         <p><strong>Шартнома рақами:</strong> {{contractDisplayId}}</p>

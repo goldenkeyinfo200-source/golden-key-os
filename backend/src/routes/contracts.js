@@ -176,7 +176,7 @@ async function resolveTemplate(tx, caseItem, requestedTemplateId) {
   }
 
   if (caseItem.serviceType === 'SALE_PURCHASE') {
-    const marker = 'data-gk-template="sale-purchase-v2"';
+    const marker = 'data-gk-template="sale-purchase-v3"';
 
     const current = await tx.contractTemplate.findFirst({
       where: {
