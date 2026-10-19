@@ -161,31 +161,47 @@ export function UsersPage() {
         'Шартнома тарафлар томонидан қонун талабларига мувофиқ расмийлаштирилиб имзолангандан сўнг тегишли ҳуқуқий кучга эга бўлади. Мазкур CRM лойиҳаси имзо ёки расмий рўйхатдан ўтказиш ўрнини босмайди.'
       ])
     ];
+    // This is a draft preview only. Missing legal details must be completed before signing.
+    const missingFields = [];
+    if (!hrUser?.fullName?.trim()) missingFields.push('Ходим Ф.И.Ш.');
+    if (!snapshot.jobTitle?.trim()) missingFields.push('Лавозим');
+    if (!contract.startDate) missingFields.push('Иш бошлаш санаси');
+    if (snapshot.salaryType !== 'PERCENT' && (snapshot.monthlySalary === null || snapshot.monthlySalary === undefined || snapshot.monthlySalary === '')) missingFields.push('Ойлик маош');
+    if (snapshot.salaryType !== 'FIXED' && (snapshot.commissionPercent === null || snapshot.commissionPercent === undefined || snapshot.commissionPercent === '')) missingFields.push('Фоиз миқдори');
+    if (!hrUser?.branch?.name) missingFields.push('Иш жойи / филиал');
+    // Employer identity, pay dates, working hours, leave, and signatory details
+    // are placeholders in this CRM version and always require manual completion.
+    const fixedMissing = ['Иш берувчи вакили ва реквизитлари', 'Иш жойининг манзили', 'Иш ҳақи тўлаш санаси', 'Иш вақти ва дам олиш режими', 'Таътил муддати', 'Ходимнинг паспорт/ID ва ЖШШИР маълумотлари'];
+    const missingWarning = [...missingFields, ...fixedMissing];
     const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${safe(contract.contractNumber)}</title><style>
-      @page{size:A4;margin:18mm 17mm 19mm}
+      @page{size:A4;margin:15mm 17mm 16mm}
       *{box-sizing:border-box}
       html{background:#e9edf2}
-      body{font-family:Arial,"DejaVu Sans",sans-serif;color:#17212b;background:white;max-width:210mm;margin:20px auto;padding:18mm 17mm;font-size:11pt;line-height:1.48;overflow-wrap:anywhere}
-      h1{text-align:center;font-size:15pt;line-height:1.3;margin:16px 0 13px}
-      h2{font-size:11pt;margin:15px 0 7px;line-height:1.4;break-after:avoid;page-break-after:avoid}
-      p{margin:7px 0;text-align:justify;orphans:3;widows:3}
-      .draft{text-align:center;border:1px solid #a56d17;color:#805510;font-size:9pt;font-weight:bold;padding:9px;break-inside:avoid}
-      .meta{display:flex;justify-content:space-between;gap:12px;margin:14px 0;break-inside:avoid;font-size:10pt}
+      body{font-family:Arial,"DejaVu Sans",sans-serif;color:#17212b;background:white;max-width:210mm;margin:20px auto;padding:15mm 17mm;font-size:10pt;line-height:1.39;overflow-wrap:break-word}
+      h1{text-align:center;font-size:14pt;line-height:1.25;margin:12px 0 10px}
+      h2{font-size:10.2pt;margin:11px 0 5px;line-height:1.3;break-after:avoid;page-break-after:avoid}
+      p{margin:5px 0;text-align:justify;orphans:3;widows:3}
+      .clause{break-inside:avoid-page;page-break-inside:avoid}
+      .draft{text-align:center;border:1px solid #a56d17;color:#805510;font-size:8.2pt;font-weight:bold;padding:7px;break-inside:avoid}
+      .meta{display:flex;justify-content:space-between;gap:12px;margin:11px 0;break-inside:avoid;font-size:9.2pt}
       .notes{white-space:pre-wrap}
-      .sign{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:17px;break-inside:avoid;page-break-inside:avoid}
-      .sign p{text-align:left}
-      .legal{font-size:9pt;margin-top:18px}
-      .print-button{margin-top:24px;background:#182532;color:white;border:0;border-radius:6px;padding:11px 17px;cursor:pointer}
+      .sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;break-inside:avoid;page-break-inside:avoid;font-size:9pt}
+      .sign p{text-align:left;margin:5px 0}
+      .legal{font-size:8pt;margin-top:11px;break-inside:avoid}
+      .missing-warning{padding:9px 12px;border:1px solid #dfb36c;background:#fffaf0;font-size:9pt;line-height:1.5;margin:12px 0}
+      .print-button{margin-top:15px;background:#182532;color:white;border:0;border-radius:6px;padding:11px 17px;cursor:pointer}
       @media print{
         html{background:white}
-        body{margin:0;padding:0;max-width:none;font-size:11pt;line-height:1.48}
-        .print-button{display:none}
+        body{margin:0;padding:0;max-width:none;font-size:10pt;line-height:1.39}
+        .print-button,.missing-warning{display:none!important}
         .draft,.meta,.sign{break-inside:avoid;page-break-inside:avoid}
+        .clause{break-inside:avoid-page;page-break-inside:avoid}
       }
     </style></head><body>
       <div class="draft">ЛОЙИҲА — ИМЗОЛАНМАГАН. МАЖБУРИЙ МАЪЛУМОТЛАРНИ ТЎЛДИРИШ ВА ЮРИДИК ТЕКШИРУВ ТАЛАБ ҚИЛИНАДИ</div>
       <h1>МЕҲНАТ ШАРТНОМАСИ ЛОЙИҲАСИ</h1>
       <div class="meta"><span>№ ${safe(contract.contractNumber)}</span><span>Қўқон шаҳри · ${date(contract.createdAt)}</span></div>
+      <div class="missing-warning"><b>Имзолашдан олдин тўлдирилиши шарт:</b> ${missingWarning.map(escapeHtml).join('; ')}.</div>
       ${sections.join('\n')}
       <div class="sign">
         <div><b>ИШ БЕРУВЧИ</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>СТИР: ____________________</p><p>Манзил: ____________________</p><p>Ваколатли вакил: ____________________</p><p>Имзо: ____________________</p></div>
