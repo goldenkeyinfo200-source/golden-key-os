@@ -87,7 +87,27 @@ export function UsersPage() {
       : snapshot.salaryType === 'PERCENT' ? `Фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`
       : `Ойлик: ${value(snapshot.monthlySalary)} сўм; фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`;
     const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${value(contract.contractNumber)}</title><style>
-    @page{size:A4;margin:18mm}body{font:14px/1.55 Arial,sans-serif;color:#17202a;max-width:800px;margin:35px auto}h1{text-align:center;font-size:19px}h2{font-size:15px;margin-top:22px}.watermark{text-align:center;border:2px solid #aa6b00;color:#8b5c00;padding:9px;font-weight:bold}.meta{display:flex;justify-content:space-between}.sign{display:flex;gap:30px;margin-top:35px}.sign>div{flex:1}p{margin:8px 0}@media print{body{margin:0}.print-button{display:none}}</style></head><body>
+    @page{size:A4;margin:18mm 17mm 18mm 17mm}
+    *{box-sizing:border-box}
+    html{background:#eef1f5}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;color:#17202a;background:#fff;max-width:210mm;margin:24px auto;padding:18mm 17mm;overflow-wrap:break-word}
+    h1{text-align:center;font-size:15pt;line-height:1.3;margin:17px 0 13px}
+    h2{font-size:11pt;line-height:1.4;margin:18px 0 7px;break-after:avoid;page-break-after:avoid}
+    p{margin:7px 0;text-align:justify;orphans:3;widows:3}
+    .watermark{text-align:center;border:1.5px solid #aa6b00;color:#8b5c00;padding:9px 10px;font-size:9pt;line-height:1.4;font-weight:bold;break-inside:avoid}
+    .meta{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:12px 0 14px;font-size:10pt;break-inside:avoid}
+    .meta span:last-child{text-align:right}
+    .sign{display:flex;gap:25px;margin-top:17px;break-inside:avoid;page-break-inside:avoid}
+    .sign>div{flex:1;min-width:0}
+    .sign p{text-align:left}
+    .legal-note{margin-top:20px;font-size:9pt;line-height:1.5;break-inside:avoid}
+    .print-button{display:block;margin:24px 0 0;padding:10px 16px;background:#17202a;color:white;border:0;border-radius:6px;cursor:pointer}
+    @media print{
+      html{background:#fff}
+      body{width:auto;max-width:none;margin:0;padding:0;font-size:11pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .print-button{display:none}
+      h1,h2,.watermark,.meta,.sign{break-inside:avoid;page-break-inside:avoid}
+    }</style></head><body>
     <div class="watermark">ЛОЙИҲА — ИМЗОЛАНМАГАН, ЮРИДИК ТЕКШИРУВ ТАЛАБ ҚИЛИНАДИ</div>
     <h1>МЕҲНАТ ШАРТНОМАСИ ЛОЙИҲАСИ</h1><div class="meta"><span>№ ${value(contract.contractNumber)}</span><span>Қўқон шаҳри · ${date(contract.createdAt)}</span></div>
     <p>Иш берувчи: <b>«GOLDEN KEY INFO» МЧЖ</b> (ваколатли вакилнинг Ф.И.О. ва ваколати: ____________________) ва ходим <b>${value(hrUser?.fullName)}</b> ўртасида мазкур шартнома лойиҳаси тузилди.</p>
@@ -98,7 +118,7 @@ export function UsersPage() {
     <h2>5. Тарафларнинг ҳуқуқ ва мажбуриятлари</h2><p>Ходим меҳнат вазифаларини бажаради, иш берувчи хавфсиз меҳнат шароитларини таъминлайди ва иш ҳақини ўз вақтида тўлайди. Бошқа шартлар Ўзбекистон Республикасининг амалдаги меҳнат қонунчилигига мувофиқ белгиланади.</p>
     <h2>6. Қўшимча шартлар</h2><p style="white-space:pre-wrap">${value(contract.notes)}</p>
     <h2>7. Тарафларнинг реквизитлари ва имзолари</h2><div class="sign"><div><b>Иш берувчи</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>Вакил: ____________________</p><p>Имзо: ____________________</p></div><div><b>Ходим</b><p>${value(hrUser?.fullName)}</p><p>Паспорт/ЖШШИР: ____________________</p><p>Имзо: ____________________</p></div></div>
-    <p style="margin-top:35px;font-size:11px">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида шакллантирилган кўриб чиқиш нусхаси. Электрон имзо ёки тасдиқлаш амалга оширилмаган. Қонунчиликка мувофиқ барча мажбурий шартларни кадрлар мутахассиси текшириши керак.</p>
+    <p class="legal-note">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида шакллантирилган кўриб чиқиш нусхаси. Электрон имзо ёки тасдиқлаш амалга оширилмаган. Қонунчиликка мувофиқ барча мажбурий шартларни кадрлар мутахассиси текшириши керак.</p>
     <button class="print-button" onclick="window.print()">Чоп этиш / PDF сифатида сақлаш</button></body></html>`;
     const blob = new Blob([html], {type:'text/html;charset=utf-8'});
     const url = URL.createObjectURL(blob);
