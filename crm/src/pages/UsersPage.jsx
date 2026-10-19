@@ -81,46 +81,120 @@ export function UsersPage() {
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const printHrDraft = (contract) => {
     const snapshot = contract.termsSnapshot || {};
-    const value = (v) => escapeHtml(v === null || v === undefined || v === '' ? '________________' : v);
-    const date = (v) => v ? new Date(v).toLocaleDateString('uz-UZ') : '________________';
-    const pay = snapshot.salaryType === 'FIXED' ? `Ойлик иш ҳақи: ${value(snapshot.monthlySalary)} сўм.`
-      : snapshot.salaryType === 'PERCENT' ? `Фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`
-      : `Ойлик: ${value(snapshot.monthlySalary)} сўм; фоиз: ${value(snapshot.commissionPercent)}%. Ҳисоблаш базаси: ${value(snapshot.commissionBasis)}.`;
-    const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${value(contract.contractNumber)}</title><style>
-    @page{size:A4;margin:18mm 17mm 18mm 17mm}
-    *{box-sizing:border-box}
-    html{background:#eef1f5}
-    body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.55;color:#17202a;background:#fff;max-width:210mm;margin:24px auto;padding:18mm 17mm;overflow-wrap:break-word}
-    h1{text-align:center;font-size:15pt;line-height:1.3;margin:17px 0 13px}
-    h2{font-size:11pt;line-height:1.4;margin:18px 0 7px;break-after:avoid;page-break-after:avoid}
-    p{margin:7px 0;text-align:justify;orphans:3;widows:3}
-    .watermark{text-align:center;border:1.5px solid #aa6b00;color:#8b5c00;padding:9px 10px;font-size:9pt;line-height:1.4;font-weight:bold;break-inside:avoid}
-    .meta{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:12px 0 14px;font-size:10pt;break-inside:avoid}
-    .meta span:last-child{text-align:right}
-    .sign{display:flex;gap:25px;margin-top:17px;break-inside:avoid;page-break-inside:avoid}
-    .sign>div{flex:1;min-width:0}
-    .sign p{text-align:left}
-    .legal-note{margin-top:20px;font-size:9pt;line-height:1.5;break-inside:avoid}
-    .print-button{display:block;margin:24px 0 0;padding:10px 16px;background:#17202a;color:white;border:0;border-radius:6px;cursor:pointer}
-    @media print{
-      html{background:#fff}
-      body{width:auto;max-width:none;margin:0;padding:0;font-size:11pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .print-button{display:none}
-      h1,h2,.watermark,.meta,.sign{break-inside:avoid;page-break-inside:avoid}
-    }</style></head><body>
-    <div class="watermark">ЛОЙИҲА — ИМЗОЛАНМАГАН, ЮРИДИК ТЕКШИРУВ ТАЛАБ ҚИЛИНАДИ</div>
-    <h1>МЕҲНАТ ШАРТНОМАСИ ЛОЙИҲАСИ</h1><div class="meta"><span>№ ${value(contract.contractNumber)}</span><span>Қўқон шаҳри · ${date(contract.createdAt)}</span></div>
-    <p>Иш берувчи: <b>«GOLDEN KEY INFO» МЧЖ</b> (ваколатли вакилнинг Ф.И.О. ва ваколати: ____________________) ва ходим <b>${value(hrUser?.fullName)}</b> ўртасида мазкур шартнома лойиҳаси тузилди.</p>
-    <h2>1. Меҳнат вазифаси</h2><p>Лавозим: <b>${value(snapshot.jobTitle)}</b>. Иш жойи ва аниқ вазифалар: ____________________.</p>
-    <h2>2. Муддат ва иш бошлаш санаси</h2><p>Иш бошлаш: ${date(contract.startDate)}. Тугаш санаси (агар муддатли бўлса): ${date(contract.endDate)}. Муддатли шартнома асоси: ____________________.</p>
-    <h2>3. Иш ҳақи</h2><p>${pay} Тўлаш муддатлари, солиқ ва бошқа қонуний ушланмалар амалдаги қонунчилик ва иш берувчининг тасдиқланган тартибига мувофиқ белгиланади.</p>
-    <h2>4. Иш вақти ва дам олиш</h2><p>Иш режими, ҳафталик иш соатлари, дам олиш кунлари, таътил ва танаффуслар: ____________________.</p>
-    <h2>5. Тарафларнинг ҳуқуқ ва мажбуриятлари</h2><p>Ходим меҳнат вазифаларини бажаради, иш берувчи хавфсиз меҳнат шароитларини таъминлайди ва иш ҳақини ўз вақтида тўлайди. Бошқа шартлар Ўзбекистон Республикасининг амалдаги меҳнат қонунчилигига мувофиқ белгиланади.</p>
-    <h2>6. Қўшимча шартлар</h2><p style="white-space:pre-wrap">${value(contract.notes)}</p>
-    <h2>7. Тарафларнинг реквизитлари ва имзолари</h2><div class="sign"><div><b>Иш берувчи</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>Вакил: ____________________</p><p>Имзо: ____________________</p></div><div><b>Ходим</b><p>${value(hrUser?.fullName)}</p><p>Паспорт/ЖШШИР: ____________________</p><p>Имзо: ____________________</p></div></div>
-    <p class="legal-note">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида шакллантирилган кўриб чиқиш нусхаси. Электрон имзо ёки тасдиқлаш амалга оширилмаган. Қонунчиликка мувофиқ барча мажбурий шартларни кадрлар мутахассиси текшириши керак.</p>
-    <button class="print-button" onclick="window.print()">Чоп этиш / PDF сифатида сақлаш</button></body></html>`;
-    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const safe = (v) => escapeHtml(v === null || v === undefined || String(v).trim() === '' ? '________________________' : v);
+    const date = (v) => {
+      if (!v) return '________________________';
+      const parsed = new Date(v);
+      return Number.isNaN(parsed.getTime()) ? '________________________' : escapeHtml(parsed.toLocaleDateString('uz-UZ'));
+    };
+    const pay = snapshot.salaryType === 'FIXED'
+      ? `Ойлик лавозим маоши: <b>${safe(snapshot.monthlySalary)} сўм</b>.`
+      : snapshot.salaryType === 'PERCENT'
+        ? `Иш ҳақининг ўзгарувчан қисми: <b>${safe(snapshot.commissionPercent)}%</b>; ҳисоблаш базаси: ${safe(snapshot.commissionBasis)}. Кафолатланган тўлов миқдори ва ҳисоблаш тартиби алоҳида аниқлаштирилади.`
+        : `Ойлик лавозим маоши: <b>${safe(snapshot.monthlySalary)} сўм</b>; қўшимча ўзгарувчан тўлов: <b>${safe(snapshot.commissionPercent)}%</b>; ҳисоблаш базаси: ${safe(snapshot.commissionBasis)}.`;
+    const section = (number, heading, paragraphs) =>
+      `<section class="clause"><h2>${number}. ${heading}</h2>${paragraphs.map((p) => `<p>${p}</p>`).join('')}</section>`;
+    const sections = [
+      section(1, 'Тарафлар ва шартнома предмети', [
+        `Иш берувчи — «GOLDEN KEY INFO» масъулияти чекланган жамияти, унинг номидан устав ёки ишончнома асосида ҳаракат қилувчи ${safe('')}, бир томондан, ходим ${safe(hrUser?.fullName)}, иккинчи томондан, ушбу меҳнат шартномаси лойиҳасини туздилар.`,
+        'Иш берувчи ходимга келишилган меҳнат вазифаси бўйича иш бериш, меҳнат шароитларини таъминлаш ва иш ҳақини тўлаш, ходим эса меҳнат вазифасини шахсан бажариш мажбуриятини олади.'
+      ]),
+      section(2, 'Иш жойи, лавозим ва меҳнат вазифаси', [
+        `Иш жойи: «GOLDEN KEY INFO» МЧЖ, таркибий бўлинма (филиал): ${safe(hrUser?.branch?.name)}, иш жойининг тўлиқ манзили: ${safe('')}.`,
+        `Лавозим (касб, мутахассислик): <b>${safe(snapshot.jobTitle)}</b>. Меҳнат вазифалари, ваколатлар ва ҳисобдорлик тасдиқланган лавозим йўриқномасида белгиланади; ходим у билан имзо қўйиб таништирилади.`
+      ]),
+      section(3, 'Шартнома муддати ва иш бошлаш', [
+        `Иш бошлаш санаси: <b>${date(contract.startDate)}</b>.`,
+        contract.endDate
+          ? `Шартнома муддати: ${date(contract.startDate)} дан ${date(contract.endDate)} гача. Муддатли шартнома тузишнинг қонуний асоси ва сабаби: ${safe('')}.`
+          : 'Шартнома номуайян муддатга тузилади. Муддатли меҳнат муносабатлари қўлланилса, қонуний асоси ва тугаш санаси алоҳида келишилади.',
+        `Синов муддати (агар қонун йўл қўйса ва тарафлар келишса): ${safe('')}. Синов шарти белгиланмаган бўлса, ходим синовсиз ишга қабул қилинган ҳисобланади.`
+      ]),
+      section(4, 'Иш ҳақи ва тўловлар', [
+        pay,
+        `Иш ҳақи тўланадиган аниқ саналар: ${safe('')} ва ${safe('')}; тўлаш усули: ${safe('')}. Иш ҳақи қонунчиликда белгиланган энг кам кафолатлардан кам бўлмаслиги керак.`,
+        'Устамалар, мукофотлар, фоизли рағбатлантириш ва уларни ҳисоблаш мезонлари ходимга олдиндан маълум қилинган ёзма қоидалар ёки келишув асосида қўлланилади. Қонуний солиқлар ва ушланмалар белгиланган тартибда амалга оширилади.'
+      ]),
+      section(5, 'Иш вақти ва дам олиш вақти', [
+        `Иш ҳафтаси: ${safe('')} кун; ҳафталик иш вақти: ${safe('')} соат; иш бошланиши: ${safe('')}; тугаши: ${safe('')}; овқатланиш ва дам олиш танаффуси: ${safe('')}.`,
+        `Ҳафталик дам олиш кунлари: ${safe('')}. Иш вақтидан ташқари, дам олиш ёки байрам кунларида ишга жалб этиш фақат қонунчиликда назарда тутилган шартлар ва компенсациялар асосида амалга оширилади.`
+      ]),
+      section(6, 'Таътиллар ва ижтимоий кафолатлар', [
+        `Ҳар йилги асосий меҳнат таътили давомийлиги: ${safe('')} календарь кун (қонунчиликдаги энг кам муддатдан кам бўлмаслиги шарт). Қўшимча таътиллар ва имтиёзлар: ${safe('')}.`,
+        'Вақтинча меҳнатга лаёқатсизлик, оилавий ва бошқа ижтимоий таътиллар, мажбурий ижтимоий кафолатлар амалдаги қонунчиликка мувофиқ таъминланади.'
+      ]),
+      section(7, 'Ходимнинг ҳуқуқ ва мажбуриятлари', [
+        'Ходим хавфсиз меҳнат шароитлари, ўз вақтида ва тўлиқ иш ҳақи, дам олиш, таътил, меҳнат ҳуқуқларини ҳимоя қилиш ҳамда қонунда назарда тутилган бошқа кафолатлардан фойдаланиш ҳуқуқига эга.',
+        'Ходим келишилган меҳнат вазифасини виждонан бажаради, ички меҳнат тартибига, меҳнатни муҳофаза қилиш талабларига ва қонуний топшириқларга риоя қилади; иш берувчининг қонуний манфаатларига эҳтиёткорона муносабатда бўлади.'
+      ]),
+      section(8, 'Иш берувчининг ҳуқуқ ва мажбуриятлари', [
+        'Иш берувчи ходимдан меҳнат вазифасини бажаришни ва ички тартибга риоя этишни талаб қилиш, қонун доирасида рағбатлантириш ва интизомий чораларни қўллаш ҳуқуқига эга.',
+        'Иш берувчи ходимга шартлашилган ишни беради, хавфсиз иш шароитларини яратади, иш ҳақини ўз вақтида тўлайди, зарур йўриқномалар билан таништиради ва меҳнат қонунчилигидаги кафолатларга амал қилади.'
+      ]),
+      section(9, 'Меҳнатни муҳофаза қилиш ва иш шароитлари', [
+        `Иш жойининг меҳнат шароитлари ва зарур хавфсизлик чоралари: ${safe('')}. Иш берувчи ходимни тегишли хавфсизлик қоидалари билан таништиради.`,
+        'Меҳнатни муҳофаза қилиш, тиббий кўрик, шахсий ҳимоя воситалари ва махсус кафолатлар тегишли иш тури учун қонунчиликда талаб қилинган ҳолларда таъминланади.'
+      ]),
+      section(10, 'Шахсий маълумотлар ва махфийлик', [
+        'Тарафлар ходим ва мижозларнинг шахсий маълумотларини қонунчиликда белгиланган асослар, мақсадлар ва ҳимоя талабларига мувофиқ қайта ишлайди.',
+        'Ходим хизмат вазифаси доирасида маълум бўлган қонун билан муҳофаза қилинадиган маълумотларни ошкор этмаслик мажбуриятини олади. Махфийлик қоидалари ходимнинг қонуний ҳуқуқларини чеклаш учун қўлланилмайди.'
+      ]),
+      section(11, 'Малака ошириш ва аттестация', [
+        `Лавозим учун малака сертификати талаб этилиши: ${snapshot.certificateRequired ? 'ҳа' : 'йўқ'}. Сертификат рақами (мавжуд бўлса): ${safe(snapshot.certificateNumber)}.`,
+        'Малака ошириш, ўқитиш ва аттестациянинг тартиби, харажатларни қоплаш ва қўшимча мажбуриятлар қонунчилик ҳамда алоҳида ёзма келишув асосида белгиланади.'
+      ]),
+      section(12, 'Меҳнат шартларини ўзгартириш', [
+        'Меҳнат шартларини ўзгартириш қонунчиликда назарда тутилган асослар ва тартибда амалга оширилади. Тарафлар келишувига кўра ўзгаришлар тегишли қўшимча келишув билан расмийлаштирилади.',
+        'Ходимни бошқа ишга ўтказиш, иш жойи ёки иш режимига таъсир қилувчи ўзгаришларда қонун талабларига риоя этилади.'
+      ]),
+      section(13, 'Жавобгарлик ва меҳнат низолари', [
+        'Тарафларнинг интизомий, моддий ва бошқа жавобгарлиги фақат меҳнат қонунчилигида белгиланган асослар, чегаралар ва тартибда юзага келади.',
+        'Меҳнат низолари музокара, ваколатли органлар ёки суд орқали қонунчиликка мувофиқ ҳал этилади. Ходимнинг қонунда белгиланган мурожаат қилиш ҳуқуқи чекланмайди.'
+      ]),
+      section(14, 'Шартномани бекор қилиш ва якуний ҳисоб-китоб', [
+        'Меҳнат шартномасини бекор қилиш фақат қонунчиликда белгиланган асослар ва тартибда, зарур огоҳлантириш муддатлари ва кафолатларга риоя этилган ҳолда амалга оширилади.',
+        'Бекор қилишда ходимга тегишли иш ҳақи, фойдаланилмаган таътил компенсацияси ва қонунчиликда назарда тутилган бошқа тўловлар ҳисоб-китоб қилинади.'
+      ]),
+      section(15, 'Якуний қоидалар, реквизитлар ва имзолар', [
+        'Ушбу лойиҳада белгиланмаган масалалар Ўзбекистон Республикасининг амалдаги меҳнат қонунчилиги, жамоа шартномаси (мавжуд бўлса) ва қонунга мувофиқ ички ҳужжатлар билан тартибга солинади.',
+        `Қўшимча келишилган шартлар: <span class="notes">${safe(contract.notes)}</span>`,
+        'Шартнома тарафлар томонидан қонун талабларига мувофиқ расмийлаштирилиб имзолангандан сўнг тегишли ҳуқуқий кучга эга бўлади. Мазкур CRM лойиҳаси имзо ёки расмий рўйхатдан ўтказиш ўрнини босмайди.'
+      ])
+    ];
+    const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${safe(contract.contractNumber)}</title><style>
+      @page{size:A4;margin:18mm 17mm 19mm}
+      *{box-sizing:border-box}
+      html{background:#e9edf2}
+      body{font-family:Arial,"DejaVu Sans",sans-serif;color:#17212b;background:white;max-width:210mm;margin:20px auto;padding:18mm 17mm;font-size:11pt;line-height:1.48;overflow-wrap:anywhere}
+      h1{text-align:center;font-size:15pt;line-height:1.3;margin:16px 0 13px}
+      h2{font-size:11pt;margin:15px 0 7px;line-height:1.4;break-after:avoid;page-break-after:avoid}
+      p{margin:7px 0;text-align:justify;orphans:3;widows:3}
+      .draft{text-align:center;border:1px solid #a56d17;color:#805510;font-size:9pt;font-weight:bold;padding:9px;break-inside:avoid}
+      .meta{display:flex;justify-content:space-between;gap:12px;margin:14px 0;break-inside:avoid;font-size:10pt}
+      .notes{white-space:pre-wrap}
+      .sign{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:17px;break-inside:avoid;page-break-inside:avoid}
+      .sign p{text-align:left}
+      .legal{font-size:9pt;margin-top:18px}
+      .print-button{margin-top:24px;background:#182532;color:white;border:0;border-radius:6px;padding:11px 17px;cursor:pointer}
+      @media print{
+        html{background:white}
+        body{margin:0;padding:0;max-width:none;font-size:11pt;line-height:1.48}
+        .print-button{display:none}
+        .draft,.meta,.sign{break-inside:avoid;page-break-inside:avoid}
+      }
+    </style></head><body>
+      <div class="draft">ЛОЙИҲА — ИМЗОЛАНМАГАН. МАЖБУРИЙ МАЪЛУМОТЛАРНИ ТЎЛДИРИШ ВА ЮРИДИК ТЕКШИРУВ ТАЛАБ ҚИЛИНАДИ</div>
+      <h1>МЕҲНАТ ШАРТНОМАСИ ЛОЙИҲАСИ</h1>
+      <div class="meta"><span>№ ${safe(contract.contractNumber)}</span><span>Қўқон шаҳри · ${date(contract.createdAt)}</span></div>
+      ${sections.join('\n')}
+      <div class="sign">
+        <div><b>ИШ БЕРУВЧИ</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>СТИР: ____________________</p><p>Манзил: ____________________</p><p>Ваколатли вакил: ____________________</p><p>Имзо: ____________________</p></div>
+        <div><b>ХОДИМ</b><p>${safe(hrUser?.fullName)}</p><p>Паспорт/ID: ____________________</p><p>ЖШШИР: ____________________</p><p>Яшаш манзили: ____________________</p><p>Имзо: ____________________</p></div>
+      </div>
+      <p class="legal">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида тайёрланган. У имзоланмаган, ишга қабул қилиш буйруғи ёки меҳнат муносабатларини расмийлаштиришнинг бошқа мажбурий жараёнлари ўрнини босмайди. Бўш майдонлар ва қонунчиликка мувофиқлик масъул мутахассис томонидан текширилиши шарт.</p>
+      <button class="print-button" onclick="window.print()">Чоп этиш / PDF сифатида сақлаш</button>
+    </body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank', 'noopener,noreferrer');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
