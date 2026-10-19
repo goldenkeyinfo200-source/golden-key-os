@@ -24,6 +24,29 @@ const contractSchema = z.object({
   startDate: z.string().datetime().nullable().optional(),
   endDate: z.string().datetime().nullable().optional(),
   notes: z.string().max(4000).nullable().optional(),
+  details: z.object({
+    employerRepresentative: z.string().trim().max(500).optional(),
+    employerTin: z.string().trim().max(500).optional(),
+    employerAddress: z.string().trim().max(500).optional(),
+    workplaceAddress: z.string().trim().max(500).optional(),
+    probation: z.string().trim().max(500).optional(),
+    payDay1: z.string().trim().max(500).optional(),
+    payDay2: z.string().trim().max(500).optional(),
+    paymentMethod: z.string().trim().max(500).optional(),
+    workDays: z.string().trim().max(500).optional(),
+    weeklyHours: z.string().trim().max(500).optional(),
+    workStart: z.string().trim().max(500).optional(),
+    workEnd: z.string().trim().max(500).optional(),
+    breakTime: z.string().trim().max(500).optional(),
+    restDays: z.string().trim().max(500).optional(),
+    leaveDays: z.string().trim().max(500).optional(),
+    additionalLeave: z.string().trim().max(500).optional(),
+    safetyConditions: z.string().trim().max(500).optional(),
+    fixedTermReason: z.string().trim().max(500).optional(),
+    passport: z.string().trim().max(500).optional(),
+    pinfl: z.string().trim().max(500).optional(),
+    address: z.string().trim().max(500).optional(),
+  }).strict().optional(),
 });
 const trainingSchema = z.object({
   description: z.string().trim().min(3).max(2000),
@@ -61,8 +84,9 @@ router.post('/:userId/contracts', async(req,res,next)=>{
     if(!profile) return res.status(400).json({message:'Аввал ходим карточкасини сақланг'});
     if(!profile.jobTitle || !profile.salaryType) return res.status(400).json({message:'Лавозим ва иш ҳақи тартибини тўлдиринг'});
     if(profile.certificateRequired && !profile.certificateNumber) return res.status(400).json({message:'Малака сертификати рақами талаб қилинади'});
-    const data=dates(parsed.data,['startDate','endDate']);
-    const termsSnapshot={jobTitle:profile.jobTitle,salaryType:profile.salaryType,monthlySalary:profile.monthlySalary?.toString()??null,commissionPercent:profile.commissionPercent?.toString()??null,commissionBasis:profile.commissionBasis,certificateRequired:profile.certificateRequired};
+    const {details = {}, ...contractInput} = parsed.data;
+    const data=dates(contractInput,['startDate','endDate']);
+    const termsSnapshot={jobTitle:profile.jobTitle,salaryType:profile.salaryType,monthlySalary:profile.monthlySalary?.toString()??null,commissionPercent:profile.commissionPercent?.toString()??null,commissionBasis:profile.commissionBasis,certificateRequired:profile.certificateRequired,certificateNumber:profile.certificateNumber,...details};
     const contract=await prisma.employeeLaborContract.create({data:{...data,employeeId:profile.id,termsSnapshot,status:'DRAFT'}});
     return res.status(201).json({contract});
   } catch(e){if(e.code==='P2002') return res.status(409).json({message:'Бу шартнома рақами мавжуд'});next(e)}

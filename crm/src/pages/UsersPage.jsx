@@ -51,7 +51,7 @@ export function UsersPage() {
   const [hrError, setHrError] = useState('');
   const [hrSaving, setHrSaving] = useState(false);
   const openHr = async (user) => {
-    setHrUser(user);setHrError('');setHrProfile(null);
+    setHrUser(user);setHrError('');setHrProfile(null);setHrDetails({});
     try {
       const data = await apiRequest(`/employee-contracts/${user.id}`);
       setHrProfile(data.profile);
@@ -70,14 +70,17 @@ export function UsersPage() {
   const createHrDraft=async()=>{
     setHrSaving(true);setHrError('');
     try{
-      await apiRequest(`/employee-contracts/${hrUser.id}/contracts`,{method:'POST',body:JSON.stringify({contractNumber:hrNumber,startDate:hrStartDate?new Date(hrStartDate+'T12:00:00').toISOString():null,endDate:hrEndDate?new Date(hrEndDate+'T12:00:00').toISOString():null,notes:hrNotes||null})});
-      const data=await apiRequest(`/employee-contracts/${hrUser.id}`);setHrProfile(data.profile);setHrNumber('');setHrStartDate('');setHrEndDate('');setHrNotes('');
+      await apiRequest(`/employee-contracts/${hrUser.id}/contracts`,{method:'POST',body:JSON.stringify({contractNumber:hrNumber,startDate:hrStartDate?new Date(hrStartDate+'T12:00:00').toISOString():null,endDate:hrEndDate?new Date(hrEndDate+'T12:00:00').toISOString():null,notes:hrNotes||null,details:hrDetails})});
+      const data=await apiRequest(`/employee-contracts/${hrUser.id}`);setHrProfile(data.profile);setHrNumber('');setHrStartDate('');setHrEndDate('');setHrNotes('');setHrDetails({});
     }catch(e){setHrError(e.message)}finally{setHrSaving(false)}
   };
 
   const [hrStartDate, setHrStartDate] = useState('');
   const [hrEndDate, setHrEndDate] = useState('');
   const [hrNotes, setHrNotes] = useState('');
+  const [hrDetails, setHrDetails] = useState({});
+  const updateHrDetail = (key, value) => setHrDetails(prev => ({...prev, [key]: value}));
+  const hrDetailFields = [['employerRepresentative', 'Ваколатли вакил'], ['employerTin', 'Иш берувчи СТИР'], ['employerAddress', 'Иш берувчи манзили'], ['workplaceAddress', 'Иш жойи манзили'], ['probation', 'Синов муддати'], ['payDay1', 'Биринчи иш ҳақи санаси'], ['payDay2', 'Иккинчи иш ҳақи санаси'], ['paymentMethod', 'Иш ҳақи тўлаш усули'], ['workDays', 'Иш ҳафтаси [кун]'], ['weeklyHours', 'Ҳафталик иш вақти [соат]'], ['workStart', 'Иш бошланиши'], ['workEnd', 'Иш тугаши'], ['breakTime', 'Танаффус'], ['restDays', 'Дам олиш кунлари'], ['leaveDays', 'Таътил [календарь кун]'], ['additionalLeave', 'Қўшимча таътиллар'], ['safetyConditions', 'Меҳнат шароитлари'], ['fixedTermReason', 'Муддатли шартнома асоси'], ['passport', 'Паспорт/ID'], ['pinfl', 'ЖШШИР'], ['address', 'Ходим яшаш манзили']];
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const printHrDraft = (contract) => {
     const snapshot = contract.termsSnapshot || {};
@@ -96,31 +99,31 @@ export function UsersPage() {
       `<section class="clause"><h2>${number}. ${heading}</h2>${paragraphs.map((p) => `<p>${p}</p>`).join('')}</section>`;
     const sections = [
       section(1, 'Тарафлар ва шартнома предмети', [
-        `Иш берувчи — «GOLDEN KEY INFO» масъулияти чекланган жамияти, унинг номидан устав ёки ишончнома асосида ҳаракат қилувчи ${safe('')}, бир томондан, ходим ${safe(hrUser?.fullName)}, иккинчи томондан, ушбу меҳнат шартномаси лойиҳасини туздилар.`,
+        `Иш берувчи — «GOLDEN KEY INFO» масъулияти чекланган жамияти, унинг номидан устав ёки ишончнома асосида ҳаракат қилувчи ${safe(snapshot.employerRepresentative)}, бир томондан, ходим ${safe(hrUser?.fullName)}, иккинчи томондан, ушбу меҳнат шартномаси лойиҳасини туздилар.`,
         'Иш берувчи ходимга келишилган меҳнат вазифаси бўйича иш бериш, меҳнат шароитларини таъминлаш ва иш ҳақини тўлаш, ходим эса меҳнат вазифасини шахсан бажариш мажбуриятини олади.'
       ]),
       section(2, 'Иш жойи, лавозим ва меҳнат вазифаси', [
-        `Иш жойи: «GOLDEN KEY INFO» МЧЖ, таркибий бўлинма (филиал): ${safe(hrUser?.branch?.name)}, иш жойининг тўлиқ манзили: ${safe('')}.`,
+        `Иш жойи: «GOLDEN KEY INFO» МЧЖ, таркибий бўлинма (филиал): ${safe(hrUser?.branch?.name)}, иш жойининг тўлиқ манзили: ${safe(snapshot.workplaceAddress)}.`,
         `Лавозим (касб, мутахассислик): <b>${safe(snapshot.jobTitle)}</b>. Меҳнат вазифалари, ваколатлар ва ҳисобдорлик тасдиқланган лавозим йўриқномасида белгиланади; ходим у билан имзо қўйиб таништирилади.`
       ]),
       section(3, 'Шартнома муддати ва иш бошлаш', [
         `Иш бошлаш санаси: <b>${date(contract.startDate)}</b>.`,
         contract.endDate
-          ? `Шартнома муддати: ${date(contract.startDate)} дан ${date(contract.endDate)} гача. Муддатли шартнома тузишнинг қонуний асоси ва сабаби: ${safe('')}.`
+          ? `Шартнома муддати: ${date(contract.startDate)} дан ${date(contract.endDate)} гача. Муддатли шартнома тузишнинг қонуний асоси ва сабаби: ${safe(snapshot.fixedTermReason)}.`
           : 'Шартнома номуайян муддатга тузилади. Муддатли меҳнат муносабатлари қўлланилса, қонуний асоси ва тугаш санаси алоҳида келишилади.',
-        `Синов муддати (агар қонун йўл қўйса ва тарафлар келишса): ${safe('')}. Синов шарти белгиланмаган бўлса, ходим синовсиз ишга қабул қилинган ҳисобланади.`
+        `Синов муддати (агар қонун йўл қўйса ва тарафлар келишса): ${safe(snapshot.probation)}. Синов шарти белгиланмаган бўлса, ходим синовсиз ишга қабул қилинган ҳисобланади.`
       ]),
       section(4, 'Иш ҳақи ва тўловлар', [
         pay,
-        `Иш ҳақи тўланадиган аниқ саналар: ${safe('')} ва ${safe('')}; тўлаш усули: ${safe('')}. Иш ҳақи қонунчиликда белгиланган энг кам кафолатлардан кам бўлмаслиги керак.`,
+        `Иш ҳақи тўланадиган аниқ саналар: ${safe(snapshot.payDay1)} ва ${safe(snapshot.payDay2)}; тўлаш усули: ${safe(snapshot.paymentMethod)}. Иш ҳақи қонунчиликда белгиланган энг кам кафолатлардан кам бўлмаслиги керак.`,
         'Устамалар, мукофотлар, фоизли рағбатлантириш ва уларни ҳисоблаш мезонлари ходимга олдиндан маълум қилинган ёзма қоидалар ёки келишув асосида қўлланилади. Қонуний солиқлар ва ушланмалар белгиланган тартибда амалга оширилади.'
       ]),
       section(5, 'Иш вақти ва дам олиш вақти', [
-        `Иш ҳафтаси: ${safe('')} кун; ҳафталик иш вақти: ${safe('')} соат; иш бошланиши: ${safe('')}; тугаши: ${safe('')}; овқатланиш ва дам олиш танаффуси: ${safe('')}.`,
-        `Ҳафталик дам олиш кунлари: ${safe('')}. Иш вақтидан ташқари, дам олиш ёки байрам кунларида ишга жалб этиш фақат қонунчиликда назарда тутилган шартлар ва компенсациялар асосида амалга оширилади.`
+        `Иш ҳафтаси: ${safe(snapshot.workDays)} кун; ҳафталик иш вақти: ${safe(snapshot.weeklyHours)} соат; иш бошланиши: ${safe(snapshot.workStart)}; тугаши: ${safe(snapshot.workEnd)}; овқатланиш ва дам олиш танаффуси: ${safe(snapshot.breakTime)}.`,
+        `Ҳафталик дам олиш кунлари: ${safe(snapshot.restDays)}. Иш вақтидан ташқари, дам олиш ёки байрам кунларида ишга жалб этиш фақат қонунчиликда назарда тутилган шартлар ва компенсациялар асосида амалга оширилади.`
       ]),
       section(6, 'Таътиллар ва ижтимоий кафолатлар', [
-        `Ҳар йилги асосий меҳнат таътили давомийлиги: ${safe('')} календарь кун (қонунчиликдаги энг кам муддатдан кам бўлмаслиги шарт). Қўшимча таътиллар ва имтиёзлар: ${safe('')}.`,
+        `Ҳар йилги асосий меҳнат таътили давомийлиги: ${safe(snapshot.leaveDays)} календарь кун (қонунчиликдаги энг кам муддатдан кам бўлмаслиги шарт). Қўшимча таътиллар ва имтиёзлар: ${safe(snapshot.additionalLeave)}.`,
         'Вақтинча меҳнатга лаёқатсизлик, оилавий ва бошқа ижтимоий таътиллар, мажбурий ижтимоий кафолатлар амалдаги қонунчиликка мувофиқ таъминланади.'
       ]),
       section(7, 'Ходимнинг ҳуқуқ ва мажбуриятлари', [
@@ -132,7 +135,7 @@ export function UsersPage() {
         'Иш берувчи ходимга шартлашилган ишни беради, хавфсиз иш шароитларини яратади, иш ҳақини ўз вақтида тўлайди, зарур йўриқномалар билан таништиради ва меҳнат қонунчилигидаги кафолатларга амал қилади.'
       ]),
       section(9, 'Меҳнатни муҳофаза қилиш ва иш шароитлари', [
-        `Иш жойининг меҳнат шароитлари ва зарур хавфсизлик чоралари: ${safe('')}. Иш берувчи ходимни тегишли хавфсизлик қоидалари билан таништиради.`,
+        `Иш жойининг меҳнат шароитлари ва зарур хавфсизлик чоралари: ${safe(snapshot.safetyConditions)}. Иш берувчи ходимни тегишли хавфсизлик қоидалари билан таништиради.`,
         'Меҳнатни муҳофаза қилиш, тиббий кўрик, шахсий ҳимоя воситалари ва махсус кафолатлар тегишли иш тури учун қонунчиликда талаб қилинган ҳолларда таъминланади.'
       ]),
       section(10, 'Шахсий маълумотлар ва махфийлик', [
@@ -169,10 +172,16 @@ export function UsersPage() {
     if (snapshot.salaryType !== 'PERCENT' && (snapshot.monthlySalary === null || snapshot.monthlySalary === undefined || snapshot.monthlySalary === '')) missingFields.push('Ойлик маош');
     if (snapshot.salaryType !== 'FIXED' && (snapshot.commissionPercent === null || snapshot.commissionPercent === undefined || snapshot.commissionPercent === '')) missingFields.push('Фоиз миқдори');
     if (!hrUser?.branch?.name) missingFields.push('Иш жойи / филиал');
-    // Employer identity, pay dates, working hours, leave, and signatory details
-    // are placeholders in this CRM version and always require manual completion.
-    const fixedMissing = ['Иш берувчи вакили ва реквизитлари', 'Иш жойининг манзили', 'Иш ҳақи тўлаш санаси', 'Иш вақти ва дам олиш режими', 'Таътил муддати', 'Ходимнинг паспорт/ID ва ЖШШИР маълумотлари'];
-    const missingWarning = [...missingFields, ...fixedMissing];
+    const requiredDetails = [
+      ['employerRepresentative','Иш берувчи вакили'], ['employerTin','СТИР'],
+      ['employerAddress','Иш берувчи манзили'], ['workplaceAddress','Иш жойи манзили'],
+      ['payDay1','Биринчи тўлов санаси'], ['payDay2','Иккинчи тўлов санаси'],
+      ['workDays','Иш ҳафтаси'], ['weeklyHours','Ҳафталик иш вақти'],
+      ['workStart','Иш бошланиши'], ['workEnd','Иш тугаши'],
+      ['restDays','Дам олиш кунлари'], ['leaveDays','Таътил муддати'],
+      ['passport','Паспорт/ID'], ['pinfl','ЖШШИР'], ['address','Ходим манзили']
+    ];
+    const missingWarning = [...missingFields, ...requiredDetails.filter(([key])=>!String(snapshot[key]??'').trim()).map(([,label])=>label)];
     const html = `<!doctype html><html lang="uz"><head><meta charset="UTF-8"><title>Меҳнат шартномаси лойиҳаси ${safe(contract.contractNumber)}</title><style>
       @page{size:A4;margin:15mm 17mm 16mm}
       *{box-sizing:border-box}
@@ -204,8 +213,8 @@ export function UsersPage() {
       <div class="missing-warning"><b>Имзолашдан олдин тўлдирилиши шарт:</b> ${missingWarning.map(escapeHtml).join('; ')}.</div>
       ${sections.join('\n')}
       <div class="sign">
-        <div><b>ИШ БЕРУВЧИ</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>СТИР: ____________________</p><p>Манзил: ____________________</p><p>Ваколатли вакил: ____________________</p><p>Имзо: ____________________</p></div>
-        <div><b>ХОДИМ</b><p>${safe(hrUser?.fullName)}</p><p>Паспорт/ID: ____________________</p><p>ЖШШИР: ____________________</p><p>Яшаш манзили: ____________________</p><p>Имзо: ____________________</p></div>
+        <div><b>ИШ БЕРУВЧИ</b><p>«GOLDEN KEY INFO» МЧЖ</p><p>СТИР: ${safe(snapshot.employerTin)}</p><p>Манзил: ${safe(snapshot.employerAddress)}</p><p>Ваколатли вакил: ${safe(snapshot.employerRepresentative)}</p><p>Имзо: ____________________</p></div>
+        <div><b>ХОДИМ</b><p>${safe(hrUser?.fullName)}</p><p>Паспорт/ID: ${safe(snapshot.passport)}</p><p>ЖШШИР: ${safe(snapshot.pinfl)}</p><p>Яшаш манзили: ${safe(snapshot.address)}</p><p>Имзо: ____________________</p></div>
       </div>
       <p class="legal">Ушбу ҳужжат CRM'даги DRAFT маълумотлари асосида тайёрланган. У имзоланмаган, ишга қабул қилиш буйруғи ёки меҳнат муносабатларини расмийлаштиришнинг бошқа мажбурий жараёнлари ўрнини босмайди. Бўш майдонлар ва қонунчиликка мувофиқлик масъул мутахассис томонидан текширилиши шарт.</p>
       <button class="print-button" onclick="window.print()">Чоп этиш / PDF сифатида сақлаш</button>
@@ -443,6 +452,13 @@ export function UsersPage() {
               <label><span>Шартнома рақами</span><input value={hrNumber} onChange={e=>setHrNumber(e.target.value)}/></label>
               <label><span>Иш бошлаш санаси</span><input type="date" value={hrStartDate} onChange={e=>setHrStartDate(e.target.value)}/></label>
               <label><span>Тугаш санаси (ихтиёрий)</span><input type="date" value={hrEndDate} onChange={e=>setHrEndDate(e.target.value)}/></label>
+              <details style={{border:'1px solid #dfe3e8',borderRadius:10,padding:12}} open>
+                <summary style={{cursor:'pointer',fontWeight:700,marginBottom:12}}>Шартнома реквизитлари ва иш шартлари</summary>
+                <div className="users-form-grid">
+                  {hrDetailFields.map(([key,label]) => <label key={key}><span>{label}</span><input value={hrDetails[key] || ''} onChange={e=>updateHrDetail(key,e.target.value)} /></label>)}
+                </div>
+                <p style={{fontSize:12,color:'#777'}}>Бўш қолдирилган майдонлар лойиҳада чизиқ билан кўрсатилади. Маълумотлар фақат янги шартнома лойиҳаси яратилганда сақланади.</p>
+              </details>
               <label><span>Қўшимча шартлар (лойиҳа)</span><textarea rows={3} maxLength={4000} value={hrNotes} onChange={e=>setHrNotes(e.target.value)}/></label>
               <button type="button" className="users-secondary" disabled={hrSaving||!hrNumber.trim()||!hrProfile} onClick={createHrDraft}>Лойиҳани сақлаш</button>
               {(hrProfile?.laborContracts||[]).map(c=><div key={c.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:10}}><span>{c.contractNumber} — {c.status}</span><button type="button" className="users-secondary" onClick={()=>printHrDraft(c)}>Кўриш / PDF</button></div>)}
