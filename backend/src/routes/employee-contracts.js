@@ -87,7 +87,16 @@ async function currentCompanyId(req) {
 async function authorizedStaff(req, userId) {
   const companyId = await currentCompanyId(req);
   if (!companyId) return null;
-  return prisma.user.findFirst({where:{id:userId,companyId,role:{in:['SUPER_ADMIN','DIRECTOR','BRANCH_MANAGER','RECEPTION_MANAGER','EXECUTOR','LAWYER','ACCOUNTANT']}}});
+  return prisma.user.findFirst({
+    where: {
+      id: userId,
+      role: { in: ['SUPER_ADMIN','DIRECTOR','BRANCH_MANAGER','RECEPTION_MANAGER','EXECUTOR','LAWYER','ACCOUNTANT'] },
+      OR: [
+        { companyId },
+        { branch: { is: { companyId } } },
+      ],
+    },
+  });
 }
 router.get('/company/settings', async (req,res,next)=>{
   try {
