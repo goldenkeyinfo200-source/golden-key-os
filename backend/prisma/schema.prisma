@@ -179,8 +179,37 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  branches Branch[]
-  users    User[]
+  branches   Branch[]
+  users      User[]
+  hrSettings CompanyHrSettings?
+}
+
+
+// Company-wide defaults for employee labor contract drafts.
+// Existing contract snapshots remain unchanged when these settings are edited.
+model CompanyHrSettings {
+  id                    String   @id @default(cuid())
+  companyId             String   @unique
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taxId                 String?
+  legalAddress          String?
+  authorizedRepresentative String?
+  workplaceAddress      String?
+  probationPeriod       String?
+  firstPayDate          String?
+  secondPayDate         String?
+  paymentMethod         String?
+  workDaysPerWeek       String?
+  weeklyHours           String?
+  workStartTime         String?
+  workEndTime           String?
+  breakTime             String?
+  restDays              String?
+  annualLeaveDays       Int?
+  additionalLeave       String?
+  workConditions        String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model Branch {

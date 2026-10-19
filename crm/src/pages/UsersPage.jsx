@@ -24,6 +24,19 @@ const ROLE_LABELS = {
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS);
 
+const HR_SETTINGS_FIELDS = [
+  ['taxId','Корхона СТИРи'], ['legalAddress','Юридик манзил'],
+  ['authorizedRepresentative','Иш берувчи вакили'], ['workplaceAddress','Стандарт иш жойи манзили'],
+  ['probationPeriod','Синов муддати'], ['firstPayDate','Биринчи иш ҳақи санаси'],
+  ['secondPayDate','Иккинчи иш ҳақи санаси'], ['paymentMethod','Тўлов усули'],
+  ['workDaysPerWeek','Ҳафталик иш кунлари'], ['weeklyHours','Ҳафталик иш соатлари'],
+  ['workStartTime','Иш бошланиш вақти'], ['workEndTime','Иш тугаш вақти'],
+  ['breakTime','Танаффус'], ['restDays','Дам олиш кунлари'],
+  ['annualLeaveDays','Асосий таътил (календарь кун)'],
+  ['additionalLeave','Қўшимча таътил'], ['workConditions','Меҳнат шароитлари'],
+];
+const EMPTY_HR_SETTINGS = Object.fromEntries(HR_SETTINGS_FIELDS.map(([key]) => [key, '']));
+
 const EMPTY_FORM = {
   fullName: '',
   phone: '',
@@ -44,9 +57,13 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [hrSettingsOpen, setHrSettingsOpen] = useState(false);
+  const [hrSettings, setHrSettings] = useState(EMPTY_HR_SETTINGS);
+  const [hrSettingsError, setHrSettingsError] = useState('');
+  const [hrSettingsSaving, setHrSettingsSaving] = useState(false);
   const [hrUser, setHrUser] = useState(null);
   const [hrProfile, setHrProfile] = useState(null);
-  const [hrForm, setHrForm] = useState({jobTitle:'',salaryType:'FIXED',monthlySalary:'',commissionPercent:'',commissionBasis:'',certificateRequired:false,certificateNumber:''});
+  const [hrForm, setHrForm] = useState({passport:'',pinfl:'',address:'',jobTitle:'',salaryType:'FIXED',monthlySalary:'',commissionPercent:'',commissionBasis:'',certificateRequired:false,certificateNumber:''});
   const [hrNumber, setHrNumber] = useState('');
   const [hrError, setHrError] = useState('');
   const [hrSaving, setHrSaving] = useState(false);
@@ -56,13 +73,32 @@ export function UsersPage() {
       const data = await apiRequest(`/employee-contracts/${user.id}`);
       setHrProfile(data.profile);
       const p=data.profile || {};
-      setHrForm({jobTitle:p.jobTitle||'',salaryType:p.salaryType||'FIXED',monthlySalary:p.monthlySalary??'',commissionPercent:p.commissionPercent??'',commissionBasis:p.commissionBasis||'',certificateRequired:!!p.certificateRequired,certificateNumber:p.certificateNumber||''});
+      setHrForm({passport:p.passport||'',pinfl:p.pinfl||'',address:p.address||'',jobTitle:p.jobTitle||'',salaryType:p.salaryType||'FIXED',monthlySalary:p.monthlySalary??'',commissionPercent:p.commissionPercent??'',commissionBasis:p.commissionBasis||'',certificateRequired:!!p.certificateRequired,certificateNumber:p.certificateNumber||''});
     } catch(e){setHrError(e.message)}
+  };
+  const openHrSettings = async () => {
+    setHrSettingsOpen(true); setHrSettingsError('');
+    try {
+      const data = await apiRequest('/employee-contracts/company/settings');
+      setHrSettings({...EMPTY_HR_SETTINGS, ...(data.settings || {})});
+    } catch(e) {setHrSettingsError(e.message || 'Созламаларни олиб бўлмади');}
+  };
+  const saveHrSettings = async (event) => {
+    event.preventDefault(); setHrSettingsSaving(true); setHrSettingsError('');
+    try {
+      const body = Object.fromEntries(HR_SETTINGS_FIELDS.map(([key]) => [key,
+        key === 'annualLeaveDays' ? (hrSettings[key] === '' || hrSettings[key] == null ? null : Number(hrSettings[key])) : (String(hrSettings[key] ?? '').trim() || null)
+      ]));
+      const data = await apiRequest('/employee-contracts/company/settings', {method:'PUT',body:JSON.stringify(body)});
+      setHrSettings({...EMPTY_HR_SETTINGS,...(data.settings || {})});
+      setHrSettingsOpen(false);
+    } catch(e) {setHrSettingsError(e.message || 'Созламаларни сақлаб бўлмади');}
+    finally {setHrSettingsSaving(false);}
   };
   const saveHr = async (event) => {
     event.preventDefault();setHrSaving(true);setHrError('');
     try {
-      const body={...hrForm,monthlySalary:hrForm.monthlySalary===''?null:Number(hrForm.monthlySalary),commissionPercent:hrForm.commissionPercent===''?null:Number(hrForm.commissionPercent)};
+      const body={...hrForm,pinfl:hrForm.pinfl.trim() || null,monthlySalary:hrForm.monthlySalary===''?null:Number(hrForm.monthlySalary),commissionPercent:hrForm.commissionPercent===''?null:Number(hrForm.commissionPercent)};
       const data=await apiRequest(`/employee-contracts/${hrUser.id}/profile`,{method:'PUT',body:JSON.stringify(body)});
       setHrProfile(prev=>({...prev,...data.profile}));
     }catch(e){setHrError(e.message)}finally{setHrSaving(false)}
@@ -81,6 +117,7 @@ export function UsersPage() {
   const [hrDetails, setHrDetails] = useState({});
   const updateHrDetail = (key, value) => setHrDetails(prev => ({...prev, [key]: value}));
   const hrDetailFields = [['employerRepresentative', 'Ваколатли вакил'], ['employerTin', 'Иш берувчи СТИР'], ['employerAddress', 'Иш берувчи манзили'], ['workplaceAddress', 'Иш жойи манзили'], ['probation', 'Синов муддати'], ['payDay1', 'Биринчи иш ҳақи санаси'], ['payDay2', 'Иккинчи иш ҳақи санаси'], ['paymentMethod', 'Иш ҳақи тўлаш усули'], ['workDays', 'Иш ҳафтаси [кун]'], ['weeklyHours', 'Ҳафталик иш вақти [соат]'], ['workStart', 'Иш бошланиши'], ['workEnd', 'Иш тугаши'], ['breakTime', 'Танаффус'], ['restDays', 'Дам олиш кунлари'], ['leaveDays', 'Таътил [календарь кун]'], ['additionalLeave', 'Қўшимча таътиллар'], ['safetyConditions', 'Меҳнат шароитлари'], ['fixedTermReason', 'Муддатли шартнома асоси'], ['passport', 'Паспорт/ID'], ['pinfl', 'ЖШШИР'], ['address', 'Ходим яшаш манзили']];
+  const hrOverrideFields = hrDetailFields.filter(([key]) => ['probation','workplaceAddress','workDays','weeklyHours','workStart','workEnd','breakTime','restDays','leaveDays','additionalLeave','safetyConditions','fixedTermReason'].includes(key));
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const printHrDraft = (contract) => {
     const snapshot = contract.termsSnapshot || {};
@@ -372,6 +409,9 @@ export function UsersPage() {
             <RefreshCw size={17} />
             Янгилаш
           </button>
+          <button type="button" className="users-secondary" onClick={openHrSettings}>
+            <ShieldCheck size={17} /> Корхона HR созламалари
+          </button>
           <button type="button" className="users-primary" onClick={openCreate}>
             <Plus size={17} />
             Янги ходим
@@ -433,12 +473,32 @@ export function UsersPage() {
         </section>
       )}
 
+      {hrSettingsOpen ? (
+        <div className="users-modal-backdrop">
+          <section className="users-modal" style={{width:'min(790px,100%)'}}>
+            <div className="users-modal-head"><div><h3>Корхона HR созламалари</h3><p>Бир марта сақланади ва янги шартномаларга автоматик қўшилади</p></div><button type="button" onClick={()=>setHrSettingsOpen(false)}><X size={20}/></button></div>
+            <form className="users-form" onSubmit={saveHrSettings}>
+              {hrSettingsError ? <div className="users-error">{hrSettingsError}</div> : null}
+              <div className="users-form-grid">
+                {HR_SETTINGS_FIELDS.map(([key,label]) => <label key={key}><span>{label}</span><input type={key === 'annualLeaveDays' ? 'number' : 'text'} min={key === 'annualLeaveDays' ? 0 : undefined} max={key === 'annualLeaveDays' ? 365 : undefined} value={hrSettings[key] ?? ''} onChange={e=>setHrSettings(prev=>({...prev,[key]:e.target.value}))}/></label>)}
+              </div>
+              <p style={{fontSize:12,color:'#777'}}>Бу маълумотлар фақат янги шартнома лойиҳаларига қўшилади. Илгари сақланган шартномалар ўзгармайди.</p>
+              <button className="users-primary" disabled={hrSettingsSaving}>{hrSettingsSaving?'Сақланмоқда...':'Корхона созламаларини сақлаш'}</button>
+            </form>
+          </section>
+        </div>
+      ) : null}
       {hrUser ? (
         <div className="users-modal-backdrop">
           <section className="users-modal">
             <div className="users-modal-head"><div><h3>{hrUser.fullName} — кадрлар карточкаси</h3><p>Меҳнат шартномаси лойиҳаси</p></div><button type="button" onClick={()=>setHrUser(null)}><X size={20}/></button></div>
             <form className="users-form" onSubmit={saveHr}>
               {hrError ? <div className="users-error">{hrError}</div> : null}
+              <div className="users-form-grid">
+                <label><span>Паспорт / ID</span><input value={hrForm.passport} onChange={e=>setHrForm({...hrForm,passport:e.target.value})}/></label>
+                <label><span>ЖШШИР (14 рақам)</span><input inputMode="numeric" maxLength={14} value={hrForm.pinfl} onChange={e=>setHrForm({...hrForm,pinfl:e.target.value})}/></label>
+              </div>
+              <label><span>Ходим яшаш манзили</span><input value={hrForm.address} onChange={e=>setHrForm({...hrForm,address:e.target.value})}/></label>
               <label><span>Расмий лавозим</span><input required value={hrForm.jobTitle} onChange={e=>setHrForm({...hrForm,jobTitle:e.target.value})}/></label>
               <label><span>Иш ҳақи тартиби</span><select value={hrForm.salaryType} onChange={e=>setHrForm({...hrForm,salaryType:e.target.value})}><option value="FIXED">Ойлик</option><option value="PERCENT">Фоиз</option><option value="MIXED">Ойлик + фоиз</option></select></label>
               {hrForm.salaryType!=='PERCENT' ? <label><span>Ойлик (сўм)</span><input type="number" min="0" value={hrForm.monthlySalary} onChange={e=>setHrForm({...hrForm,monthlySalary:e.target.value})}/></label> : null}
@@ -448,16 +508,16 @@ export function UsersPage() {
               <button className="users-primary" disabled={hrSaving}>Карточкани сақлаш</button>
             </form>
             <div className="users-form">
-              <strong>Меҳнат шартномаси лойиҳаси</strong>
+              <strong>Меҳнат шартномаси лойиҳаси</strong><p style={{fontSize:12,color:"#777"}}>Корхона реквизитлари ва стандарт иш шартлари автоматик олинади. Махсус шартлар бўлса қуйида ўзгартиринг.</p>
               <label><span>Шартнома рақами</span><input value={hrNumber} onChange={e=>setHrNumber(e.target.value)}/></label>
               <label><span>Иш бошлаш санаси</span><input type="date" value={hrStartDate} onChange={e=>setHrStartDate(e.target.value)}/></label>
               <label><span>Тугаш санаси (ихтиёрий)</span><input type="date" value={hrEndDate} onChange={e=>setHrEndDate(e.target.value)}/></label>
-              <details style={{border:'1px solid #dfe3e8',borderRadius:10,padding:12}} open>
-                <summary style={{cursor:'pointer',fontWeight:700,marginBottom:12}}>Шартнома реквизитлари ва иш шартлари</summary>
+              <details style={{border:'1px solid #dfe3e8',borderRadius:10,padding:12}}>
+                <summary style={{cursor:'pointer',fontWeight:700,marginBottom:12}}>Индивидуал шартлар (зарур бўлса очинг)</summary>
                 <div className="users-form-grid">
-                  {hrDetailFields.map(([key,label]) => <label key={key}><span>{label}</span><input value={hrDetails[key] || ''} onChange={e=>updateHrDetail(key,e.target.value)} /></label>)}
+                  {hrOverrideFields.map(([key,label]) => <label key={key}><span>{label}</span><input value={hrDetails[key] || ''} onChange={e=>updateHrDetail(key,e.target.value)} /></label>)}
                 </div>
-                <p style={{fontSize:12,color:'#777'}}>Бўш қолдирилган майдонлар лойиҳада чизиқ билан кўрсатилади. Маълумотлар фақат янги шартнома лойиҳаси яратилганда сақланади.</p>
+                <p style={{fontSize:12,color:'#777'}}>Бўш қолдирилган индивидуал майдонлар корхона созламаларидан автоматик олинади. Фақат ходим учун фарқ қилса тўлдиринг. Аввал ходим карточкасини сақланг.</p>
               </details>
               <label><span>Қўшимча шартлар (лойиҳа)</span><textarea rows={3} maxLength={4000} value={hrNotes} onChange={e=>setHrNotes(e.target.value)}/></label>
               <button type="button" className="users-secondary" disabled={hrSaving||!hrNumber.trim()||!hrProfile} onClick={createHrDraft}>Лойиҳани сақлаш</button>
