@@ -225,7 +225,21 @@ export async function notifyBankAssignment(caseId, bankId) {
       ? `\nСумма: ${caseItem.requestedAmount}`
       : '');
 
-  return notifyMany(employees.map((e) => e.telegramId), text);
+  const replyMarkup = {
+    inline_keyboard: [
+      [{ text: '📋 Мурожаатни кўриш', callback_data: `bank:view:${caseId}` }],
+      [
+        { text: '✅ Таклиф бериш', callback_data: `bank:offercase:${caseId}` },
+        { text: '❌ Рад этиш', callback_data: `bank:reject:${caseId}` },
+      ],
+    ],
+  };
+
+  return Promise.all(
+    [...new Set(employees.map((e) => e.telegramId).filter(Boolean))].map((chatId) =>
+      sendTelegramMessage(chatId, text, { replyMarkup })
+    )
+  );
 }
 
 /* =========================================================
