@@ -1102,9 +1102,19 @@ router.post('/case/:caseId/send-to-client', allowRoles(...SELECT_ROLES), async (
     if (!caseItem.applicant?.telegramId) return res.status(409).json({ ok: false, error: 'Мижоз Telegram аккаунтини ботга боғламаган' });
     const count = await prisma.bankOffer.count({ where: { caseId: caseItem.id, status: 'SUBMITTED', approvedAmount: { gt: 0 } } });
     if (!count) return res.status(409).json({ ok: false, error: 'Юбориш учун тайёр банк таклифи йўқ' });
-    const baseUrl = process.env.CLIENT_MINI_APP_URL?.trim();
-    if (!baseUrl || !baseUrl.startsWith('https://')) return res.status(503).json({ ok: false, error: 'CLIENT_MINI_APP_URL HTTPS манзили созланмаган' });
-    const url = new URL(baseUrl);
+    // Railway муҳит ўзгарувчиси биринчи ўринда; доимий Mini App манзили захира вариант.
+    const configuredUrl = String(process.env.CLIENT_MINI_APP_URL || '').trim();
+    const baseUrl = configuredUrl || 'https://gk-client-miniapp.vercel.app';
+    let url;
+    try {
+      url = new URL(baseUrl);
+      if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+        throw new Error('Invalid Mini App URL');
+      }
+    } catch {
+      console.error('CLIENT_MINI_APP_URL: HTTPS манзили нотўғри созланган');
+      return res.status(503).json({ ok: false, error: 'CLIENT_MINI_APP_URL HTTPS манзили нотўғри' });
+    }
     url.searchParams.set('caseId', caseItem.id);
     const result = await sendTelegramMessage(caseItem.applicant.telegramId,
       `🏦 <b>Golden Key Info</b>\nМурожаат: <b>${String(caseItem.displayId).replace(/[<>&"']/g, '')}</b>\nСиз учун ${count} та банк таклифи тайёр. Таклифларни кўриш ва бирини танлаш учун тугмани босинг.\n\nТаклиф танлаш кредит шартномасини имзолаш ҳисобланмайди.`,
