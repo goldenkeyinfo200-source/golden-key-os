@@ -82,7 +82,9 @@ const BANK_MENU = Markup.keyboard([
 ]).resize();
 
 function bankCaseButtons(caseId) {
+  const miniUrl = process.env.BANK_MINI_APP_URL;
   return Markup.inlineKeyboard([
+    ...(miniUrl && /^https:\/\//.test(miniUrl) ? [[Markup.button.webApp('📱 Mini App орқали очиш', `${miniUrl.replace(/\/$/, '')}/bank-mini?caseId=${encodeURIComponent(caseId)}`)]] : []),
     [
       Markup.button.callback(
         '📋 Мурожаатни кўриш',

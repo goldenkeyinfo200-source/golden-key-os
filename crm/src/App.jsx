@@ -1196,6 +1196,31 @@ export function App() {
 
   useEffect(() => {
     const checkSession = async () => {
+      // Telegram Mini App login; regular CRM password login remains unchanged.
+      const telegram = window.Telegram?.WebApp;
+      if (window.location.pathname === '/bank-mini' && telegram?.initData) {
+        try {
+          telegram.ready();
+          const response = await fetch(`${API_URL}/auth/telegram-bank`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: telegram.initData }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Telegram орқали киришда хато');
+          localStorage.setItem(TOKEN_KEY, data.token);
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          setUser(data.user);
+          setCheckingSession(false);
+          return;
+        } catch (error) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setUser(null);
+          setCheckingSession(false);
+          window.alert(error.message);
+          return;
+        }
+      }
       const token = localStorage.getItem(TOKEN_KEY);
 
       if (!token) {

@@ -32,6 +32,7 @@ router.use(checkBotSecret);
 const linkSchema = z.object({
   phone: z.string().trim().min(5),
   telegramId: z.union([z.string(), z.number()]),
+  contactVerified: z.literal(true),
 });
 
 
@@ -457,10 +458,13 @@ router.post('/link', async (req, res, next) => {
 
     // Аввал тизим ходими (User) сифатида қидирамиз
     const user = await prisma.user.findFirst({
-      where: { phone: { in: variants } },
+      where: { phone: { in: variants }, isActive: true },
     });
 
     if (user) {
+      if (user.telegramId && user.telegramId !== telegramIdStr) {
+        return res.status(409).json({ ok: false, error: 'Аккаунт бошқа Telegram профилига боғланган. Администраторга мурожаат қилинг.' });
+      }
       await prisma.user.update({
         where: { id: user.id },
         data: { telegramId: telegramIdStr },
@@ -495,6 +499,9 @@ router.post('/link', async (req, res, next) => {
     });
 
     if (client) {
+      if (client.telegramId && client.telegramId !== telegramIdStr) {
+        return res.status(409).json({ ok: false, error: 'Мижоз аккаунти бошқа Telegram профилига боғланган. Менежерга мурожаат қилинг.' });
+      }
       await prisma.client.update({
         where: { id: client.id },
         data: { telegramId: telegramIdStr },

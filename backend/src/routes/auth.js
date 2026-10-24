@@ -68,6 +68,48 @@ const publicUserSelect = {
   },
 };
 
+
+/** Telegram Mini App: signed initData is verified server-side, never trust initDataUnsafe. */
+router.post('/telegram-bank', async (req, res, next) => {
+  try {
+    const initData = req.body?.initData;
+    if (typeof initData !== 'string' || initData.length > 8192) {
+      return res.status(400).json({ error: 'Telegram маълумоти талаб қилинади' });
+    }
+    const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return res.status(503).json({ error: 'Telegram бот созланмаган' });
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    const authDate = Number(params.get('auth_date'));
+    const now = Math.floor(Date.now() / 1000);
+    if (!hash || !/^[a-f0-9]{64}$/i.test(hash) || !Number.isSafeInteger(authDate) ||
+        authDate > now + 60 || now - authDate > 600) {
+      return res.status(401).json({ error: 'Telegram сеанси муддати ўтган' });
+    }
+    params.delete('hash');
+    const checkString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`).join('\n');
+    const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const expected = crypto.createHmac('sha256', secret).update(checkString).digest();
+    if (!crypto.timingSafeEqual(expected, Buffer.from(hash, 'hex'))) {
+      return res.status(401).json({ error: 'Telegram имзоси нотўғри' });
+    }
+    let telegramUser;
+    try { telegramUser = JSON.parse(params.get('user') || 'null'); } catch {}
+    if (!telegramUser || !Number.isSafeInteger(telegramUser.id)) {
+      return res.status(401).json({ error: 'Telegram фойдаланувчиси топилмади' });
+    }
+    const user = await prisma.user.findFirst({
+      where: { telegramId: String(telegramUser.id), role: 'BANK_EMPLOYEE', isActive: true, bankId: { not: null } },
+      select: { id: true, fullName: true, phone: true, login: true, telegramId: true,
+        role: true, isActive: true, companyId: true, branchId: true, bankId: true, bankPosition: true,
+        bank: { select: { id: true, name: true, shortName: true } } },
+    });
+    if (!user) return res.status(403).json({ error: 'Банк ходими Telegram аккаунти CRM билан боғланмаган' });
+    return res.json({ token: createAccessToken(user), user });
+  } catch (error) { next(error); }
+});
+
 /**
  * POST /api/auth/login
  */
