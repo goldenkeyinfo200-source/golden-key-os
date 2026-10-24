@@ -319,7 +319,7 @@ bot.on('contact', async (ctx) => {
   try {
     const data = await callCrm('/telegram/link', {
       method: 'POST',
-      body: JSON.stringify({ phone, telegramId }),
+      body: JSON.stringify({ phone, telegramId, contactVerified: true }),
     });
 
     if (isStaffLink && data.type === 'client') {
