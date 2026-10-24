@@ -194,33 +194,67 @@ function makePayload(form) {
   return data;
 }
 
-// Ҳисоблаш учун тасдиқланган сумма кредитнинг асосий қарзи ҳисобланади.
-// Бошланғич тўлов ушбу суммадан қайта айирилмайди.
-function calculateLoanPayments(amountInput, annualRateInput, monthsInput) {
+// Тасдиқланган сумма — кредитнинг асосий қарзи. Бошланғич тўлов қайта айирилмайди.
+// Банкнинг индивидуал ҳисоблаш/яхлитлаш қоидалари натижани ўзгартириши мумкин.
+const GRACE_TAG = '[GK_GRACE_V1]';
+function readGrace(conditions = '') {
+  const lines = String(conditions || '').split('\\n');
+  const line = lines.find((item) => item.startsWith(GRACE_TAG));
+  let settings = { enabled: false, months: '12', timing: 'WITHIN', payment: 'INTEREST_ONLY', interestHandling: 'ACCRUE' };
+  if (line) {
+    try {
+      const data = JSON.parse(line.slice(GRACE_TAG.length));
+      settings = { ...settings, ...data };
+    } catch { /* Эски маълумот сақланади */ }
+  }
+  return { settings, text: lines.filter((item) => !item.startsWith(GRACE_TAG)).join('\\n').trim() };
+}
+function writeGrace(conditions, settings, paymentType) {
+  const plain = readGrace(conditions).text;
+  const meta = `${GRACE_TAG}${JSON.stringify({ ...settings, paymentType })}`;
+  return [plain, meta].filter(Boolean).join('\\n');
+}
+function calculateLoanPayments(amountInput, annualRateInput, monthsInput, grace) {
   const principal = Number(amountInput);
   const annualRate = Number(String(annualRateInput).replace(',', '.'));
   const months = Number(monthsInput);
-
+  const g = grace.enabled ? Number(grace.months) : 0;
   if (
     amountInput === '' || annualRateInput === '' || monthsInput === '' ||
     !Number.isFinite(principal) || principal <= 0 ||
     !Number.isFinite(annualRate) || annualRate < 0 ||
-    !Number.isInteger(months) || months < 1 || months > 600
+    !Number.isInteger(months) || months < 1 || months > 600 ||
+    !Number.isInteger(g) || g < 0 || g > 600 ||
+    (grace.enabled && (g < 1 || (grace.timing === 'WITHIN' && g >= months))) ||
+    months + (grace.timing === 'EXTRA' ? g : 0) > 600
   ) return null;
-
-  const monthlyRate = annualRate / 1200;
-  const principalPart = principal / months;
-  const annuity = monthlyRate === 0
-    ? principalPart
-    : principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -months));
-  const differentiatedFirst = principalPart + principal * monthlyRate;
-  const differentiatedLast = principalPart + principalPart * monthlyRate;
-
-  if (![annuity, differentiatedFirst, differentiatedLast].every(Number.isFinite)) return null;
+  const rate = annualRate / 1200;
+  const repaymentMonths = grace.timing === 'WITHIN' ? months - g : months;
+  const totalMonths = g + repaymentMonths;
+  let balance = principal;
+  let graceMonthly = 0;
+  if (g > 0) {
+    if (grace.payment === 'INTEREST_ONLY') {
+      graceMonthly = principal * rate;
+    } else if (grace.interestHandling === 'CAPITALIZE') {
+      balance = principal * Math.pow(1 + rate, g);
+    } // ACCRUE: фоиз алоҳида қарз сифатида қолади, бу ҳисобда капитализация қилинмайди.
+  }
+  const annuity = rate === 0
+    ? balance / repaymentMonths
+    : balance * rate / (1 - Math.pow(1 + rate, -repaymentMonths));
+  const part = balance / repaymentMonths;
+  const differentiatedFirst = part + balance * rate;
+  const differentiatedLast = part + part * rate;
+  if (![balance, annuity, differentiatedFirst, differentiatedLast, graceMonthly].every(Number.isFinite)) return null;
   return {
     annuity: Math.round(annuity),
     differentiatedFirst: Math.round(differentiatedFirst),
     differentiatedLast: Math.round(differentiatedLast),
+    graceMonthly: Math.round(graceMonthly),
+    repaymentMonths, totalMonths,
+    outstandingInterest: g > 0 && grace.payment === 'NO_PAYMENT' && grace.interestHandling === 'ACCRUE'
+      ? Math.round(principal * rate * g) : 0,
   };
 }
 
@@ -237,14 +271,20 @@ function OfferModal({
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [paymentType, setPaymentType] = useState('ANNUITY');
+  const [grace, setGrace] = useState({
+    enabled: false, months: '12', timing: 'WITHIN',
+    payment: 'INTEREST_ONLY', interestHandling: 'ACCRUE',
+  });
   const calculated = useMemo(
-    () => calculateLoanPayments(form.approvedAmount, form.interestRate, form.termMonths),
-    [form.approvedAmount, form.interestRate, form.termMonths]
+    () => calculateLoanPayments(form.approvedAmount, form.interestRate, form.termMonths, grace),
+    [form.approvedAmount, form.interestRate, form.termMonths, grace]
   );
   const calculatedMonthly = calculated
     ? (paymentType === 'ANNUITY' ? calculated.annuity : calculated.differentiatedFirst)
     : null;
+  const updateGrace = (field, value) => setGrace((current) => ({ ...current, [field]: value }));
 
+  const requiresBankSchedule = grace.enabled && grace.payment === 'NO_PAYMENT' && grace.interestHandling === 'ACCRUE' && Number(String(form.interestRate).replace(',', '.')) > 0;
   const isBankEmployee = user?.role === 'BANK_EMPLOYEE';
 
   const ownBankName =
@@ -255,7 +295,9 @@ function OfferModal({
   useEffect(() => {
     if (!open) return;
 
-    setPaymentType('ANNUITY');
+    const stored = readGrace(offer?.conditions);
+    setGrace(stored.settings);
+    setPaymentType(stored.settings.paymentType || 'ANNUITY');
     setForm(
       offer
         ? {
@@ -274,7 +316,7 @@ function OfferModal({
             validUntil: offer.validUntil
               ? String(offer.validUntil).slice(0, 10)
               : '',
-            conditions: offer.conditions || '',
+            conditions: stored.text,
             rejectionReason: offer.rejectionReason || '',
           }
         : EMPTY_FORM
@@ -322,9 +364,10 @@ function OfferModal({
           className="gk-bank-modal-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && !calculated) return;
+            if (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && (!calculated || requiresBankSchedule)) return;
             onSubmit({
               ...form,
+              conditions: writeGrace(form.conditions, grace, paymentType),
               monthlyPayment: calculatedMonthly ?? (form.status === 'REJECTED' || form.status === 'CANCELLED' ? '' : form.monthlyPayment),
             });
           }}
@@ -443,6 +486,53 @@ function OfferModal({
               </select>
             </label>
 
+            <div className="gk-bank-span-2 gk-grace-fields">
+              <strong>Имтиёзли давр</strong>
+              <label>
+                <span>Имтиёзли давр мавжудми?</span>
+                <select value={grace.enabled ? 'YES' : 'NO'}
+                  onChange={(event) => updateGrace('enabled', event.target.value === 'YES')} disabled={saving}>
+                  <option value="NO">Йўқ</option>
+                  <option value="YES">Ҳа</option>
+                </select>
+              </label>
+              {grace.enabled ? (
+                <>
+                  <label>
+                    <span>Имтиёзли давр (ой)</span>
+                    <input type="number" min="1" max="600" value={grace.months}
+                      onChange={(event) => updateGrace('months', event.target.value)} disabled={saving} />
+                  </label>
+                  <label>
+                    <span>Кредит муддатига нисбатан</span>
+                    <select value={grace.timing}
+                      onChange={(event) => updateGrace('timing', event.target.value)} disabled={saving}>
+                      <option value="WITHIN">Умумий муддат ичида</option>
+                      <option value="EXTRA">Муддатга қўшимча</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Имтиёзли даврдаги тўлов</span>
+                    <select value={grace.payment}
+                      onChange={(event) => updateGrace('payment', event.target.value)} disabled={saving}>
+                      <option value="INTEREST_ONLY">Фақат фоиз тўланади</option>
+                      <option value="NO_PAYMENT">Тўлов амалга оширилмайди</option>
+                    </select>
+                  </label>
+                  {grace.payment === 'NO_PAYMENT' ? (
+                    <label>
+                      <span>Тўланмаган фоиз ҳисоби</span>
+                      <select value={grace.interestHandling}
+                        onChange={(event) => updateGrace('interestHandling', event.target.value)} disabled={saving}>
+                        <option value="ACCRUE">Алоҳида ҳисобланади (банк жадвали талаб)</option>
+                        <option value="CAPITALIZE">Ҳар ой асосий қарзга қўшилади</option>
+                      </select>
+                    </label>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+
             <label>
               <span>Ойлик тўлов (автоматик)</span>
               <input
@@ -457,13 +547,23 @@ function OfferModal({
               <strong>Кредит тўловлари ҳисоб-китоби</strong>
               {calculated ? (
                 <div className="gk-loan-preview-grid">
-                  <div><span>Аннуитет — ҳар ой</span><b>{formatAmount(calculated.annuity)}</b></div>
+                  {grace.enabled ? <div><span>Имтиёзли давр — ойлик тўлов</span><b>{formatAmount(calculated.graceMonthly)}</b></div> : null}
+                  <div><span>Аннуитет — асосий тўлов даври</span><b>{formatAmount(calculated.annuity)}</b></div>
                   <div><span>Дифференциал — биринчи ой</span><b>{formatAmount(calculated.differentiatedFirst)}</b></div>
                   <div><span>Дифференциал — охирги ой</span><b>{formatAmount(calculated.differentiatedLast)}</b></div>
                 </div>
               ) : (
                 <p>Ҳисоблаш учун тасдиқланган сумма, йиллик фоиз ва муддатни тўлдиринг.</p>
               )}
+              {requiresBankSchedule ? <small style={{ color: '#b91c1c' }}>Тўланмаган фоиз алоҳида ҳисобланганда банкнинг аниқ қайтариш жадвали керак. Нотўғри ойлик тўлов сақланмаслиги учун ушбу вариантда сақлаш вақтинча чекланган.</small> : null}
+              {calculated && grace.enabled ? (
+                <small>Имтиёзли давр: {grace.months} ой. Асосий қарз қайтариш: {calculated.repaymentMonths} ой.
+                  Умумий муддат: {calculated.totalMonths} ой.
+                  {calculated.outstandingInterest > 0
+                    ? ` Алоҳида ҳисобланган фоиз: ${formatAmount(calculated.outstandingInterest)} — банк жадвалида тўлаш тартиби аниқланиши шарт.`
+                    : ''}
+                </small>
+              ) : null}
               <small>Тасдиқланган сумма кредитнинг асосий қарзи ҳисобланади. Бошланғич тўлов қайта айирилмайди. Суғурта ва комиссия ойлик тўловга киритилмаган. Дифференциал турда сақланадиган «Ойлик тўлов» — биринчи ой тўлови.</small>
             </div>
 
@@ -543,7 +643,7 @@ function OfferModal({
             <button
               type="submit"
               className="gk-bank-primary"
-              disabled={saving || (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && !calculated)}
+              disabled={saving || (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && (!calculated || requiresBankSchedule))}
             >
               {saving ? (
                 <>
@@ -1156,6 +1256,11 @@ export function BankOffersSection({
           font-size: 12px;
         }
 
+        .gk-grace-fields {
+          display: grid; gap: 12px; padding: 14px;
+          border: 1px solid #dce5ed; border-radius: 12px; background: #f7fafc;
+        }
+        .gk-grace-fields > strong { font-size: 14px; }
         .gk-loan-preview {
           border: 1px solid #dce5ed;
           border-radius: 12px;
