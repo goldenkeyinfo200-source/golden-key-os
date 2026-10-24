@@ -194,6 +194,36 @@ function makePayload(form) {
   return data;
 }
 
+// Ҳисоблаш учун тасдиқланган сумма кредитнинг асосий қарзи ҳисобланади.
+// Бошланғич тўлов ушбу суммадан қайта айирилмайди.
+function calculateLoanPayments(amountInput, annualRateInput, monthsInput) {
+  const principal = Number(amountInput);
+  const annualRate = Number(String(annualRateInput).replace(',', '.'));
+  const months = Number(monthsInput);
+
+  if (
+    amountInput === '' || annualRateInput === '' || monthsInput === '' ||
+    !Number.isFinite(principal) || principal <= 0 ||
+    !Number.isFinite(annualRate) || annualRate < 0 ||
+    !Number.isInteger(months) || months < 1 || months > 600
+  ) return null;
+
+  const monthlyRate = annualRate / 1200;
+  const principalPart = principal / months;
+  const annuity = monthlyRate === 0
+    ? principalPart
+    : principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -months));
+  const differentiatedFirst = principalPart + principal * monthlyRate;
+  const differentiatedLast = principalPart + principalPart * monthlyRate;
+
+  if (![annuity, differentiatedFirst, differentiatedLast].every(Number.isFinite)) return null;
+  return {
+    annuity: Math.round(annuity),
+    differentiatedFirst: Math.round(differentiatedFirst),
+    differentiatedLast: Math.round(differentiatedLast),
+  };
+}
+
 function OfferModal({
   open,
   offer,
@@ -206,6 +236,14 @@ function OfferModal({
   user,
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [paymentType, setPaymentType] = useState('ANNUITY');
+  const calculated = useMemo(
+    () => calculateLoanPayments(form.approvedAmount, form.interestRate, form.termMonths),
+    [form.approvedAmount, form.interestRate, form.termMonths]
+  );
+  const calculatedMonthly = calculated
+    ? (paymentType === 'ANNUITY' ? calculated.annuity : calculated.differentiatedFirst)
+    : null;
 
   const isBankEmployee = user?.role === 'BANK_EMPLOYEE';
 
@@ -217,6 +255,7 @@ function OfferModal({
   useEffect(() => {
     if (!open) return;
 
+    setPaymentType('ANNUITY');
     setForm(
       offer
         ? {
@@ -283,7 +322,11 @@ function OfferModal({
           className="gk-bank-modal-form"
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit(form);
+            if (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && !calculated) return;
+            onSubmit({
+              ...form,
+              monthlyPayment: calculatedMonthly ?? (form.status === 'REJECTED' || form.status === 'CANCELLED' ? '' : form.monthlyPayment),
+            });
           }}
         >
           <div className="gk-bank-form-grid">
@@ -389,16 +432,40 @@ function OfferModal({
             </label>
 
             <label>
-              <span>Ойлик тўлов</span>
-              <input
-                type="number"
-                min="0"
-                value={form.monthlyPayment}
-                onChange={(event) => update('monthlyPayment', event.target.value)}
-                placeholder="5000000"
+              <span>Тўлов тури</span>
+              <select
+                value={paymentType}
+                onChange={(event) => setPaymentType(event.target.value)}
                 disabled={saving}
+              >
+                <option value="ANNUITY">Аннуитет — ҳар ой бир хил</option>
+                <option value="DIFFERENTIATED">Дифференциал — камайиб боради</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Ойлик тўлов (автоматик)</span>
+              <input
+                type="text"
+                value={calculatedMonthly === null ? '' : formatAmount(calculatedMonthly)}
+                placeholder="Сумма, фоиз ва муддатни киритинг"
+                readOnly
               />
             </label>
+
+            <div className="gk-bank-span-2 gk-loan-preview" aria-live="polite">
+              <strong>Кредит тўловлари ҳисоб-китоби</strong>
+              {calculated ? (
+                <div className="gk-loan-preview-grid">
+                  <div><span>Аннуитет — ҳар ой</span><b>{formatAmount(calculated.annuity)}</b></div>
+                  <div><span>Дифференциал — биринчи ой</span><b>{formatAmount(calculated.differentiatedFirst)}</b></div>
+                  <div><span>Дифференциал — охирги ой</span><b>{formatAmount(calculated.differentiatedLast)}</b></div>
+                </div>
+              ) : (
+                <p>Ҳисоблаш учун тасдиқланган сумма, йиллик фоиз ва муддатни тўлдиринг.</p>
+              )}
+              <small>Тасдиқланган сумма кредитнинг асосий қарзи ҳисобланади. Бошланғич тўлов қайта айирилмайди. Суғурта ва комиссия ойлик тўловга киритилмаган. Дифференциал турда сақланадиган «Ойлик тўлов» — биринчи ой тўлови.</small>
+            </div>
 
             <label>
               <span>Суғурта суммаси</span>
@@ -476,7 +543,7 @@ function OfferModal({
             <button
               type="submit"
               className="gk-bank-primary"
-              disabled={saving}
+              disabled={saving || (form.status !== 'REJECTED' && form.status !== 'CANCELLED' && !calculated)}
             >
               {saving ? (
                 <>
@@ -1088,6 +1155,21 @@ export function BankOffersSection({
         .gk-bank-error span {
           font-size: 12px;
         }
+
+        .gk-loan-preview {
+          border: 1px solid #dce5ed;
+          border-radius: 12px;
+          padding: 14px;
+          background: #f7fafc;
+          display: grid;
+          gap: 10px;
+        }
+        .gk-loan-preview > strong { font-size: 14px; }
+        .gk-loan-preview-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; }
+        .gk-loan-preview-grid > div { display: grid; gap: 6px; padding: 10px; border-radius: 9px; background: #fff; }
+        .gk-loan-preview-grid span, .gk-loan-preview small, .gk-loan-preview p { color: #606a76; font-size: 11px; line-height: 1.5; }
+        .gk-loan-preview-grid b { font-size: 13px; overflow-wrap: anywhere; }
+        @media (max-width: 700px) { .gk-loan-preview-grid { grid-template-columns: 1fr; } }
 
         .gk-bank-modal-backdrop {
           position: fixed;
