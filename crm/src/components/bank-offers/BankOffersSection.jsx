@@ -198,21 +198,56 @@ function makePayload(form) {
 // Банкнинг индивидуал ҳисоблаш/яхлитлаш қоидалари натижани ўзгартириши мумкин.
 const GRACE_TAG = '[GK_GRACE_V1]';
 function readGrace(conditions = '') {
-  const lines = String(conditions || '').split('\\n');
-  const line = lines.find((item) => item.startsWith(GRACE_TAG));
-  let settings = { enabled: false, months: '12', timing: 'WITHIN', payment: 'INTEREST_ONLY', interestHandling: 'ACCRUE' };
-  if (line) {
+  const raw = String(conditions || '');
+  // Илгариги ва янги таклифларда тег икки хил ёзилган бўлиши мумкин.
+  // JSON матнини мижозга кўрсатмасдан, алоҳида маълумот сифатида ажратамиз.
+  const match = raw.match(/\[?GK_GRACE_V1\]?\s*(\{[^\r\n]*\})/);
+  let settings = {
+    enabled: false, months: '12', timing: 'WITHIN',
+    payment: 'INTEREST_ONLY', interestHandling: 'ACCRUE',
+  };
+  if (match) {
     try {
-      const data = JSON.parse(line.slice(GRACE_TAG.length));
-      settings = { ...settings, ...data };
-    } catch { /* Эски маълумот сақланади */ }
+      const data = JSON.parse(match[1]);
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        settings = { ...settings, ...data };
+      }
+    } catch { /* Нотўғри форматдаги эски маълумот ўзгартирилмайди */ }
   }
-  return { settings, text: lines.filter((item) => !item.startsWith(GRACE_TAG)).join('\\n').trim() };
+  const plain = match ? raw.replace(match[0], '') : raw;
+  return { settings, text: plain.replace(/^(?:\s*\\n|\s*\n)+|(?:\s*\\n|\s*\n)+$/g, '').trim(), hasGrace: Boolean(match) };
 }
 function writeGrace(conditions, settings, paymentType) {
   const plain = readGrace(conditions).text;
   const meta = `${GRACE_TAG}${JSON.stringify({ ...settings, paymentType })}`;
-  return [plain, meta].filter(Boolean).join('\\n');
+  return [plain, meta].filter(Boolean).join('\n');
+}
+function GraceConditions({ conditions }) {
+  const { settings, text, hasGrace } = readGrace(conditions);
+  if (!text && !hasGrace) return null;
+  const paymentType = settings.paymentType === 'DIFFERENTIATED'
+    ? 'Дифференциал' : 'Аннуитет';
+  return (
+    <div className="gk-bank-conditions">
+      <strong>Шартлар</strong>
+      {text ? <p>{text}</p> : null}
+      {hasGrace ? (
+        <div className="gk-grace-summary">
+          <strong>Имтиёзли давр: {settings.enabled ? `${settings.months} ой` : 'Мавжуд эмас'}</strong>
+          {settings.enabled ? (
+            <>
+              <p>Муддат: {settings.timing === 'EXTRA' ? 'Кредит муддатига қўшимча' : 'Умумий муддат ичида'}</p>
+              <p>Имтиёзли даврда: {settings.payment === 'NO_PAYMENT' ? 'Тўлов амалга оширилмайди' : 'Фақат фоиз тўланади'}</p>
+              {settings.payment === 'NO_PAYMENT' ? (
+                <p>Фоиз ҳисоби: {settings.interestHandling === 'CAPITALIZE' ? 'Асосий қарзга қўшилади' : 'Алоҳида ҳисобланади (банк жадвали талаб)'}</p>
+              ) : null}
+            </>
+          ) : null}
+          <p>Тўлов тури: {paymentType}</p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 function calculateLoanPayments(amountInput, annualRateInput, monthsInput, grace) {
   const principal = Number(amountInput);
@@ -736,12 +771,7 @@ function OfferCard({
         </div>
       </div>
 
-      {offer.conditions ? (
-        <div className="gk-bank-conditions">
-          <strong>Шартлар</strong>
-          <p>{offer.conditions}</p>
-        </div>
-      ) : null}
+      <GraceConditions conditions={offer.conditions} />
 
       {offer.rejectionReason ? (
         <div className="gk-bank-rejection">
@@ -1221,6 +1251,8 @@ export function BankOffersSection({
           color: #b81822;
         }
 
+        .gk-grace-summary { margin-top: 10px; padding-top: 9px; border-top: 1px solid #dfe3e8; }
+        .gk-grace-summary p { margin: 5px 0 0; }
         .gk-bank-conditions strong,
         .gk-bank-rejection strong {
           font-size: 12px;
