@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   Plus,
   RefreshCw,
+  Send,
   Trash2,
   X,
 } from 'lucide-react';
@@ -882,6 +883,8 @@ export function BankOffersSection({
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [sendingToClient, setSendingToClient] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState('');
   const [compareMode, setCompareMode] = useState(false);
 
   const [banks, setBanks] = useState([]);
@@ -1034,6 +1037,27 @@ export function BankOffersSection({
       setPageError(error.message || 'Таклифни танлаб бўлмади.');
     } finally {
       setBusyId('');
+    }
+  };
+
+  const sendToClient = async () => {
+    const ready = offers.filter((offer) => offer.status === 'SUBMITTED' && Number(offer.approvedAmount) > 0);
+    if (!ready.length) {
+      setPageError('Мижозга юбориш учун тақдим этилган банк таклифи йўқ.');
+      return;
+    }
+    if (!window.confirm(`${ready.length} та банк таклифини мижозга Telegram орқали юборишни тасдиқлайсизми?`)) return;
+    setSendingToClient(true);
+    setPageError('');
+    setSendSuccess('');
+    try {
+      const result = await apiRequest(`/bank-offers/case/${caseId}/send-to-client`, { method: 'POST' });
+      if (result?.ok === false) throw new Error(result.error || 'Хабар юборилмади');
+      setSendSuccess('Банк таклифлари мижознинг Telegram аккаунтига юборилди.');
+    } catch (error) {
+      setPageError(error.message || 'Мижозга Telegram хабарини юбориб бўлмади.');
+    } finally {
+      setSendingToClient(false);
     }
   };
 
@@ -1604,6 +1628,19 @@ export function BankOffersSection({
               />
             </button>
 
+            {SELECT.includes(role) && !selectedOffer ? (
+              <button
+                type="button"
+                className="gk-bank-primary"
+                onClick={sendToClient}
+                disabled={loading || sendingToClient || !offers.some((offer) => offer.status === 'SUBMITTED' && Number(offer.approvedAmount) > 0)}
+                title="Тақдим этилган банк таклифларини Telegram орқали мижозга юбориш"
+              >
+                {sendingToClient ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />}
+                {sendingToClient ? 'Юборилмоқда...' : 'Мижозга таклифларни юбориш'}
+              </button>
+            ) : null}
+
             {CREATE.includes(role) ? (
               <button
                 type="button"
@@ -1617,6 +1654,8 @@ export function BankOffersSection({
           </div>
         </div>
 
+
+        {sendSuccess ? <p role="status" style={{ color: '#087742', marginBottom: 12 }}>{sendSuccess}</p> : null}
 
         {compareMode && comparableOffers.length > 1 ? (
           <div className="gk-bank-compare">

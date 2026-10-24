@@ -3,6 +3,7 @@ import { Router } from 'express';
 import authRouter from './auth.js';
 import appraisalsRouter from './appraisals.js';
 import bankOffersRouter from './bank-offers.js';
+import clientMiniappRouter from './client-miniapp.js';
 import banksRouter from './banks.js';
 import branchesRouter from './branches.js';
 import casesRouter from './cases.js';
@@ -55,6 +56,7 @@ router.use('/banks', banksRouter);
 ========================================================= */
 
 router.use('/bank-offers', bankOffersRouter);
+router.use('/client-miniapp', clientMiniappRouter);
 
 /* =========================================================
    DOCUMENTS

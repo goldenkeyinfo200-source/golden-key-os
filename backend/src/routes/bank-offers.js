@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { prisma } from '../config/prisma.js';
 import { allowRoles, auth } from '../middleware/auth.js';
-import { notifyBankOfferSubmitted } from '../services/notify.js';
+import { notifyBankOfferSubmitted, sendTelegramMessage } from '../services/notify.js';
 
 const router = Router();
 
@@ -1089,6 +1089,32 @@ router.patch(
     }
   }
 );
+
+/* Мижозга фақат тақдим этилган таклифларни юбориш */
+router.post('/case/:caseId/send-to-client', allowRoles(...SELECT_ROLES), async (req, res, next) => {
+  try {
+    const caseItem = await prisma.case.findUnique({
+      where: { id: req.params.caseId },
+      include: { applicant: { select: { telegramId: true, fullName: true } } },
+    });
+    if (!caseItem) return res.status(404).json({ ok: false, error: 'Мурожаат топилмади' });
+    if (!canViewCase(req.user, caseItem)) return res.status(403).json({ ok: false, error: 'Рухсат йўқ' });
+    if (!caseItem.applicant?.telegramId) return res.status(409).json({ ok: false, error: 'Мижоз Telegram аккаунтини ботга боғламаган' });
+    const count = await prisma.bankOffer.count({ where: { caseId: caseItem.id, status: 'SUBMITTED', approvedAmount: { gt: 0 } } });
+    if (!count) return res.status(409).json({ ok: false, error: 'Юбориш учун тайёр банк таклифи йўқ' });
+    const baseUrl = process.env.CLIENT_MINI_APP_URL?.trim();
+    if (!baseUrl || !baseUrl.startsWith('https://')) return res.status(503).json({ ok: false, error: 'CLIENT_MINI_APP_URL HTTPS манзили созланмаган' });
+    const url = new URL(baseUrl);
+    url.searchParams.set('caseId', caseItem.id);
+    const result = await sendTelegramMessage(caseItem.applicant.telegramId,
+      `🏦 <b>Golden Key Info</b>\nМурожаат: <b>${String(caseItem.displayId).replace(/[<>&"']/g, '')}</b>\nСиз учун ${count} та банк таклифи тайёр. Таклифларни кўриш ва бирини танлаш учун тугмани босинг.\n\nТаклиф танлаш кредит шартномасини имзолаш ҳисобланмайди.`,
+      { replyMarkup: { inline_keyboard: [[{ text: '📱 Банк таклифларини кўриш', web_app: { url: url.toString() } }]] } }
+    );
+    if (!result.sent) return res.status(502).json({ ok: false, error: result.error || 'Telegram хабарини юбориб бўлмади' });
+    await prisma.auditLog.create({ data: { userId: req.user.id, entityType: 'Case', entityId: caseItem.id, action: 'BANK_OFFERS_SENT_TO_CLIENT', metadata: { offerCount: count, telegramMessageId: result.messageId } } });
+    return res.json({ ok: true, sent: true, count, message: 'Банк таклифлари мижозга Telegram орқали юборилди' });
+  } catch (error) { next(error); }
+});
 
 /* =========================================================
    POST /api/bank-offers/:offerId/select
