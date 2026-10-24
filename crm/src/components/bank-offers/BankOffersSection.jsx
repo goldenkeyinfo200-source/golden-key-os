@@ -707,6 +707,15 @@ function OfferCard({
   onDelete,
 }) {
   const selected = offer.status === 'SELECTED';
+  const graceInfo = readGrace(offer.conditions);
+  const graceSettings = graceInfo.settings;
+  const hasGrace = graceInfo.hasGrace && graceSettings.enabled === true;
+  const paymentEstimate = hasGrace
+    ? calculateLoanPayments(offer.approvedAmount, offer.interestRate, offer.termMonths, graceSettings)
+    : null;
+  const needsBankSchedule = hasGrace && graceSettings.payment === 'NO_PAYMENT'
+    && graceSettings.interestHandling === 'ACCRUE';
+  const differentiated = graceSettings.paymentType === 'DIFFERENTIATED';
 
   return (
     <article className={`gk-bank-card ${selected ? 'is-selected' : ''}`}>
@@ -755,10 +764,23 @@ function OfferCard({
           <strong>{formatAmount(offer.initialPayment)}</strong>
         </div>
 
-        <div>
-          <span>Ойлик тўлов</span>
-          <strong>{formatAmount(offer.monthlyPayment)}</strong>
-        </div>
+        {hasGrace ? (
+          <>
+            <div>
+              <span>Имтиёзли даврда — ойлик тўлов</span>
+              <strong>{paymentEstimate ? formatAmount(paymentEstimate.graceMonthly) : '—'}</strong>
+            </div>
+            <div>
+              <span>Имтиёзли даврдан кейин — {differentiated ? 'биринчи ой тўлови' : 'ойлик тўлов'}</span>
+              <strong>{needsBankSchedule ? 'Банк жадвали бўйича' : formatAmount(offer.monthlyPayment)}</strong>
+            </div>
+          </>
+        ) : (
+          <div>
+            <span>Ойлик тўлов</span>
+            <strong>{formatAmount(offer.monthlyPayment)}</strong>
+          </div>
+        )}
 
         <div>
           <span>Комиссия</span>
