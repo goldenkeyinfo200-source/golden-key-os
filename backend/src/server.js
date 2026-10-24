@@ -71,6 +71,7 @@ const corsOptions = {
   allowedHeaders: [
     'Content-Type',
     'Authorization',
+    'X-Telegram-Init-Data',
   ],
 };
 
