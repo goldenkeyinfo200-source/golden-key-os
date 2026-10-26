@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { BankOffersSection } from '../components/bank-offers/BankOffersSection.jsx';
+import CreditCalculator from '../components/CreditCalculator.jsx';
 import { DocumentsSection } from '../components/documents/DocumentsSection.jsx';
 import {
   API_URL,

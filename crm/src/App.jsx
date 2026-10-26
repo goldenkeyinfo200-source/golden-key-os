@@ -27,6 +27,7 @@ import { CasesPage } from './pages/CasesPage.jsx';
 import { ExecutionPage } from './pages/ExecutionPage.jsx';
 import { BankPortalPage } from './pages/BankPortalPage.jsx';
 import { BanksPage } from './pages/BanksPage.jsx';
+import CreditCalculator from './components/CreditCalculator.jsx';
 import { ContractSignPage } from './pages/ContractSignPage.jsx';
 import { KioskPage } from './pages/KioskPage.jsx';
 import { KioskDevicesPage } from './pages/KioskDevicesPage.jsx';
@@ -51,6 +52,7 @@ const menu = [
   ['Мурожаатлар', FileText],
   ['Ижродаги ишлар', BriefcaseBusiness],
   ['Банклар', Landmark],
+  ['Кредит калькулятори', CircleDollarSign],
   ['Баҳолаш', ClipboardCheck],
   ['Нотариуслар', Stamp],
   ['Филиаллар', Building2],
@@ -73,6 +75,7 @@ const MENU_ACCESS = {
   SUPER_ADMIN: null, // null = ҳаммаси кўринади
   DIRECTOR: null,
   BRANCH_MANAGER: [
+    'Кредит калькулятори',
     'Бош панель',
     'Филиаллар',
     'QR экранлар',
@@ -83,7 +86,7 @@ const MENU_ACCESS = {
     'Қарздорлар',
     'Архив',
   ],
-  RECEPTION_MANAGER: ['Бош панель', 'Мурожаатлар', 'Нотариуслар', 'QR экранлар', 'Қарздорлар', 'Архив'],
+  RECEPTION_MANAGER: ['Кредит калькулятори', 'Бош панель', 'Мурожаатлар', 'Нотариуслар', 'QR экранлар', 'Қарздорлар', 'Архив'],
   EXECUTOR: ['Бош панель', 'Ижродаги ишлар', 'Архив'],
   LAWYER: ['Бош панель', 'Мурожаатлар', 'Шартномалар', 'Архив'],
   ACCOUNTANT: ['Бош панель', 'Молия', 'Қарздорлар', 'Архив'],
@@ -863,6 +866,8 @@ function Dashboard({ user, onLogout }) {
     if (activeMenu === 'Бош панель') {
       return renderDashboard();
     }
+
+    if (activeMenu === 'Кредит калькулятори') { return <CreditCalculator />; }
 
     if (activeMenu === 'Банклар') {
       return <BanksPage />;
